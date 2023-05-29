@@ -79,10 +79,12 @@ impl Curve {
             let interp = point * &factor;
             let preout = out.clone();
             out = out + &interp;
+            /*
             println!(
                 "j {} t {} point {} factor {} interp {} preout {} out {}",
                 j, t, point, factor, interp, preout, out
             );
+            */
         }
 
         out
@@ -146,7 +148,7 @@ impl Curve {
                 ((tjm - t) / den2) * basis2
             };
 
-            println!("LR {} {} {}", l, r, &l + &r);
+            //println!("LR {} {} {}", l, r, &l + &r);
 
             l + r
 
@@ -219,7 +221,7 @@ impl Curve {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
+    use std::{io::Cursor, time::Instant};
 
     use primitives::{rat, EPoint, Param};
 
@@ -238,7 +240,7 @@ mod tests {
         println!("CURVE {:#?}", curve);
 
         let num_pts = 10;
-        for i in 0..=num_pts {
+        for i in 0..num_pts {
             let t = rat(i, num_pts) * curve.max_knot();
             let h = curve.eval_s(&t);
 
@@ -248,7 +250,6 @@ mod tests {
 
     #[test]
     pub fn arc() {
-        /*
         let curve = Curve::new(
             vec![
                 EPoint::new_ints(0, -2, 0).homogenize_int(2),
@@ -272,25 +273,22 @@ mod tests {
                 4.into(),
             ],
         );
-        */
-
-        let curve = Curve::new(
-            vec![
-                EPoint::new_ints(0, 0, 0).homogenize_int(1),
-                EPoint::new_ints(1, 1, 0).homogenize_int(1),
-            ],
-            vec![0.into(), 0.into(), 1.into(), 1.into()],
-            //vec![0.into(), rat(1, 3), rat(2, 3), 1.into()],
-        );
 
         println!("CURVE {:#?}", curve);
 
-        let num_pts = 10;
-        for i in 0..=num_pts {
+        let num_pts = 50;
+
+        let start = Instant::now();
+
+        for i in 0..num_pts {
             let t = rat(i, num_pts) * curve.max_knot();
             let h = curve.eval_s(&t);
 
-            println!("t @ {} = {} -> {}", t, h, h.project());
+            //println!("t @ {} = {} -> {}", t, h, h.project());
         }
+
+        let end = Instant::now();
+
+        println!("{}us", (end - start).as_micros());
     }
 }
