@@ -17,6 +17,7 @@ pub struct Rat {
 impl Rat {
     pub fn new(num: Int, den: Int) -> Self {
         let gcd = gcd(num, den);
+        println!("num den gcd {} {} {}", num, den, gcd);
         Self {
             num: num / gcd,
             den: den / gcd,
@@ -59,6 +60,11 @@ impl PartialOrd for Rat {
         l.partial_cmp(&r)
     }
 }
+impl From<Int> for Rat {
+    fn from(value: Int) -> Self {
+        Rat { num: value, den: 1 }
+    }
+}
 
 impl_op_ex!(-|a: &Rat| -> Rat { Rat::new(-a.num, a.den) });
 impl_op_ex!(+ |a: &Rat, b: &Rat| -> Rat { Rat::new(a.num * b.den + b.num * a.den, a.den * b.den) });
@@ -99,8 +105,16 @@ impl EPoint {
         Self { x, y, z }
     }
 
+    pub fn new_ints(x: Int, y: Int, z: Int) -> Self {
+        Self::new(x.into(), y.into(), z.into())
+    }
+
     pub fn homogenize(self, w: Rat) -> HPoint {
         HPoint::from_rats(w, self.x, self.y, self.z)
+    }
+
+    pub fn homogenize_int(self, w: Int) -> HPoint {
+        self.homogenize(w.into())
     }
 }
 impl std::fmt::Display for EPoint {
