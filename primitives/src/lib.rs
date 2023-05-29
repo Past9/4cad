@@ -17,10 +17,17 @@ pub struct Rat {
 impl Rat {
     pub fn new(num: Int, den: Int) -> Self {
         let gcd = gcd(num, den);
-        println!("num den gcd {} {} {}", num, den, gcd);
-        Self {
-            num: num / gcd,
-            den: den / gcd,
+
+        let num = num / gcd;
+        let den = den / gcd;
+
+        if den.is_negative() {
+            Self {
+                num: -num,
+                den: -den,
+            }
+        } else {
+            Self { num, den }
         }
     }
 
@@ -30,6 +37,10 @@ impl Rat {
 
     pub fn zero() -> Self {
         Self { num: 0, den: 1 }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.num == 0 && self.den != 0
     }
 
     pub fn expect_int(&self) -> Int {
@@ -123,7 +134,7 @@ impl std::fmt::Display for EPoint {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct HPoint {
     w: Int,
     x: Int,
@@ -141,13 +152,17 @@ impl HPoint {
     }
 
     pub fn new(w: Int, x: Int, y: Int, z: Int) -> Self {
-        let gcd = gcd(w, gcd(x, gcd(y, z)));
+        if w == 0 && x == 0 && y == 0 && z == 0 {
+            Self::zero()
+        } else {
+            let gcd = gcd(w, gcd(x, gcd(y, z)));
 
-        Self {
-            w: w / gcd,
-            x: x / gcd,
-            y: y / gcd,
-            z: z / gcd,
+            Self {
+                w: w / gcd,
+                x: x / gcd,
+                y: y / gcd,
+                z: z / gcd,
+            }
         }
     }
 
@@ -196,7 +211,13 @@ impl_op_ex!(+ |a: &HPoint, b: &HPoint| -> HPoint {
 });
 
 impl_op_ex_commutative!(*|a: &HPoint, b: &Rat| -> HPoint {
-    HPoint::from_rats(a.w * b, a.x * b, a.y * b, a.z * b)
+    //HPoint::from_rats(a.w * b, a.x * b, a.y * b, a.z * b)
+    HPoint {
+        w: a.w * b,
+        x: a.x * b,
+        y: a.y * b,
+        z: a.z * b,
+    }
 });
 
 pub struct Param {
@@ -294,5 +315,19 @@ mod tests {
             EPoint::new(rat(5, 2), rat(5, 3), rat(5, 4),),
             hpoint.project()
         );
+    }
+
+    #[test]
+    pub fn mul_int_rat() {
+        let int = 3;
+        let rational = rat(1, 5);
+        assert_eq!(rat(3, 5), int * rational);
+    }
+
+    #[test]
+    pub fn mul_hpoint_rat() {
+        let hpoint = HPoint::new(1, 2, 3, 4);
+        let rat = rat(1, 5);
+        println!("{}", hpoint * rat);
     }
 }
