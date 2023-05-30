@@ -8,7 +8,7 @@ pub struct Curve {
     knots: Vec<Rat>,
 }
 impl Curve {
-    pub fn new(points: Vec<HPoint>, knots: Vec<Rat>) -> Self {
+    pub fn new(points: Vec<Point4d>, knots: Vec<Rat>) -> Self {
         let k = knots.len();
         let n = points.len();
         let m = k - n - 1;
@@ -20,7 +20,8 @@ impl Curve {
         }
 
         Self {
-            points: points.into_iter().map(Point4d::from).collect(),
+            points,
+            //points: points.into_iter().map(Point4d::from).collect(),
             knots,
         }
     }
@@ -139,53 +140,34 @@ impl Curve {
     */
 
     fn basis_s(&self, j: usize, m: usize, t: &Rat) -> Rat {
-        //println!("BASIS m = {}", m);
         let tj = &self.knots[j];
         let tj1 = &self.knots[j + 1];
 
         if m == 1 {
             if tj <= &t && t < tj1 {
-                //println!("m == 1, return 1");
                 Rat::one()
             } else {
-                //println!("m == 1, return 0");
                 Rat::zero()
             }
         } else {
-            //println!("m != 1");
             let tjm = &self.knots[j + m];
             let tjmsub1 = &self.knots[j + m - 1];
 
             let den1 = tjmsub1 - tj;
-            let basis1 = self.basis_s(j, m - 1, t);
             let l = if den1.is_zero() {
-                if !basis1.is_zero() {
-                    panic!("basis1 is {} when den1 is zero", basis1);
-                }
                 0.into()
             } else {
-                //println!("P1 {} {} {} {} {}", t, tj, den1, basis1, t - tj);
-                ((t - tj) / den1) * basis1
+                ((t - tj) / den1) * self.basis_s(j, m - 1, t)
             };
 
             let den2 = tjm - tj1;
-            let basis2 = self.basis_s(j + 1, m - 1, t);
             let r = if den2.is_zero() {
-                if !basis2.is_zero() {
-                    panic!("basis2 is {} when den2 is zero", basis2);
-                }
                 0.into()
             } else {
-                //println!("P2 {} {} {} {} {}", tjm, t, den2, basis2, tjm - t);
-                ((tjm - t) / den2) * basis2
+                ((tjm - t) / den2) * self.basis_s(j + 1, m - 1, t)
             };
 
             l + r
-
-            /*
-            ((t - tj) / (tjmsub1 - tj)) * self.basis_s(j, m - 1, t)
-                + ((tjm - t) / (tjm - tj1)) * self.basis_s(j + 1, m - 1, t)
-                */
         }
     }
 
@@ -253,11 +235,12 @@ impl Curve {
 mod tests {
     use std::{io::Cursor, time::Instant};
 
-    use primitives::{rat, HPoint, ParamD2, Point3D};
+    use primitives::{rat, HPoint, ParamD2, Point3D, Point4d};
 
     use crate::Curve;
 
     #[test]
+    /*
     pub fn line() {
         let curve = Curve::new(
             vec![
@@ -279,11 +262,19 @@ mod tests {
             println!("t @ {} = {} -> {}", t, p4d, p3d);
         }
     }
-
+    */
     #[test]
     pub fn arc() {
         let curve = Curve::new(
             vec![
+                Point4d::new_ints(2, 0, -2, 0),
+                Point4d::new_ints(1, 1, -1, 0),
+                Point4d::new_ints(1, 1, 1, 0),
+                Point4d::new_ints(2, 0, 2, 0),
+                Point4d::new_ints(1, -1, 1, 0),
+                Point4d::new_ints(1, -1, -1, 0),
+                Point4d::new_ints(2, 0, -2, 0),
+                /*
                 Point3D::new_ints(0, -2, 0).homogenize_int(2),
                 Point3D::new_ints(1, -1, 0).homogenize_int(1),
                 Point3D::new_ints(1, 1, 0).homogenize_int(1),
@@ -291,6 +282,7 @@ mod tests {
                 Point3D::new_ints(-1, 1, 0).homogenize_int(1),
                 Point3D::new_ints(-1, -1, 0).homogenize_int(1),
                 Point3D::new_ints(0, -2, 0).homogenize_int(2),
+                */
             ],
             vec![
                 0.into(),
@@ -318,7 +310,7 @@ mod tests {
 
             println!("t @ {} = {} ", t, p4d);
             let p3d = HPoint::from(p4d.clone()).project();
-            //println!("t @ {} = {} -> {}", t, p4d, p3d);
+            println!("t @ {} = {} -> {}", t, p4d, p3d);
         }
 
         let end = Instant::now();

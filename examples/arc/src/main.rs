@@ -1,4 +1,4 @@
-use primitives::{rat, HPoint, Point3D};
+use primitives::{rat, HPoint, Point3D, Point4d};
 use render::{
     model::{model::Model, Point},
     Vec3,
@@ -8,13 +8,13 @@ use splines::Curve;
 fn main() {
     let curve = Curve::new(
         vec![
-            Point3D::new_ints(0, -2, 0).homogenize_int(2),
-            Point3D::new_ints(1, -1, 0).homogenize_int(1),
-            Point3D::new_ints(1, 1, 0).homogenize_int(1),
-            Point3D::new_ints(0, 2, 0).homogenize_int(2),
-            Point3D::new_ints(-1, 1, 0).homogenize_int(1),
-            Point3D::new_ints(-1, -1, 0).homogenize_int(1),
-            Point3D::new_ints(0, -2, 0).homogenize_int(2),
+            Point4d::new_ints(2, 0, -2, 0),
+            Point4d::new_ints(1, 1, -1, 0),
+            Point4d::new_ints(1, 1, 1, 0),
+            Point4d::new_ints(2, 0, 2, 0),
+            Point4d::new_ints(1, -1, 1, 0),
+            Point4d::new_ints(1, -1, -1, 0),
+            Point4d::new_ints(2, 0, -2, 0),
         ],
         vec![
             0.into(),
@@ -30,20 +30,29 @@ fn main() {
         ],
     );
 
+    /*
+    let curve = Curve::new(
+        vec![
+            Point3D::new_ints(0, 0, 0).homogenize_int(1),
+            Point3D::new_ints(1, 1, 0).homogenize_int(1),
+        ],
+        vec![0.into(), 0.into(), 2.into(), 2.into()],
+    );
+    */
+
     let mut model = Model {
         triangles: vec![],
         points: vec![],
         lines: vec![],
     };
 
-    let num_pts = 10000;
-    for i in 0..num_pts {
+    let num_pts = 30;
+    for i in 0..=num_pts {
         let t = rat(i, num_pts) * curve.max_knot();
         let p4d = curve.eval_s(&t);
         let p3d = p4d.project();
-        //let p3d = HPoint::from(p4d).project();
 
-        //println!("t @ {} = {} -> {}", t, h, p);
+        println!("t @ {} = {} -> {}", t, p4d, p3d);
 
         model.points.push(Point {
             vertex: p3d.into(),
@@ -56,6 +65,4 @@ fn main() {
     }
 
     render::render_model(model, 10.0).unwrap();
-
-    //render::render_curve(&curve);
 }
