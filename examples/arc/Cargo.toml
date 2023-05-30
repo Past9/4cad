@@ -1,10 +1,11 @@
 [package]
-name = "primitives"
+name = "arc"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-auto_ops = "0.3.0"
-cgmath = "0.18.0"
+splines = { path = "../../splines" }
+render = { path = "../../render" }
+primitives = { path = "../../primitives" }

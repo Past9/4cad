@@ -1,8 +1,10 @@
-use primitives::{EPoint, HPoint, Param, Rat};
+use primitives::HPoint;
+use primitives::Point4d;
+use primitives::Rat;
 
 #[derive(Debug)]
 pub struct Curve {
-    points: Vec<HPoint>,
+    points: Vec<Point4d>,
     knots: Vec<Rat>,
 }
 impl Curve {
@@ -17,13 +19,17 @@ impl Curve {
             );
         }
 
-        Self { points, knots }
+        Self {
+            points: points.into_iter().map(Point4d::from).collect(),
+            knots,
+        }
     }
 
-    fn max_knot(&self) -> Rat {
+    pub fn max_knot(&self) -> Rat {
         self.knots[self.knots.len() - 1].clone()
     }
 
+    /*
     fn knot_span(&self, m: usize, n: usize, t: &Rat) -> usize {
         let mut span = 0;
         for i in 0..self.knots.len() - 1 {
@@ -37,6 +43,31 @@ impl Curve {
         }
 
         span
+    }
+    */
+
+    pub fn knot_span(&self, pos: &Rat) -> usize {
+        let degree = self.degree();
+        let num_pts = self.points.len();
+        if *pos == self.knots[num_pts] {
+            return num_pts - 1;
+        }
+
+        let mut low = degree;
+        let mut high = num_pts + 1;
+        let mut mid = (low + high) / 2;
+
+        while *pos < self.knots[mid] || *pos >= self.knots[mid + 1] {
+            if *pos < self.knots[mid] {
+                high = mid;
+            } else {
+                low = mid;
+            }
+
+            mid = (low + high) / 2;
+        }
+
+        return mid;
     }
 
     /*
@@ -63,7 +94,7 @@ impl Curve {
     }
     */
 
-    pub fn eval_s(&self, t: &Rat) -> HPoint {
+    pub fn eval_s(&self, t: &Rat) -> Point4d {
         let m = self.order();
 
         /*
@@ -72,9 +103,10 @@ impl Curve {
             .sum::<HPoint>()
             */
 
-        let mut out = HPoint::zero();
+        let mut out = Point4d::zero();
         for j in 0..self.points.len() {
             let point = &self.points[j];
+            let k = self.knot_span(t);
             let factor = self.basis_s(j, m, &t);
             let interp = point * &factor;
             let preout = out.clone();
@@ -128,7 +160,7 @@ impl Curve {
             let basis1 = self.basis_s(j, m - 1, t);
             let l = if den1.is_zero() {
                 if !basis1.is_zero() {
-                    panic!("Basis1 is {} when den1 is zero", basis1);
+                    panic!("basis1 is {} when den1 is zero", basis1);
                 }
                 0.into()
             } else {
@@ -140,15 +172,13 @@ impl Curve {
             let basis2 = self.basis_s(j + 1, m - 1, t);
             let r = if den2.is_zero() {
                 if !basis2.is_zero() {
-                    panic!("Basis2 is {} when den2 is zero", basis2);
+                    panic!("basis2 is {} when den2 is zero", basis2);
                 }
                 0.into()
             } else {
                 //println!("P2 {} {} {} {} {}", tjm, t, den2, basis2, tjm - t);
                 ((tjm - t) / den2) * basis2
             };
-
-            //println!("LR {} {} {}", l, r, &l + &r);
 
             l + r
 
@@ -223,7 +253,7 @@ impl Curve {
 mod tests {
     use std::{io::Cursor, time::Instant};
 
-    use primitives::{rat, EPoint, Param};
+    use primitives::{rat, HPoint, ParamD2, Point3D};
 
     use crate::Curve;
 
@@ -231,20 +261,22 @@ mod tests {
     pub fn line() {
         let curve = Curve::new(
             vec![
-                EPoint::new_ints(0, 0, 0).homogenize_int(1),
-                EPoint::new_ints(1, 1, 0).homogenize_int(1),
+                Point3D::new_ints(0, 0, 0).homogenize_int(1),
+                Point3D::new_ints(1, 1, 0).homogenize_int(1),
             ],
-            vec![0.into(), 0.into(), 1.into(), 1.into()],
+            vec![0.into(), 0.into(), 2.into(), 2.into()],
         );
 
         println!("CURVE {:#?}", curve);
 
         let num_pts = 10;
-        for i in 0..num_pts {
+        for i in 0..=num_pts {
             let t = rat(i, num_pts) * curve.max_knot();
-            let h = curve.eval_s(&t);
+            let p4d = curve.eval_s(&t);
+            println!("p4d {}", p4d);
+            let p3d = HPoint::from(p4d.clone()).project();
 
-            println!("t @ {} = {} -> {}", t, h, h.project());
+            println!("t @ {} = {} -> {}", t, p4d, p3d);
         }
     }
 
@@ -252,13 +284,13 @@ mod tests {
     pub fn arc() {
         let curve = Curve::new(
             vec![
-                EPoint::new_ints(0, -2, 0).homogenize_int(2),
-                EPoint::new_ints(1, -1, 0).homogenize_int(1),
-                EPoint::new_ints(1, 1, 0).homogenize_int(1),
-                EPoint::new_ints(0, 2, 0).homogenize_int(2),
-                EPoint::new_ints(-1, 1, 0).homogenize_int(1),
-                EPoint::new_ints(-1, -1, 0).homogenize_int(1),
-                EPoint::new_ints(0, -2, 0).homogenize_int(2),
+                Point3D::new_ints(0, -2, 0).homogenize_int(2),
+                Point3D::new_ints(1, -1, 0).homogenize_int(1),
+                Point3D::new_ints(1, 1, 0).homogenize_int(1),
+                Point3D::new_ints(0, 2, 0).homogenize_int(2),
+                Point3D::new_ints(-1, 1, 0).homogenize_int(1),
+                Point3D::new_ints(-1, -1, 0).homogenize_int(1),
+                Point3D::new_ints(0, -2, 0).homogenize_int(2),
             ],
             vec![
                 0.into(),
@@ -276,15 +308,17 @@ mod tests {
 
         println!("CURVE {:#?}", curve);
 
-        let num_pts = 50;
+        let num_pts = 12;
 
         let start = Instant::now();
 
-        for i in 0..num_pts {
+        for i in 0..=num_pts {
             let t = rat(i, num_pts) * curve.max_knot();
-            let h = curve.eval_s(&t);
+            let p4d = curve.eval_s(&t);
 
-            //println!("t @ {} = {} -> {}", t, h, h.project());
+            println!("t @ {} = {} ", t, p4d);
+            let p3d = HPoint::from(p4d.clone()).project();
+            //println!("t @ {} = {} -> {}", t, p4d, p3d);
         }
 
         let end = Instant::now();
