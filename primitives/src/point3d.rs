@@ -1,6 +1,6 @@
 use cgmath::Vector3;
 
-use crate::{hpoint::HPoint, rational::Rat, Int};
+use crate::{rational::Rat, Int};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Point3D {
@@ -15,14 +15,6 @@ impl Point3D {
 
     pub fn new_ints(x: Int, y: Int, z: Int) -> Self {
         Self::new(x.into(), y.into(), z.into())
-    }
-
-    pub fn homogenize(self, w: Rat) -> HPoint {
-        HPoint::from_rats(w, self.x, self.y, self.z)
-    }
-
-    pub fn homogenize_int(self, w: Int) -> HPoint {
-        self.homogenize(w.into())
     }
 }
 impl std::fmt::Display for Point3D {

@@ -1,10 +1,10 @@
-mod hpoint;
+//mod hpoint;
 mod paramd2;
 mod point3d;
 mod point4d;
 mod rational;
 
-pub use hpoint::*;
+//pub use hpoint::*;
 pub use paramd2::*;
 pub use point3d::*;
 pub use point4d::*;

@@ -2,7 +2,7 @@ use std::iter::Sum;
 
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 
-use crate::{point3d::Point3D, rat, rational::Rat, HPoint, Int};
+use crate::{point3d::Point3D, rational::Rat, Int};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Point4d {
@@ -31,16 +31,6 @@ impl Point4d {
 
     pub fn project(&self) -> Point3D {
         Point3D::new(&self.x / &self.w, &self.y / &self.w, &self.z / &self.w)
-    }
-}
-impl From<HPoint> for Point4d {
-    fn from(value: HPoint) -> Self {
-        Self::new(
-            value.w.into(),
-            value.x.into(),
-            value.y.into(),
-            value.z.into(),
-        )
     }
 }
 impl std::fmt::Display for Point4d {

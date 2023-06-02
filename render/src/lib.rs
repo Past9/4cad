@@ -2,7 +2,6 @@ use camera::Camera;
 use cgmath::{Angle, Deg, InnerSpace, Rad};
 use error::RenderResult;
 use model::model::{BufferedModel, Model};
-use primitives::Point3D;
 use renderer::{MsaaSamples, Renderer};
 use winit::{
     dpi::PhysicalPosition,

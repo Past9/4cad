@@ -1,4 +1,4 @@
-use primitives::{rat, HPoint, Point3D, Point4d};
+use primitives::{rat, ParamD2, Point4d};
 use render::{
     model::{model::Model, Point},
     Vec3,
@@ -46,13 +46,15 @@ fn main() {
         lines: vec![],
     };
 
-    let num_pts = 30;
+    let num_pts = 80;
     for i in 0..=num_pts {
         let t = rat(i, num_pts) * curve.max_knot();
-        let p4d = curve.eval_s(&t);
+        println!("T {}", t);
+        let no: ParamD2 = t.into();
+        let p4d = curve.eval_d2(&no);
         let p3d = p4d.project();
 
-        println!("t @ {} = {} -> {}", t, p4d, p3d);
+        //println!("t @ {} = {} -> {}", t, p4d, p3d);
 
         model.points.push(Point {
             vertex: p3d.into(),
