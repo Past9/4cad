@@ -58,6 +58,10 @@ impl Rat {
     pub fn den(&self) -> Int {
         self.den
     }
+
+    pub fn num_den(&self) -> (Int, Int) {
+        (self.num(), self.den())
+    }
 }
 impl std::fmt::Display for Rat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

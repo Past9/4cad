@@ -1,4 +1,5 @@
 use primitives::rat;
+use primitives::Int;
 use primitives::ParamD2;
 use primitives::Point4d;
 use primitives::Rat;
@@ -71,6 +72,14 @@ impl Curve {
         let m = self.order();
         (0..self.points.len())
             .map(|j| self.basis_d2(j, m, &t) * &self.points[j])
+            .sum()
+    }
+
+    pub fn eval_i(&self, t: &Rat) -> Point4d {
+        let m = self.order();
+        let i = self.knot_span(t);
+        (0..self.points.len())
+            .map(|j| self.basis_i(j, m, &t, i) * &self.points[j])
             .sum()
     }
 
@@ -148,8 +157,6 @@ impl Curve {
         let o = t.o();
         let rat_param = rat(o, n + o);
 
-        println!("RP {}", rat_param);
-
         if m == 1 {
             if tj <= &rat_param && &rat_param < tj1 {
                 Rat::one()
@@ -173,6 +180,57 @@ impl Curve {
             } else {
                 (((n + o) * tjm - o) / den2) * self.basis_d2(j + 1, m - 1, t)
             };
+
+            l + r
+        }
+    }
+
+    fn basis_i(&self, j: usize, m: usize, t: &Rat, i: usize) -> Int {
+        let j_int = j as Int;
+        let m_int = m as Int;
+        let i_int = i as Int;
+
+        let tj = &self.knots[j];
+        let tj1 = &self.knots[j + 1];
+
+        if m == 1 {
+            if tj <= &t && t < tj1 {
+                1
+            } else {
+                0
+            }
+        } else {
+            let (s, h) = t.num_den();
+            let (sj, hj) = self.knots[j].num_den();
+            let hj1 = self.knots[j + 1].den();
+            let (sjm, hjm) = self.knots[j + m].num_den();
+            let hjmsub1 = self.knots[j + m - 1].den();
+
+            let l_product: Int = ((i_int - m_int + 1)..=(i_int - 1))
+                .filter(|b| *b != j_int - 1)
+                .map(|b| {
+                    let b_usize = b as usize;
+                    let (sbm, hbm) = self.knots[b_usize + m].num_den();
+                    let (sb1, hb1) = self.knots[b_usize + 1].num_den();
+
+                    sbm * hb1 - sb1 * hbm
+                })
+                .product();
+
+            let l = hjmsub1 * (hj * s - sj * h) * l_product * self.basis_i(j, m - 1, t, i);
+
+            let r_product: Int = ((i_int - m_int + 1)..=(i_int - 1))
+                .filter(|b| *b != j_int)
+                .map(|b| {
+                    let b_usize = b as usize;
+                    let (sbm, hbm) = self.knots[b_usize + m].num_den();
+                    let (sb1, hb1) = self.knots[b_usize + 1].num_den();
+
+                    sbm * hb1 - sb1 * hbm
+                })
+                .product();
+
+            let r = hj1 * (sjm * h - hjm * s) * r_product * self.basis_i(j + 1, m - 1, t, i);
 
             l + r
         }

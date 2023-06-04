@@ -1,4 +1,4 @@
-use std::iter::Sum;
+use std::iter::{Product, Sum};
 
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 
@@ -50,6 +50,21 @@ impl Sum for Point4d {
         point
     }
 }
+impl Product for Point4d {
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
+        let mut point = Point4d {
+            w: 1.into(),
+            x: 1.into(),
+            y: 1.into(),
+            z: 1.into(),
+        };
+
+        for item in iter {
+            point = point * item;
+        }
+        point
+    }
+}
 
 impl_op_ex!(+ |a: &Point4d, b: &Point4d| -> Point4d {
     Point4d::new(
@@ -60,7 +75,20 @@ impl_op_ex!(+ |a: &Point4d, b: &Point4d| -> Point4d {
     )
 });
 
+impl_op_ex!(*|a: &Point4d, b: &Point4d| -> Point4d {
+    Point4d::new(&a.w * &b.w, &a.x * &b.x, &a.y * &b.y, &a.z * &b.z)
+});
+
 impl_op_ex_commutative!(*|a: &Point4d, b: &Rat| -> Point4d {
+    Point4d {
+        w: &a.w * b,
+        x: &a.x * b,
+        y: &a.y * b,
+        z: &a.z * b,
+    }
+});
+
+impl_op_ex_commutative!(*|a: &Point4d, b: &Int| -> Point4d {
     Point4d {
         w: &a.w * b,
         x: &a.x * b,
