@@ -1,3 +1,10 @@
 [workspace]
 
-members = ["primitives", "splines", "render", "examples/arc"]
+members = [
+    "primitives",
+    "splines",
+    "render",
+    "brep",
+    "examples/arc",
+    "examples/skylight",
+]

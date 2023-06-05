@@ -1,11 +1,10 @@
-use std::time::Instant;
-
 use primitives::{rat, ParamD2, Point4d};
 use render::{
     model::{model::Model, Point},
     Vec3,
 };
 use splines::Curve;
+use std::time::Instant;
 
 fn main() {
     let curve = Curve::new(
@@ -19,28 +18,18 @@ fn main() {
             Point4d::new_ints(2, 0, -2, 0),
         ],
         vec![
-            0.into(),
-            0.into(),
-            0.into(),
-            1.into(),
-            2.into(),
-            2.into(),
-            3.into(),
-            4.into(),
-            4.into(),
-            4.into(),
+            rat(0, 1),
+            rat(0, 1),
+            rat(0, 1),
+            rat(1, 4),
+            rat(1, 2),
+            rat(1, 2),
+            rat(3, 4),
+            rat(1, 1),
+            rat(1, 1),
+            rat(1, 1),
         ],
     );
-
-    /*
-    let curve = Curve::new(
-        vec![
-            Point3D::new_ints(0, 0, 0).homogenize_int(1),
-            Point3D::new_ints(1, 1, 0).homogenize_int(1),
-        ],
-        vec![0.into(), 0.into(), 2.into(), 2.into()],
-    );
-    */
 
     let mut model = Model {
         triangles: vec![],
@@ -48,16 +37,13 @@ fn main() {
         lines: vec![],
     };
 
-    let num_pts = 8000;
+    let num_pts = 10;
     let start = Instant::now();
     for i in 0..=num_pts {
-        let t = rat(i, num_pts) * curve.max_knot();
-        println!("T {}", t);
-        //let no: ParamD2 = t.into();
+        let t = rat(i, num_pts);
+        let no = ParamD2::from(t.clone());
         let p4d = curve.eval_i(&t);
         let p3d = p4d.project();
-
-        //println!("t @ {} = {} -> {}", t, p4d, p3d);
 
         model.points.push(Point {
             vertex: p3d.into(),

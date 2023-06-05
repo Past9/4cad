@@ -1,4 +1,4 @@
-use crate::{gcd, rational::Rat, Int};
+use crate::{rational::Rat, Int};
 
 pub struct ParamD2 {
     n: Int,

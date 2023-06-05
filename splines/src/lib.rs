@@ -1,334 +1,220 @@
-use primitives::rat;
-use primitives::Int;
-use primitives::ParamD2;
-use primitives::Point4d;
-use primitives::Rat;
+mod curve;
+mod surface;
 
-#[derive(Debug)]
-pub struct Curve {
-    points: Vec<Point4d>,
-    knots: Vec<Rat>,
+pub use curve::*;
+use primitives::{rat, Int, ParamD2, Rat};
+pub use surface::*;
+
+fn normalize_knots(knots: Vec<Rat>) -> Vec<Rat> {
+    let max_knot = knots[knots.len() - 1].clone();
+    knots.into_iter().map(|knot| knot / &max_knot).collect()
 }
-impl Curve {
-    pub fn new(points: Vec<Point4d>, knots: Vec<Rat>) -> Self {
-        let k = knots.len();
-        let n = points.len();
-        let m = k - n - 1;
-        if m < 1 {
-            panic!(
-                "Curve would have degree {} (knots.len() - points.len() - 1). Needs more knots or fewer points.",
-                m
-            );
-        }
 
-        Self { points, knots }
+fn basis_s(knots: &[Rat], j: usize, m: usize, t: &Rat) -> Rat {
+    if j == 0 && t.is_zero() {
+        return 1.into();
     }
 
-    pub fn max_knot(&self) -> Rat {
-        self.knots[self.knots.len() - 1].clone()
+    if j == knots.len() - m - 1 && t.is_one() {
+        return 1.into();
     }
 
-    pub fn knot_span(&self, pos: &Rat) -> usize {
-        let degree = self.degree();
-        let num_pts = self.points.len();
-        if *pos == self.knots[num_pts] {
-            return num_pts - 1;
-        }
+    let tj = &knots[j];
+    let tj1 = &knots[j + 1];
 
-        let mut low = degree;
-        let mut high = num_pts + 1;
-        let mut mid = (low + high) / 2;
-
-        while *pos < self.knots[mid] || *pos >= self.knots[mid + 1] {
-            if *pos < self.knots[mid] {
-                high = mid;
-            } else {
-                low = mid;
-            }
-
-            mid = (low + high) / 2;
-        }
-
-        return mid;
-    }
-
-    pub fn eval_s(&self, t: &Rat) -> Point4d {
-        let m = self.order();
-        self.points
-            .iter()
-            .enumerate()
-            .map(|(j, p)| p * self.basis_s(j, m, &t))
-            .sum()
-    }
-
-    pub fn eval_d1(&self, t: &Rat) -> Point4d {
-        let m = self.order();
-        (0..self.points.len())
-            .map(|j| self.basis_d1(j, m, &t) * &self.points[j])
-            .sum()
-    }
-
-    pub fn eval_d2(&self, t: &ParamD2) -> Point4d {
-        let m = self.order();
-        (0..self.points.len())
-            .map(|j| self.basis_d2(j, m, &t) * &self.points[j])
-            .sum()
-    }
-
-    pub fn eval_i(&self, t: &Rat) -> Point4d {
-        let m = self.order();
-        let i = self.knot_span(t);
-        (0..self.points.len())
-            .map(|j| self.basis_i(j, m, &t, i) * &self.points[j])
-            .sum()
-    }
-
-    fn basis_s(&self, j: usize, m: usize, t: &Rat) -> Rat {
-        let tj = &self.knots[j];
-        let tj1 = &self.knots[j + 1];
-
-        if m == 1 {
-            if tj <= &t && t < tj1 {
-                Rat::one()
-            } else {
-                Rat::zero()
-            }
+    if m == 1 {
+        if tj <= &t && t < tj1 {
+            Rat::one()
         } else {
-            let tjm = &self.knots[j + m];
-            let tjmsub1 = &self.knots[j + m - 1];
-
-            let den1 = tjmsub1 - tj;
-            let l = if den1.is_zero() {
-                0.into()
-            } else {
-                ((t - tj) / den1) * self.basis_s(j, m - 1, t)
-            };
-
-            let den2 = tjm - tj1;
-            let r = if den2.is_zero() {
-                0.into()
-            } else {
-                ((tjm - t) / den2) * self.basis_s(j + 1, m - 1, t)
-            };
-
-            l + r
+            Rat::zero()
         }
-    }
+    } else {
+        let tjm = &knots[j + m];
+        let tjmsub1 = &knots[j + m - 1];
 
-    fn basis_d1(&self, j: usize, m: usize, t: &Rat) -> Rat {
-        let tj = &self.knots[j];
-        let tj1 = &self.knots[j + 1];
-
-        if m == 1 {
-            if tj <= &t && t < tj1 {
-                Rat::one()
-            } else {
-                Rat::zero()
-            }
+        let den1 = tjmsub1 - tj;
+        let l = if den1.is_zero() {
+            0.into()
         } else {
-            let s = t.num();
-            let h = t.den();
-            let tjm = &self.knots[j + m];
-            let tjmsub1 = &self.knots[j + m - 1];
+            ((t - tj) / den1) * basis_s(knots, j, m - 1, t)
+        };
 
-            let den1 = tjmsub1 - tj;
-            let l = if den1.is_zero() {
-                0.into()
-            } else {
-                ((s - h * tj) / den1) * self.basis_d1(j, m - 1, t)
-            };
-
-            let den2 = tjm - tj1;
-            let r = if den2.is_zero() {
-                0.into()
-            } else {
-                ((h * tjm - s) / den2) * self.basis_d1(j + 1, m - 1, t)
-            };
-
-            l + r
-        }
-    }
-
-    fn basis_d2(&self, j: usize, m: usize, t: &ParamD2) -> Rat {
-        let tj = &self.knots[j];
-        let tj1 = &self.knots[j + 1];
-
-        let n = t.n();
-        let o = t.o();
-        let rat_param = rat(o, n + o);
-
-        if m == 1 {
-            if tj <= &rat_param && &rat_param < tj1 {
-                Rat::one()
-            } else {
-                Rat::zero()
-            }
+        let den2 = tjm - tj1;
+        let r = if den2.is_zero() {
+            0.into()
         } else {
-            let tjm = &self.knots[j + m];
-            let tjmsub1 = &self.knots[j + m - 1];
+            ((tjm - t) / den2) * basis_s(knots, j + 1, m - 1, t)
+        };
 
-            let den1 = tjmsub1 - tj;
-            let l = if den1.is_zero() {
-                0.into()
-            } else {
-                ((o - (n + o) * tj) / den1) * self.basis_d2(j, m - 1, t)
-            };
-
-            let den2 = tjm - tj1;
-            let r = if den2.is_zero() {
-                0.into()
-            } else {
-                (((n + o) * tjm - o) / den2) * self.basis_d2(j + 1, m - 1, t)
-            };
-
-            l + r
-        }
-    }
-
-    fn basis_i(&self, j: usize, m: usize, t: &Rat, i: usize) -> Int {
-        let j_int = j as Int;
-        let m_int = m as Int;
-        let i_int = i as Int;
-
-        let tj = &self.knots[j];
-        let tj1 = &self.knots[j + 1];
-
-        if m == 1 {
-            if tj <= &t && t < tj1 {
-                1
-            } else {
-                0
-            }
-        } else {
-            let (s, h) = t.num_den();
-            let (sj, hj) = self.knots[j].num_den();
-            let hj1 = self.knots[j + 1].den();
-            let (sjm, hjm) = self.knots[j + m].num_den();
-            let hjmsub1 = self.knots[j + m - 1].den();
-
-            let l_product: Int = ((i_int - m_int + 1)..=(i_int - 1))
-                .filter(|b| *b != j_int - 1)
-                .map(|b| {
-                    let b_usize = b as usize;
-                    let (sbm, hbm) = self.knots[b_usize + m].num_den();
-                    let (sb1, hb1) = self.knots[b_usize + 1].num_den();
-
-                    sbm * hb1 - sb1 * hbm
-                })
-                .product();
-
-            let l = hjmsub1 * (hj * s - sj * h) * l_product * self.basis_i(j, m - 1, t, i);
-
-            let r_product: Int = ((i_int - m_int + 1)..=(i_int - 1))
-                .filter(|b| *b != j_int)
-                .map(|b| {
-                    let b_usize = b as usize;
-                    let (sbm, hbm) = self.knots[b_usize + m].num_den();
-                    let (sb1, hb1) = self.knots[b_usize + 1].num_den();
-
-                    sbm * hb1 - sb1 * hbm
-                })
-                .product();
-
-            let r = hj1 * (sjm * h - hjm * s) * r_product * self.basis_i(j + 1, m - 1, t, i);
-
-            l + r
-        }
-    }
-
-    fn order(&self) -> usize {
-        self.knots.len() - self.points.len()
-    }
-
-    pub fn degree(&self) -> usize {
-        self.order() - 1
+        l + r
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::{io::Cursor, time::Instant};
-
-    use primitives::{rat, ParamD2, Point3D, Point4d};
-
-    use crate::Curve;
-
-    #[test]
-    /*
-    pub fn line() {
-        let curve = Curve::new(
-            vec![
-                Point3D::new_ints(0, 0, 0).homogenize_int(1),
-                Point3D::new_ints(1, 1, 0).homogenize_int(1),
-            ],
-            vec![0.into(), 0.into(), 2.into(), 2.into()],
-        );
-
-        println!("CURVE {:#?}", curve);
-
-        let num_pts = 10;
-        for i in 0..=num_pts {
-            let t = rat(i, num_pts) * curve.max_knot();
-            let p4d = curve.eval_s(&t);
-            println!("p4d {}", p4d);
-            let p3d = HPoint::from(p4d.clone()).project();
-
-            println!("t @ {} = {} -> {}", t, p4d, p3d);
-        }
+fn basis_d1(knots: &[Rat], j: usize, m: usize, t: &Rat) -> Rat {
+    if j == 0 && t.is_zero() {
+        return 1.into();
     }
-    */
-    #[test]
-    pub fn arc() {
-        let curve = Curve::new(
-            vec![
-                Point4d::new_ints(2, 0, -2, 0),
-                Point4d::new_ints(1, 1, -1, 0),
-                Point4d::new_ints(1, 1, 1, 0),
-                Point4d::new_ints(2, 0, 2, 0),
-                Point4d::new_ints(1, -1, 1, 0),
-                Point4d::new_ints(1, -1, -1, 0),
-                Point4d::new_ints(2, 0, -2, 0),
-                /*
-                Point3D::new_ints(0, -2, 0).homogenize_int(2),
-                Point3D::new_ints(1, -1, 0).homogenize_int(1),
-                Point3D::new_ints(1, 1, 0).homogenize_int(1),
-                Point3D::new_ints(0, 2, 0).homogenize_int(2),
-                Point3D::new_ints(-1, 1, 0).homogenize_int(1),
-                Point3D::new_ints(-1, -1, 0).homogenize_int(1),
-                Point3D::new_ints(0, -2, 0).homogenize_int(2),
-                */
-            ],
-            vec![
-                0.into(),
-                0.into(),
-                0.into(),
-                1.into(),
-                2.into(),
-                2.into(),
-                3.into(),
-                4.into(),
-                4.into(),
-                4.into(),
-            ],
-        );
 
-        println!("CURVE {:#?}", curve);
+    if j == knots.len() - m - 1 && t.is_one() {
+        return 1.into();
+    }
 
-        let num_pts = 12;
+    let tj = &knots[j];
+    let tj1 = &knots[j + 1];
 
-        let start = Instant::now();
+    if m == 1 {
+        if tj <= &t && t < tj1 {
+            Rat::one()
+        } else {
+            Rat::zero()
+        }
+    } else {
+        let s = t.num();
+        let h = t.den();
+        let tjm = &knots[j + m];
+        let tjmsub1 = &knots[j + m - 1];
 
-        for i in 0..=num_pts {
-            let t = rat(i, num_pts) * curve.max_knot();
-            let p4d = curve.eval_s(&t);
+        let den1 = tjmsub1 - tj;
+        let l = if den1.is_zero() {
+            0.into()
+        } else {
+            ((s - h * tj) / den1) * basis_d1(knots, j, m - 1, t)
+        };
 
-            println!("t @ {} = {} ", t, p4d);
-            //let p3d = HPoint::from(p4d.clone()).project();
-            //println!("t @ {} = {} -> {}", t, p4d, p3d);
+        let den2 = tjm - tj1;
+        let r = if den2.is_zero() {
+            0.into()
+        } else {
+            ((h * tjm - s) / den2) * basis_d1(knots, j + 1, m - 1, t)
+        };
+
+        l + r
+    }
+}
+
+fn basis_d2(knots: &[Rat], j: usize, m: usize, t: &ParamD2) -> Rat {
+    let n = t.n();
+    let o = t.o();
+    let rat_param = rat(o, n + o);
+
+    if j == 0 && rat_param.is_zero() {
+        return 1.into();
+    }
+
+    if j == knots.len() - m - 1 && rat_param.is_one() {
+        return 1.into();
+    }
+
+    let tj = &knots[j];
+    let tj1 = &knots[j + 1];
+
+    if m == 1 {
+        if tj <= &rat_param && &rat_param < tj1 {
+            Rat::one()
+        } else {
+            Rat::zero()
+        }
+    } else {
+        let tjm = &knots[j + m];
+        let tjmsub1 = &knots[j + m - 1];
+
+        let den1 = tjmsub1 - tj;
+        let l = if den1.is_zero() {
+            0.into()
+        } else {
+            ((o - (n + o) * tj) / den1) * basis_d2(knots, j, m - 1, t)
+        };
+
+        let den2 = tjm - tj1;
+        let r = if den2.is_zero() {
+            0.into()
+        } else {
+            (((n + o) * tjm - o) / den2) * basis_d2(knots, j + 1, m - 1, t)
+        };
+
+        l + r
+    }
+}
+
+fn basis_i(knots: &[Rat], j: usize, m: usize, t: &Rat, span: usize) -> Int {
+    if j == 0 && t.is_zero() {
+        return 1.into();
+    }
+
+    if j == knots.len() - m - 1 && t.is_one() {
+        return 1.into();
+    }
+
+    let j_int = j as Int;
+    let m_int = m as Int;
+    let span_int = span as Int;
+
+    let tj = &knots[j];
+    let tj1 = &knots[j + 1];
+
+    if m == 1 {
+        if tj <= &t && t < tj1 {
+            1
+        } else {
+            0
+        }
+    } else {
+        let (s, h) = t.num_den();
+        let (sj, hj) = knots[j].num_den();
+        let hj1 = knots[j + 1].den();
+        let (sjm, hjm) = knots[j + m].num_den();
+        let hjmsub1 = knots[j + m - 1].den();
+
+        let l_product: Int = ((span_int - m_int + 1)..=(span_int - 1))
+            .filter(|b| *b != j_int - 1)
+            .map(|b| {
+                let b_usize = b as usize;
+                let (sbm, hbm) = knots[b_usize + m].num_den();
+                let (sb1, hb1) = knots[b_usize + 1].num_den();
+
+                sbm * hb1 - sb1 * hbm
+            })
+            .product();
+
+        let l = hjmsub1 * (hj * s - sj * h) * l_product * basis_i(knots, j, m - 1, t, span);
+
+        let r_product: Int = ((span_int - m_int + 1)..=(span_int - 1))
+            .filter(|b| *b != j_int)
+            .map(|b| {
+                let b_usize = b as usize;
+                let (sbm, hbm) = knots[b_usize + m].num_den();
+                let (sb1, hb1) = knots[b_usize + 1].num_den();
+
+                sbm * hb1 - sb1 * hbm
+            })
+            .product();
+
+        let r = hj1 * (sjm * h - hjm * s) * r_product * basis_i(knots, j + 1, m - 1, t, span);
+
+        l + r
+    }
+}
+
+fn knot_span(knots: &[Rat], num_pts: usize, pos: &Rat) -> usize {
+    let degree = knots.len() - num_pts - 1;
+
+    if *pos == knots[num_pts] {
+        return num_pts - 1;
+    }
+
+    let mut low = degree;
+    let mut high = num_pts + 1;
+    let mut mid = (low + high) / 2;
+
+    while *pos < knots[mid] || *pos >= knots[mid + 1] {
+        if *pos < knots[mid] {
+            high = mid;
+        } else {
+            low = mid;
         }
 
-        let end = Instant::now();
-
-        println!("{}us", (end - start).as_micros());
+        mid = (low + high) / 2;
     }
+
+    return mid;
 }

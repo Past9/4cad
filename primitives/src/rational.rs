@@ -43,6 +43,10 @@ impl Rat {
         self.num == 0 && self.den != 0
     }
 
+    pub fn is_one(&self) -> bool {
+        self.num == self.den
+    }
+
     pub fn expect_int(&self) -> Int {
         if self.den == 1 {
             self.num
