@@ -6,6 +6,7 @@ members = [
     "render",
     "brep",
     "viewer",
+    "components",
     "examples/arc",
     "examples/skylight",
 ]

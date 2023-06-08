@@ -1,5 +1,8 @@
+use cgmath::vec3;
+use components::scene::SceneViewer;
 use eframe::egui::{self, Id};
 use egui_winit_vulkano::Gui;
+use render::{camera::CameraAngle, scene::Scene};
 use vulkano_util::renderer::VulkanoWindowRenderer;
 use winit::{event::Event, event_loop::ControlFlow};
 
@@ -21,15 +24,23 @@ pub trait Window {
     }
 }
 
-#[derive(Debug)]
 pub struct Ui {
+    scene_viewer: SceneViewer,
     show_points: bool,
     show_edges: bool,
     show_surfaces: bool,
 }
 impl Ui {
-    pub fn new() -> Self {
+    pub fn new(scene: Scene) -> Self {
         Self {
+            scene_viewer: SceneViewer::new(
+                CameraAngle::Front.get_rotation(),
+                vec3(0.0, 0.0, 0.0),
+                true,
+                true,
+                true,
+                scene,
+            ),
             show_points: true,
             show_edges: true,
             show_surfaces: true,
@@ -38,8 +49,6 @@ impl Ui {
 }
 impl Window for Ui {
     fn draw(&mut self, gui: &mut Gui) {
-        //println!("UI: {:?}", self);
-
         gui.immediate_ui(|gui| {
             let ctx = &gui.egui_ctx;
 
@@ -71,7 +80,7 @@ impl Window for Ui {
             });
 
             egui::CentralPanel::default().show(ctx, |ui| {
-                //self.workspace.show(ctx, ui, &mut self.messages);
+                self.scene_viewer.show(ui);
             });
         });
     }

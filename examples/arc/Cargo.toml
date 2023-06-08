@@ -9,3 +9,5 @@ edition = "2021"
 splines = { path = "../../splines" }
 render = { path = "../../render" }
 primitives = { path = "../../primitives" }
+viewer = { path = "../../viewer" }
+cgmath = { version = "0.18.0" }

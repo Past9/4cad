@@ -1,8 +1,12 @@
 mod ui;
 
 use egui_winit_vulkano::Gui;
+use render::scene::Scene;
 use ui::{Ui, Window};
-use vulkano::format::Format;
+use vulkano::{
+    device::{DeviceExtensions, Features},
+    format::Format,
+};
 use vulkano_util::{
     context::{VulkanoConfig, VulkanoContext},
     window::{VulkanoWindows, WindowDescriptor},
@@ -14,9 +18,25 @@ use winit::{
 
 pub const IMAGE_FORMAT: Format = Format::B8G8R8A8_SRGB;
 
-fn main() {
+pub fn run_viewer(scene: Scene) -> ! {
     let event_loop = EventLoop::new();
     let context = VulkanoContext::new(VulkanoConfig {
+        device_features: Features {
+            dynamic_rendering: false,
+            sample_rate_shading: true,
+            wide_lines: true,
+            rectangular_lines: true,
+            independent_blend: true,
+            fill_mode_non_solid: true,
+            ..Default::default()
+        },
+        device_extensions: DeviceExtensions {
+            khr_push_descriptor: true,
+            khr_swapchain: true,
+            ext_line_rasterization: true,
+            ext_blend_operation_advanced: true,
+            ..Default::default()
+        },
         ..Default::default()
     });
 
@@ -33,7 +53,7 @@ fn main() {
         |ci| ci.image_format = Some(IMAGE_FORMAT),
     );
 
-    let mut window = Ui::new();
+    let mut window = Ui::new(scene);
 
     let mut gui = {
         let renderer = windows.get_primary_renderer_mut().unwrap();
@@ -90,5 +110,5 @@ fn main() {
         };
 
         window.on_event(&event, control_flow, renderer, &mut gui);
-    })
+    });
 }

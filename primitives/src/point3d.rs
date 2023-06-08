@@ -1,4 +1,4 @@
-use cgmath::Vector3;
+use cgmath::{Point3, Vector3};
 
 use crate::{rational::Rat, Int};
 
@@ -25,6 +25,15 @@ impl std::fmt::Display for Point3d {
 impl From<Point3d> for Vector3<f32> {
     fn from(value: Point3d) -> Self {
         Vector3 {
+            x: value.x.into(),
+            y: value.y.into(),
+            z: value.z.into(),
+        }
+    }
+}
+impl From<Point3d> for Point3<f32> {
+    fn from(value: Point3d) -> Self {
+        Point3 {
             x: value.x.into(),
             y: value.y.into(),
             z: value.z.into(),
