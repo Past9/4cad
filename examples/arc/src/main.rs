@@ -44,7 +44,7 @@ fn main() {
 
     let mut points = Vec::new();
 
-    let num_pts = 10;
+    let num_pts = 100;
     let start = Instant::now();
     for i in 0..=num_pts {
         let t = rat(i, num_pts);
