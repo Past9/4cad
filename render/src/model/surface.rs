@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector3};
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use super::{MaterialId, ModelObjectId};
 
@@ -61,10 +62,13 @@ impl SurfaceVertex {
 }
 
 #[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+#[derive(Default, Debug, Copy, Clone, Vertex, Zeroable, Pod)]
 pub struct BufferedSurfaceVertex {
+    #[format(R32G32B32_SFLOAT)]
     position: [f32; 3],
+    #[format(R32G32B32_SFLOAT)]
     normal: [f32; 3],
+    #[format(R32_UINT)]
     material_idx: u32,
 }
 impl BufferedSurfaceVertex {
@@ -76,4 +80,3 @@ impl BufferedSurfaceVertex {
         }
     }
 }
-vulkano::impl_vertex!(BufferedSurfaceVertex, position, normal, material_idx);

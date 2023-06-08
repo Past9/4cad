@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector3};
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use crate::Rgba;
 
@@ -44,10 +45,13 @@ impl EdgeVertex {
 }
 
 #[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+#[derive(Default, Debug, Copy, Clone, Vertex, Zeroable, Pod)]
 pub struct BufferedEdgeVertex {
+    #[format(R32G32B32_SFLOAT)]
     position: [f32; 3],
+    #[format(R32G32B32_SFLOAT)]
     expand: [f32; 3],
+    #[format(R32G32B32A32_SFLOAT)]
     color: [f32; 4],
 }
 impl BufferedEdgeVertex {
@@ -59,4 +63,3 @@ impl BufferedEdgeVertex {
         }
     }
 }
-vulkano::impl_vertex!(BufferedEdgeVertex, position, expand, color);

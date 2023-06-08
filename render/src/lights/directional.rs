@@ -1,13 +1,10 @@
-use std::sync::Arc;
-
+use crate::Rgb;
 use cgmath::{vec3, Vector3};
 use crevice::std140::AsStd140;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
-    memory::allocator::MemoryAllocator,
+    buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
+    memory::allocator::{AllocationCreateInfo, MemoryAllocator, MemoryUsage},
 };
-
-use crate::Rgb;
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct DirectionalLight {
@@ -35,14 +32,17 @@ impl DirectionalLight {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         lights: Vec<DirectionalLight>,
-    ) -> Arc<CpuAccessibleBuffer<[Std140DirectionalLight]>> {
-        CpuAccessibleBuffer::from_iter(
+    ) -> Subbuffer<[Std140DirectionalLight]> {
+        Buffer::from_iter(
             allocator,
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::default()
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             match lights.len() {
                 len if len > 0 => lights,
                 _ => vec![Self::zero()],

@@ -1,6 +1,6 @@
 use cgmath::{Point3, Quaternion, Vector2, Vector3};
-use eframe::epaint::{PaintCallbackInfo, Pos2};
-use egui_winit_vulkano::{CallbackContext, RenderResources};
+use eframe::epaint::Pos2;
+use egui_winit_vulkano::{egui::PaintCallbackInfo, CallbackContext, RenderResources};
 use vulkano::image::SampleCount;
 
 use render::{renderer::Renderer, scene::Scene, PixelViewport};
@@ -115,7 +115,7 @@ impl InternalGuiRenderer {
     fn new<'a>(scene: Scene, resources: &RenderResources<'a>) -> Self {
         let renderer = Renderer::new(
             scene,
-            SampleCount::Sample8,
+            SampleCount::Sample2,
             &resources.memory_allocator,
             resources.queue.clone(),
         );

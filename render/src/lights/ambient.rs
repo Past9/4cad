@@ -1,12 +1,9 @@
-use std::sync::Arc;
-
+use crate::Rgb;
 use crevice::std140::AsStd140;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
-    memory::allocator::MemoryAllocator,
+    buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
+    memory::allocator::{AllocationCreateInfo, MemoryAllocator, MemoryUsage},
 };
-
-use crate::Rgb;
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct AmbientLight {
@@ -28,14 +25,17 @@ impl AmbientLight {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         lights: Vec<AmbientLight>,
-    ) -> Arc<CpuAccessibleBuffer<[Std140AmbientLight]>> {
-        CpuAccessibleBuffer::from_iter(
+    ) -> Subbuffer<[Std140AmbientLight]> {
+        Buffer::from_iter(
             allocator,
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::default()
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             match lights.len() {
                 len if len > 0 => lights,
                 _ => vec![Self::zero()],

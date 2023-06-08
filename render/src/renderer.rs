@@ -9,7 +9,7 @@ use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector2, Vector3};
 use std::sync::Arc;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
         PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
@@ -24,7 +24,7 @@ use vulkano::{
         view::ImageView, AttachmentImage, ImageDimensions, ImageLayout, ImageUsage,
         ImageViewAbstract, SampleCount, StorageImage,
     },
-    memory::allocator::StandardMemoryAllocator,
+    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
     pipeline::{
         graphics::{
             color_blend::{
@@ -37,7 +37,7 @@ use vulkano::{
             rasterization::{
                 CullMode, FrontFace, LineRasterizationMode, PolygonMode, RasterizationState,
             },
-            vertex_input::BuffersDefinition,
+            vertex_input::Vertex,
             viewport::{Scissor, Viewport, ViewportState},
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
@@ -75,8 +75,8 @@ pub struct Renderer {
     geometry_buffers: GeometryBuffers,
 
     // Image quad buffers
-    full_quad_vertex_buffer: Arc<CpuAccessibleBuffer<[ScreenSpaceVertex]>>,
-    full_quad_index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
+    full_quad_vertex_buffer: Subbuffer<[ScreenSpaceVertex]>,
+    full_quad_index_buffer: Subbuffer<[u32]>,
 }
 impl Renderer {
     pub fn new<'a>(
@@ -109,13 +109,16 @@ impl Renderer {
         let geometry_buffers = scene.geometry_buffers(memory_allocator);
         let light_buffers = scene.light_buffers(memory_allocator);
 
-        let full_quad_vertex_buffer = CpuAccessibleBuffer::from_iter(
+        let full_quad_vertex_buffer = Buffer::from_iter(
             memory_allocator,
-            BufferUsage {
-                vertex_buffer: true,
+            BufferCreateInfo {
+                usage: BufferUsage::VERTEX_BUFFER,
                 ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             [
                 ScreenSpaceVertex {
                     position: [-1.0, -1.0],
@@ -133,13 +136,16 @@ impl Renderer {
         )
         .unwrap();
 
-        let full_quad_index_buffer = CpuAccessibleBuffer::from_iter(
+        let full_quad_index_buffer = Buffer::from_iter(
             memory_allocator,
-            BufferUsage {
-                index_buffer: true,
+            BufferCreateInfo {
+                usage: BufferUsage::INDEX_BUFFER,
                 ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             [0, 1, 2, 0, 2, 3],
         )
         .unwrap();
@@ -210,7 +216,7 @@ impl Renderer {
                 },
                 translucent_accum: {
                     load: Clear,
-                    store: Store,
+                    store: DontCare,
                     format: TRANSLUCENT_ACCUM_FORMAT,
                     samples: msaa_samples,
                 },
@@ -243,7 +249,7 @@ impl Renderer {
                     samples: msaa_samples,
                     initial_layout: ImageLayout::DepthStencilAttachmentOptimal,
                     final_layout: ImageLayout::DepthStencilAttachmentOptimal,
-                }
+                },
             },
             passes: [
                 // Opaque surfaces
@@ -271,8 +277,8 @@ impl Renderer {
                 {
                     color: [translucent_accum, translucent_transmit],
                     depth_stencil: {},
-                    input: [opaque, depth]
-                    resolve: [],
+                    input: [opaque, depth],
+                    resolve: []
                 },
                 // Composite
                 {
@@ -281,7 +287,7 @@ impl Renderer {
                     input: [opaque, translucent_accum, translucent_transmit],
                     resolve: [view]
                 }
-            ]
+            ],
         )
         .unwrap();
 
@@ -294,7 +300,8 @@ impl Renderer {
         );
 
         let opaque_surface_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
+            .vertex_input_state(BufferedSurfaceVertex::per_vertex())
+            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
             .vertex_shader(
                 surface_vs::load(device.clone())
                     .unwrap()
@@ -347,7 +354,8 @@ impl Renderer {
             .unwrap();
 
         let edge_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedEdgeVertex>())
+            .vertex_input_state(BufferedEdgeVertex::per_vertex())
+            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedEdgeVertex>())
             .vertex_shader(
                 edge_vs::load(device.clone())
                     .unwrap()
@@ -393,7 +401,8 @@ impl Renderer {
             .unwrap();
 
         let point_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedPointVertex>())
+            .vertex_input_state(BufferedPointVertex::per_vertex())
+            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedPointVertex>())
             .vertex_shader(
                 point_vs::load(device.clone())
                     .unwrap()
@@ -433,7 +442,8 @@ impl Renderer {
             .unwrap();
 
         let translucent_surface_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
+            .vertex_input_state(BufferedSurfaceVertex::per_vertex())
+            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
             .vertex_shader(
                 surface_vs::load(device.clone())
                     .unwrap()
@@ -504,7 +514,8 @@ impl Renderer {
             .unwrap();
 
         let compositing_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<ScreenSpaceVertex>())
+            .vertex_input_state(ScreenSpaceVertex::per_vertex())
+            //.vertex_input_state(BuffersDefinition::new().vertex::<ScreenSpaceVertex>())
             .vertex_shader(
                 compositing_vs::load(device.clone())
                     .unwrap()
@@ -660,7 +671,7 @@ impl Renderer {
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         descriptor_set_allocator: &StandardDescriptorSetAllocator,
     ) {
-        let push_constants = surface_vs::ty::PushConstants {
+        let push_constants = surface_vs::PushConstants {
             model_matrix: self.scene.orientation().matrix().into(),
             projection_matrix: self.scene.camera().projection_matrix().into(),
         };
@@ -756,7 +767,7 @@ impl Renderer {
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         descriptor_set_allocator: &StandardDescriptorSetAllocator,
     ) {
-        let push_constants = surface_vs::ty::PushConstants {
+        let push_constants = surface_vs::PushConstants {
             model_matrix: self.scene.orientation().matrix().into(),
             projection_matrix: self.scene.camera().projection_matrix().into(),
         };
@@ -909,11 +920,7 @@ impl RendererImages {
                     dimensions,
                     samples,
                     FINAL_IMAGE_FORMAT,
-                    ImageUsage {
-                        transient_attachment: true,
-                        input_attachment: true,
-                        ..ImageUsage::empty()
-                    },
+                    ImageUsage::TRANSIENT_ATTACHMENT | ImageUsage::INPUT_ATTACHMENT,
                 )
                 .unwrap(),
             )
@@ -931,11 +938,7 @@ impl RendererImages {
                     dimensions,
                     samples,
                     TRANSLUCENT_ACCUM_FORMAT,
-                    ImageUsage {
-                        transient_attachment: true,
-                        input_attachment: true,
-                        ..ImageUsage::empty()
-                    },
+                    ImageUsage::TRANSIENT_ATTACHMENT | ImageUsage::INPUT_ATTACHMENT,
                 )
                 .unwrap(),
             )
@@ -953,11 +956,7 @@ impl RendererImages {
                     dimensions,
                     samples,
                     TRANSLUCENT_TRANSMISSION_FORMAT,
-                    ImageUsage {
-                        transient_attachment: true,
-                        input_attachment: true,
-                        ..ImageUsage::empty()
-                    },
+                    ImageUsage::TRANSIENT_ATTACHMENT | ImageUsage::INPUT_ATTACHMENT,
                 )
                 .unwrap(),
             )
@@ -1013,12 +1012,9 @@ impl RendererImages {
                     dimensions,
                     samples,
                     Format::D32_SFLOAT,
-                    ImageUsage {
-                        depth_stencil_attachment: true,
-                        transient_attachment: true,
-                        input_attachment: true,
-                        ..ImageUsage::empty()
-                    },
+                    ImageUsage::DEPTH_STENCIL_ATTACHMENT
+                        | ImageUsage::TRANSIENT_ATTACHMENT
+                        | ImageUsage::INPUT_ATTACHMENT,
                 )
                 .unwrap(),
             )
@@ -1051,19 +1047,16 @@ impl RendererImages {
 }
 
 #[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+#[derive(Default, Debug, Copy, Clone, Vertex, Pod, Zeroable)]
 struct ScreenSpaceVertex {
+    #[format(R32G32_SFLOAT)]
     position: [f32; 2],
 }
-vulkano::impl_vertex!(ScreenSpaceVertex, position);
 
 mod surface_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         path: "src/shaders/surface.vert",
-        types_meta: {
-            #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
-        },
     }
 }
 
@@ -1129,8 +1122,5 @@ mod compositing_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         path: "src/shaders/compositing.frag",
-        types_meta: {
-            #[derive(Clone, Copy, Zeroable, Pod)]
-        },
     }
 }

@@ -1,11 +1,12 @@
 mod ui;
 
-use egui_winit_vulkano::Gui;
+use egui_winit_vulkano::{Gui, GuiConfig};
 use render::scene::Scene;
 use ui::{Ui, Window};
 use vulkano::{
     device::{DeviceExtensions, Features},
     format::Format,
+    image::SampleCount,
 };
 use vulkano_util::{
     context::{VulkanoConfig, VulkanoContext},
@@ -61,9 +62,12 @@ pub fn run_viewer(scene: Scene) -> ! {
         Gui::new(
             &event_loop,
             renderer.surface(),
-            Some(IMAGE_FORMAT),
             renderer.graphics_queue(),
-            false,
+            GuiConfig {
+                preferred_format: Some(IMAGE_FORMAT),
+                is_overlay: false,
+                samples: SampleCount::Sample1,
+            },
         )
     };
 

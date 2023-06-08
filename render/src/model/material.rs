@@ -1,12 +1,9 @@
-use std::sync::Arc;
-
+use crate::{Rgb, Rgba};
 use crevice::std140::AsStd140;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
-    memory::allocator::MemoryAllocator,
+    buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
+    memory::allocator::{AllocationCreateInfo, MemoryAllocator, MemoryUsage},
 };
-
-use crate::{Rgb, Rgba};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum MaterialKind {
@@ -88,16 +85,19 @@ impl MaterialSet {
     pub fn buffer_opaque(
         &self,
         allocator: &(impl MemoryAllocator + ?Sized),
-    ) -> Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>> {
+    ) -> Option<Subbuffer<[Std140OpaqueMaterial]>> {
         if !self.opaque.is_empty() {
             Some(
-                CpuAccessibleBuffer::from_iter(
+                Buffer::from_iter(
                     allocator,
-                    BufferUsage {
-                        storage_buffer: true,
-                        ..BufferUsage::empty()
+                    BufferCreateInfo {
+                        usage: BufferUsage::STORAGE_BUFFER,
+                        ..Default::default()
                     },
-                    false,
+                    AllocationCreateInfo {
+                        usage: MemoryUsage::Upload,
+                        ..Default::default()
+                    },
                     self.opaque.iter().map(|material| material.as_std140()),
                 )
                 .unwrap(),
@@ -110,16 +110,19 @@ impl MaterialSet {
     pub fn buffer_translucent(
         &self,
         allocator: &(impl MemoryAllocator + ?Sized),
-    ) -> Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>> {
+    ) -> Option<Subbuffer<[Std140TranslucentMaterial]>> {
         if !self.translucent.is_empty() {
             Some(
-                CpuAccessibleBuffer::from_iter(
+                Buffer::from_iter(
                     allocator,
-                    BufferUsage {
-                        storage_buffer: true,
-                        ..BufferUsage::empty()
+                    BufferCreateInfo {
+                        usage: BufferUsage::STORAGE_BUFFER,
+                        ..Default::default()
                     },
-                    false,
+                    AllocationCreateInfo {
+                        usage: MemoryUsage::Upload,
+                        ..Default::default()
+                    },
                     self.translucent.iter().map(|material| material.as_std140()),
                 )
                 .unwrap(),
@@ -139,16 +142,19 @@ impl OpaqueMaterial {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         materials: &[OpaqueMaterial],
-    ) -> Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>> {
+    ) -> Option<Subbuffer<[Std140OpaqueMaterial]>> {
         if !materials.is_empty() {
             Some(
-                CpuAccessibleBuffer::from_iter(
+                Buffer::from_iter(
                     allocator,
-                    BufferUsage {
-                        storage_buffer: true,
-                        ..BufferUsage::empty()
+                    BufferCreateInfo {
+                        usage: BufferUsage::STORAGE_BUFFER,
+                        ..Default::default()
                     },
-                    false,
+                    AllocationCreateInfo {
+                        usage: MemoryUsage::Upload,
+                        ..Default::default()
+                    },
                     materials.iter().map(|material| material.as_std140()),
                 )
                 .unwrap(),
@@ -176,16 +182,19 @@ impl TranslucentMaterial {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         materials: &[TranslucentMaterial],
-    ) -> Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>> {
+    ) -> Option<Subbuffer<[Std140TranslucentMaterial]>> {
         if !materials.is_empty() {
             Some(
-                CpuAccessibleBuffer::from_iter(
+                Buffer::from_iter(
                     allocator,
-                    BufferUsage {
-                        storage_buffer: true,
-                        ..BufferUsage::empty()
+                    BufferCreateInfo {
+                        usage: BufferUsage::STORAGE_BUFFER,
+                        ..Default::default()
                     },
-                    false,
+                    AllocationCreateInfo {
+                        usage: MemoryUsage::Upload,
+                        ..Default::default()
+                    },
                     materials.iter().map(|material| material.as_std140()),
                 )
                 .unwrap(),

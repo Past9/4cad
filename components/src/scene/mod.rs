@@ -3,9 +3,9 @@ use std::sync::Arc;
 use cgmath::{point3, vec3, InnerSpace, Quaternion, Rad, Rotation3, Vector3};
 use eframe::{
     egui::{self, PointerButton},
-    epaint::{mutex::Mutex, PaintCallback, PaintCallbackInfo, Pos2, Rect, Vec2},
+    epaint::{mutex::Mutex, PaintCallback, Pos2, Rect, Vec2},
 };
-use egui_winit_vulkano::CallbackFn;
+use egui_winit_vulkano::{egui::PaintCallbackInfo, CallbackFn};
 use render::scene::Scene;
 use vulkano::pipeline::graphics::viewport::Viewport;
 
@@ -117,7 +117,7 @@ impl SceneViewer {
     }
 
     fn ui_pos_to_fbo_pos(&self, ui: &egui::Ui, ui_pos: Pos2) -> Pos2 {
-        let pix_per_pt = ui.input().pixels_per_point;
+        let pix_per_pt = ui.input(|i| i.pixels_per_point);
         let x = (ui_pos.x - self.scene_rect.min.x) * pix_per_pt;
         let y = (self.scene_rect.max.y - ui_pos.y) * pix_per_pt;
         Pos2 { x, y }
@@ -161,7 +161,7 @@ impl SceneViewer {
 
                 // Handle mouse events
                 let mut scene = self.renderer.lock();
-                for event in ui.input().events.iter() {
+                for event in ui.input(|i| i.events.clone()).iter() {
                     match event {
                         egui::Event::Scroll(pts) => {
                             if self.allow_manual_zoom {

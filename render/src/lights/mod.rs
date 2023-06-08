@@ -2,20 +2,18 @@ mod ambient;
 mod directional;
 mod point;
 
-use std::sync::Arc;
+use crate::Rgb;
+use cgmath::{Point3, Vector3};
+use vulkano::{buffer::Subbuffer, memory::allocator::MemoryAllocator};
 
 pub use ambient::*;
-use cgmath::{Point3, Vector3};
 pub use directional::*;
 pub use point::*;
-use vulkano::{buffer::CpuAccessibleBuffer, memory::allocator::MemoryAllocator};
-
-use crate::Rgb;
 
 pub struct LightBuffers {
-    pub ambient: Arc<CpuAccessibleBuffer<[Std140AmbientLight]>>,
-    pub directional: Arc<CpuAccessibleBuffer<[Std140DirectionalLight]>>,
-    pub point: Arc<CpuAccessibleBuffer<[Std140PointLight]>>,
+    pub ambient: Subbuffer<[Std140AmbientLight]>,
+    pub directional: Subbuffer<[Std140DirectionalLight]>,
+    pub point: Subbuffer<[Std140PointLight]>,
 }
 
 #[derive(Clone)]

@@ -3,18 +3,19 @@ use std::sync::Arc;
 use bytemuck::{Pod, Zeroable};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
     descriptor_set::{
         self, allocator::StandardDescriptorSetAllocator, DescriptorSet, PersistentDescriptorSet,
         WriteDescriptorSet,
     },
     image::ImageViewAbstract,
+    memory::allocator::{AllocationCreateInfo, MemoryUsage},
     pipeline::{
         graphics::{
             color_blend::ColorBlendState,
             input_assembly::InputAssemblyState,
             rasterization::{CullMode, FrontFace, RasterizationState},
-            vertex_input::BuffersDefinition,
+            vertex_input::Vertex,
             viewport::ViewportState,
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
@@ -23,18 +24,21 @@ use vulkano::{
 
 pub struct EguiTransfer {
     pipeline: Arc<GraphicsPipeline>,
-    quad: Arc<CpuAccessibleBuffer<[EguiVertex]>>,
+    quad: Subbuffer<[EguiVertex]>,
     descriptor_set: Arc<PersistentDescriptorSet>,
 }
 impl EguiTransfer {
     pub fn new<'a>(resources: &RenderResources<'a>) -> Self {
-        let vertex_buffer = CpuAccessibleBuffer::from_iter(
+        let vertex_buffer = Buffer::from_iter(
             &resources.memory_allocator,
-            BufferUsage {
-                vertex_buffer: true,
+            BufferCreateInfo {
+                usage: BufferUsage::VERTEX_BUFFER,
                 ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             [
                 EguiVertex {
                     position: [-1.0, -1.0],
@@ -69,7 +73,8 @@ impl EguiTransfer {
 
             GraphicsPipeline::start()
                 .input_assembly_state(InputAssemblyState::new())
-                .vertex_input_state(BuffersDefinition::new().vertex::<EguiVertex>())
+                .vertex_input_state(EguiVertex::per_vertex())
+                //.vertex_input_state(BuffersDefinition::new().vertex::<EguiVertex>())
                 .vertex_shader(egui_vs.entry_point("main").unwrap(), ())
                 .fragment_shader(egui_fs.entry_point("main").unwrap(), ())
                 .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
@@ -165,11 +170,11 @@ impl EguiTransfer {
 }
 
 #[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+#[derive(Default, Debug, Copy, Clone, Vertex, Zeroable, Pod)]
 struct EguiVertex {
+    #[format(R32G32_SFLOAT)]
     position: [f32; 2],
 }
-vulkano::impl_vertex!(EguiVertex, position);
 
 mod egui_vs {
     vulkano_shaders::shader! {
@@ -200,8 +205,5 @@ void main() {
     // Load the value at the current pixel.
     f_color.rgba = subpassLoad(u_diffuse).rgba;
 }",
-        types_meta: {
-            #[derive(Clone, Copy, Zeroable, Pod)]
-        },
     }
 }

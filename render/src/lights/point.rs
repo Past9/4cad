@@ -1,13 +1,10 @@
-use std::sync::Arc;
-
+use crate::Rgb;
 use cgmath::{point3, Point3};
 use crevice::std140::AsStd140;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
-    memory::allocator::MemoryAllocator,
+    buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
+    memory::allocator::{AllocationCreateInfo, MemoryAllocator, MemoryUsage},
 };
-
-use crate::Rgb;
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct PointLight {
@@ -35,14 +32,17 @@ impl PointLight {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         lights: Vec<PointLight>,
-    ) -> Arc<CpuAccessibleBuffer<[Std140PointLight]>> {
-        CpuAccessibleBuffer::from_iter(
+    ) -> Subbuffer<[Std140PointLight]> {
+        Buffer::from_iter(
             allocator,
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::default()
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             match lights.len() {
                 len if len > 0 => lights,
                 _ => vec![Self::zero()],

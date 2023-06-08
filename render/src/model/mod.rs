@@ -1,7 +1,6 @@
 use crate::Rgba;
-use std::sync::Arc;
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
-use vulkano::memory::allocator::MemoryAllocator;
+use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer};
+use vulkano::memory::allocator::{AllocationCreateInfo, MemoryAllocator, MemoryUsage};
 
 mod edge;
 mod material;
@@ -14,18 +13,18 @@ pub use point::*;
 pub use surface::*;
 
 pub struct GeometryBuffers {
-    pub opaque_materials: Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>>,
-    pub opaque_surface_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
-    pub opaque_surface_indices: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+    pub opaque_materials: Option<Subbuffer<[Std140OpaqueMaterial]>>,
+    pub opaque_surface_vertices: Option<Subbuffer<[BufferedSurfaceVertex]>>,
+    pub opaque_surface_indices: Option<Subbuffer<[u32]>>,
 
-    pub translucent_materials: Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>>,
-    pub translucent_surface_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
-    pub translucent_surface_indices: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+    pub translucent_materials: Option<Subbuffer<[Std140TranslucentMaterial]>>,
+    pub translucent_surface_vertices: Option<Subbuffer<[BufferedSurfaceVertex]>>,
+    pub translucent_surface_indices: Option<Subbuffer<[u32]>>,
 
-    pub edge_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
-    pub edge_indices: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+    pub edge_vertices: Option<Subbuffer<[BufferedEdgeVertex]>>,
+    pub edge_indices: Option<Subbuffer<[u32]>>,
 
-    pub point_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>>,
+    pub point_vertices: Option<Subbuffer<[BufferedPointVertex]>>,
 }
 
 #[derive(Debug)]
@@ -90,8 +89,8 @@ impl Geometry {
         allocator: &(impl MemoryAllocator + ?Sized),
         surfaces: impl Iterator<Item = &'a ModelSurface>,
     ) -> (
-        Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
-        Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+        Option<Subbuffer<[BufferedSurfaceVertex]>>,
+        Option<Subbuffer<[u32]>>,
     ) {
         let mut vertices: Vec<BufferedSurfaceVertex> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
@@ -110,24 +109,30 @@ impl Geometry {
         }
 
         if vertices.len() > 0 && indices.len() > 0 {
-            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+            let vertex_buffer = Buffer::from_iter(
                 allocator,
-                BufferUsage {
-                    vertex_buffer: true,
-                    ..BufferUsage::empty()
+                BufferCreateInfo {
+                    usage: BufferUsage::VERTEX_BUFFER,
+                    ..Default::default()
                 },
-                false,
+                AllocationCreateInfo {
+                    usage: MemoryUsage::Upload,
+                    ..Default::default()
+                },
                 vertices,
             )
             .unwrap();
 
-            let index_buffer = CpuAccessibleBuffer::from_iter(
+            let index_buffer = Buffer::from_iter(
                 allocator,
-                BufferUsage {
-                    index_buffer: true,
-                    ..BufferUsage::empty()
+                BufferCreateInfo {
+                    usage: BufferUsage::INDEX_BUFFER,
+                    ..Default::default()
                 },
-                false,
+                AllocationCreateInfo {
+                    usage: MemoryUsage::Upload,
+                    ..Default::default()
+                },
                 indices,
             )
             .unwrap();
@@ -142,8 +147,8 @@ impl Geometry {
         &self,
         allocator: &(impl MemoryAllocator + ?Sized),
     ) -> (
-        Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
-        Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+        Option<Subbuffer<[BufferedEdgeVertex]>>,
+        Option<Subbuffer<[u32]>>,
     ) {
         let mut vertices: Vec<BufferedEdgeVertex> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
@@ -163,24 +168,30 @@ impl Geometry {
         }
 
         if vertices.len() > 0 && indices.len() > 0 {
-            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+            let vertex_buffer = Buffer::from_iter(
                 allocator,
-                BufferUsage {
-                    vertex_buffer: true,
-                    ..BufferUsage::empty()
+                BufferCreateInfo {
+                    usage: BufferUsage::VERTEX_BUFFER,
+                    ..Default::default()
                 },
-                false,
+                AllocationCreateInfo {
+                    usage: MemoryUsage::Upload,
+                    ..Default::default()
+                },
                 vertices,
             )
             .unwrap();
 
-            let index_buffer = CpuAccessibleBuffer::from_iter(
+            let index_buffer = Buffer::from_iter(
                 allocator,
-                BufferUsage {
-                    index_buffer: true,
-                    ..BufferUsage::empty()
+                BufferCreateInfo {
+                    usage: BufferUsage::INDEX_BUFFER,
+                    ..Default::default()
                 },
-                false,
+                AllocationCreateInfo {
+                    usage: MemoryUsage::Upload,
+                    ..Default::default()
+                },
                 indices,
             )
             .unwrap();
@@ -194,7 +205,7 @@ impl Geometry {
     pub fn buffer_points(
         &self,
         allocator: &(impl MemoryAllocator + ?Sized),
-    ) -> Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>> {
+    ) -> Option<Subbuffer<[BufferedPointVertex]>> {
         let mut vertices: Vec<BufferedPointVertex> = Vec::new();
 
         for model in self.models.iter() {
@@ -204,13 +215,16 @@ impl Geometry {
         }
 
         if vertices.len() > 0 {
-            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+            let vertex_buffer = Buffer::from_iter(
                 allocator,
-                BufferUsage {
-                    vertex_buffer: true,
-                    ..BufferUsage::empty()
+                BufferCreateInfo {
+                    usage: BufferUsage::VERTEX_BUFFER,
+                    ..Default::default()
                 },
-                false,
+                AllocationCreateInfo {
+                    usage: MemoryUsage::Upload,
+                    ..Default::default()
+                },
                 vertices,
             )
             .unwrap();
