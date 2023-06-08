@@ -1,12 +1,15 @@
 use primitives::{rat, ParamD2, Point4d};
+/*
 use render::{
     model::{model::Model, Point},
     Vec3,
 };
+*/
 use splines::Curve;
 use std::time::Instant;
 
 fn main() {
+    /*
     let curve = Curve::new(
         vec![
             Point4d::new_ints(2, 0, -2, 0),
@@ -58,4 +61,5 @@ fn main() {
     println!("{}us", (end - start).as_micros());
 
     render::render_model(model, 10.0).unwrap();
+    */
 }

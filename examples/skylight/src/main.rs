@@ -1,12 +1,15 @@
 use primitives::{rat, ParamD2, Point4d};
+/*
 use render::{
     model::{model::Model, Point},
     Vec3,
 };
+*/
 use splines::{Curve, Surface};
 use std::time::Instant;
 
 fn main() {
+    /*
     let surface = Surface::new(
         vec![
             vec![
@@ -76,4 +79,5 @@ fn main() {
     println!("{}us", (end - start).as_micros());
 
     render::render_model(model, 10.0).unwrap();
+    */
 }

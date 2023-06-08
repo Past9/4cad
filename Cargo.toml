@@ -5,6 +5,7 @@ members = [
     "splines",
     "render",
     "brep",
+    "viewer",
     "examples/arc",
     "examples/skylight",
 ]
