@@ -1,6 +1,5 @@
-use primitives::{ParamD2, Point4d, Rat};
-
 use crate::{basis_d1, basis_d2, basis_i, basis_s, knot_span, normalize_knots};
+use primitives::{ParamD2, Point4d, Rat};
 
 #[derive(Debug)]
 pub struct Surface {

@@ -19,6 +19,24 @@ impl GuiRenderer {
         }
     }
 
+    pub fn set_show_points(&mut self, show: bool) {
+        if let Some(ref mut internal) = self.internal {
+            internal.set_show_points(show);
+        }
+    }
+
+    pub fn set_show_edges(&mut self, show: bool) {
+        if let Some(ref mut internal) = self.internal {
+            internal.set_show_edges(show);
+        }
+    }
+
+    pub fn set_show_surfaces(&mut self, show: bool) {
+        if let Some(ref mut internal) = self.internal {
+            internal.set_show_surfaces(show);
+        }
+    }
+
     pub(super) fn camera_vec_to(&self, location: Point3<f32>) -> Option<Vector3<f32>> {
         if let Some(ref renderer) = self.internal {
             Some(renderer.camera_vec_to(location))
@@ -125,6 +143,18 @@ impl InternalGuiRenderer {
             scene_renderer: renderer,
             transfer,
         }
+    }
+
+    pub fn set_show_points(&mut self, show: bool) {
+        self.scene_renderer.set_show_points(show);
+    }
+
+    pub fn set_show_edges(&mut self, show: bool) {
+        self.scene_renderer.set_show_edges(show);
+    }
+
+    pub fn set_show_surfaces(&mut self, show: bool) {
+        self.scene_renderer.set_show_surfaces(show);
     }
 
     fn camera_vec_to(&self, location: Point3<f32>) -> Vector3<f32> {

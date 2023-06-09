@@ -84,6 +84,11 @@ pub struct SceneViewer {
     allow_manual_pan: bool,
     allow_manual_zoom: bool,
     mouse_pos: Pos2,
+
+    // Renderer options
+    show_points: bool,
+    show_edges: bool,
+    show_surfaces: bool,
 }
 impl SceneViewer {
     pub fn new(
@@ -109,7 +114,24 @@ impl SceneViewer {
             allow_manual_pan,
             allow_manual_zoom,
             mouse_pos: Pos2 { x: 0.0, y: 0.0 },
+
+            // Renderer options
+            show_points: true,
+            show_edges: true,
+            show_surfaces: true,
         }
+    }
+
+    pub fn set_show_points(&mut self, show: bool) {
+        self.show_points = show;
+    }
+
+    pub fn set_show_edges(&mut self, show: bool) {
+        self.show_edges = show;
+    }
+
+    pub fn set_show_surfaces(&mut self, show: bool) {
+        self.show_surfaces = show;
     }
 
     pub fn rotated(&self) -> bool {
@@ -328,6 +350,9 @@ impl SceneViewer {
                 let scene = self.renderer.clone();
                 let rotation = self.rotation;
                 let position = self.offset;
+                let show_points = self.show_points;
+                let show_edges = self.show_edges;
+                let show_surfaces = self.show_surfaces;
 
                 // Create the paint callback
                 let paint_callback = PaintCallback {
@@ -336,6 +361,9 @@ impl SceneViewer {
                         let mut scene = scene.lock();
                         scene.set_rotation(rotation);
                         scene.set_position(position);
+                        scene.set_show_points(show_points);
+                        scene.set_show_edges(show_edges);
+                        scene.set_show_surfaces(show_surfaces);
                         scene.render(&info, ctx);
                     })),
                 };

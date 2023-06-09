@@ -58,18 +58,18 @@ impl Window for Ui {
                 ui.separator();
 
                 if ui.checkbox(&mut self.show_points, "Show points").changed() {
-                    println!("Show points: {}", self.show_points);
+                    self.scene_viewer.set_show_points(self.show_points);
                 };
 
                 if ui.checkbox(&mut self.show_edges, "Show edges").changed() {
-                    println!("Show edges: {}", self.show_edges);
+                    self.scene_viewer.set_show_edges(self.show_edges);
                 };
 
                 if ui
                     .checkbox(&mut self.show_surfaces, "Show surfaces")
                     .changed()
                 {
-                    println!("Show surfaces: {}", self.show_surfaces);
+                    self.scene_viewer.set_show_surfaces(self.show_surfaces);
                 };
 
                 ui.separator();
