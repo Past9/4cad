@@ -2,22 +2,27 @@ use std::iter::{Product, Sum};
 
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 
-use crate::{point3d::Point3d, rat::Rat, Int};
+use crate::point3d::Point3d;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Point4d {
-    pub(crate) w: Rat,
-    pub(crate) x: Rat,
-    pub(crate) y: Rat,
-    pub(crate) z: Rat,
+    pub w: f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 impl Point4d {
-    pub fn new(w: Rat, x: Rat, y: Rat, z: Rat) -> Self {
+    pub fn new(w: f64, x: f64, y: f64, z: f64) -> Self {
         Self { w, x, y, z }
     }
 
-    pub fn new_ints(w: Int, x: Int, y: Int, z: Int) -> Self {
-        Self::new(w.into(), x.into(), y.into(), z.into())
+    pub fn new_ints(w: i64, x: i64, y: i64, z: i64) -> Self {
+        Self {
+            w: w as f64,
+            x: x as f64,
+            y: y as f64,
+            z: z as f64,
+        }
     }
 
     pub fn zero() -> Self {
@@ -79,16 +84,7 @@ impl_op_ex!(*|a: &Point4d, b: &Point4d| -> Point4d {
     Point4d::new(&a.w * &b.w, &a.x * &b.x, &a.y * &b.y, &a.z * &b.z)
 });
 
-impl_op_ex_commutative!(*|a: &Point4d, b: &Rat| -> Point4d {
-    Point4d {
-        w: &a.w * b,
-        x: &a.x * b,
-        y: &a.y * b,
-        z: &a.z * b,
-    }
-});
-
-impl_op_ex_commutative!(*|a: &Point4d, b: &Int| -> Point4d {
+impl_op_ex_commutative!(*|a: &Point4d, b: &f64| -> Point4d {
     Point4d {
         w: &a.w * b,
         x: &a.x * b,

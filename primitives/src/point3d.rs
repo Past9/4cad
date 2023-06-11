@@ -1,20 +1,14 @@
 use cgmath::{Point3, Vector3};
 
-use crate::{rat::Rat, Int};
-
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Point3d {
-    x: Rat,
-    y: Rat,
-    z: Rat,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 impl Point3d {
-    pub fn new(x: Rat, y: Rat, z: Rat) -> Self {
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
-    }
-
-    pub fn new_ints(x: Int, y: Int, z: Int) -> Self {
-        Self::new(x.into(), y.into(), z.into())
     }
 }
 impl std::fmt::Display for Point3d {
@@ -25,18 +19,18 @@ impl std::fmt::Display for Point3d {
 impl From<Point3d> for Vector3<f32> {
     fn from(value: Point3d) -> Self {
         Vector3 {
-            x: value.x.into(),
-            y: value.y.into(),
-            z: value.z.into(),
+            x: value.x as f32,
+            y: value.y as f32,
+            z: value.z as f32,
         }
     }
 }
 impl From<Point3d> for Point3<f32> {
     fn from(value: Point3d) -> Self {
         Point3 {
-            x: value.x.into(),
-            y: value.y.into(),
-            z: value.z.into(),
+            x: value.x as f32,
+            y: value.y as f32,
+            z: value.z as f32,
         }
     }
 }

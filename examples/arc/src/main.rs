@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{rat, ParamD2, Point4d};
+use primitives::Point4d;
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -28,18 +28,7 @@ fn main() {
             Point4d::new_ints(1, -1, -1, 0),
             Point4d::new_ints(2, 0, -2, 0),
         ],
-        vec![
-            rat(0, 1),
-            rat(0, 1),
-            rat(0, 1),
-            rat(1, 4),
-            rat(1, 2),
-            rat(1, 2),
-            rat(3, 4),
-            rat(1, 1),
-            rat(1, 1),
-            rat(1, 1),
-        ],
+        vec![0.0, 0.0, 0.0, 0.25, 0.5, 0.5, 0.75, 1.0, 1.0, 1.0],
     );
 
     let mut points = Vec::new();
@@ -47,9 +36,8 @@ fn main() {
     let num_pts = 100;
     let start = Instant::now();
     for i in 0..=num_pts {
-        let t = rat(i, num_pts);
-        let no = ParamD2::from(t.clone());
-        let p4d = curve.eval_i(&t);
+        let t = i as f64 / num_pts as f64;
+        let p4d = curve.eval(t);
         let p3d = p4d.project();
 
         points.push(ModelPoint::new(

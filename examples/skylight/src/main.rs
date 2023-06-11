@@ -1,4 +1,4 @@
-use primitives::{rat, ParamD2, Point4d};
+use primitives::Point4d;
 /*
 use render::{
     model::{model::Model, Point},
