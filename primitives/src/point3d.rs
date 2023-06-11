@@ -1,6 +1,6 @@
 use cgmath::{Point3, Vector3};
 
-use crate::{rational::Rat, Int};
+use crate::{rat::Rat, Int};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Point3d {

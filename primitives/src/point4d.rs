@@ -2,7 +2,7 @@ use std::iter::{Product, Sum};
 
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 
-use crate::{point3d::Point3d, rational::Rat, Int};
+use crate::{point3d::Point3d, rat::Rat, Int};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Point4d {

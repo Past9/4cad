@@ -24,7 +24,7 @@ fn basis_s(knots: &[Rat], j: usize, m: usize, t: &Rat) -> Rat {
 
     if m == 1 {
         if tj <= &t && t < tj1 {
-            Rat::one()
+            Rat::ONE
         } else {
             Rat::zero()
         }
@@ -64,7 +64,7 @@ fn basis_d1(knots: &[Rat], j: usize, m: usize, t: &Rat) -> Rat {
 
     if m == 1 {
         if tj <= &t && t < tj1 {
-            Rat::one()
+            Rat::ONE
         } else {
             Rat::zero()
         }
@@ -110,7 +110,7 @@ fn basis_d2(knots: &[Rat], j: usize, m: usize, t: &ParamD2) -> Rat {
 
     if m == 1 {
         if tj <= &rat_param && &rat_param < tj1 {
-            Rat::one()
+            Rat::ONE
         } else {
             Rat::zero()
         }
