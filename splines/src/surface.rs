@@ -54,9 +54,15 @@ impl Surface {
     pub fn eval(&self, u: f64, v: f64) -> Point4d {
         ij_iter(self.points.len(), self.points[0].len())
             .map(|(i, j)| {
-                basis(&self.knots_u, i, self.order_u, u)
-                    * basis(&self.knots_v, j, self.order_v, v)
-                    * &self.points[i][j]
+                let basis_u = basis(&self.knots_u, i, self.order_u, u);
+                let basis_v = basis(&self.knots_v, j, self.order_v, v);
+                let p = &self.points[i][j];
+                Point4d {
+                    w: p.w * basis_u * basis_v,
+                    x: p.w * p.x * basis_u * basis_v,
+                    y: p.w * p.y * basis_u * basis_v,
+                    z: p.w * p.z * basis_u * basis_v,
+                }
             })
             .sum()
     }

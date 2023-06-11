@@ -33,7 +33,15 @@ impl Curve {
         self.points
             .iter()
             .enumerate()
-            .map(|(j, p)| p * basis(&self.knots, j, self.order, t))
+            .map(|(j, p)| {
+                let basis = basis(&self.knots, j, self.order, t);
+                Point4d {
+                    w: p.w * basis,
+                    x: p.w * p.x * basis,
+                    y: p.w * p.y * basis,
+                    z: p.w * p.z * basis,
+                }
+            })
             .sum()
     }
 }
