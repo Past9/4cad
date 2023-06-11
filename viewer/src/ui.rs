@@ -75,7 +75,7 @@ impl Window for Ui {
                 ui.separator();
 
                 if ui.button("Reset camera").clicked() {
-                    println!("Reset camera");
+                    self.scene_viewer.reset_camera();
                 };
             });
 

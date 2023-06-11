@@ -24,11 +24,12 @@ impl SceneBuilder {
     }
 
     pub fn build(self) -> Scene {
+        let camera = self.camera.expect("No camera");
         Scene {
             background: self.background.clone(),
             orientation: Orientation::zero(),
             lights: self.lights.unwrap_or(Lights::new()),
-            camera: self.camera.expect("No camera"),
+            camera: camera,
             geometry: self.geometry.unwrap_or(Geometry::new()),
         }
     }

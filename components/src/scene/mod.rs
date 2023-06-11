@@ -73,10 +73,13 @@ pub struct PointerButtonDown {
 }
 
 pub struct SceneViewer {
+    original_rotation: Quaternion<f32>,
+    original_position: Vector3<f32>,
+
     renderer: Arc<Mutex<GuiRenderer>>,
     scene_rect: egui::Rect,
     rotation: Quaternion<f32>,
-    offset: Vector3<f32>,
+    position: Vector3<f32>,
     pointer_buttons_down: Vec<PointerButtonDown>,
     clicked: Option<ColorId>,
     rotated: bool,
@@ -93,20 +96,22 @@ pub struct SceneViewer {
 impl SceneViewer {
     pub fn new(
         rotation: Quaternion<f32>,
-        offset: Vector3<f32>,
+        position: Vector3<f32>,
         allow_manual_rotate: bool,
         allow_manual_pan: bool,
         allow_manual_zoom: bool,
         scene: Scene,
     ) -> Self {
         Self {
+            original_rotation: rotation.clone(),
+            original_position: position.clone(),
             renderer: Arc::new(Mutex::new(GuiRenderer::empty(scene))),
             scene_rect: egui::Rect {
                 min: (0.0, 0.0).into(),
                 max: (0.0, 0.0).into(),
             },
             rotation,
-            offset,
+            position,
             pointer_buttons_down: Vec::new(),
             clicked: None,
             rotated: false,
@@ -132,6 +137,11 @@ impl SceneViewer {
 
     pub fn set_show_surfaces(&mut self, show: bool) {
         self.show_surfaces = show;
+    }
+
+    pub fn reset_camera(&mut self) {
+        self.rotation = self.original_rotation;
+        self.position = self.original_position;
     }
 
     pub fn rotated(&self) -> bool {
@@ -207,7 +217,7 @@ impl SceneViewer {
                                 let mouse_y = mouse_ctr_y / half_h;
 
                                 if let Some(cam_vec_to) =
-                                    scene.camera_vec_to(point3(0.0, 0.0, 0.0) + self.offset)
+                                    scene.camera_vec_to(point3(0.0, 0.0, 0.0) + self.position)
                                 {
                                     let cam_dist = cam_vec_to.magnitude();
                                     if let Some(vp_size) = scene.viewport_size_at_dist(cam_dist) {
@@ -222,7 +232,7 @@ impl SceneViewer {
 
                                         // Move the model backwards along that vector so that "positive scroll"
                                         // (mousewheel up) zooms in.
-                                        self.offset -= zoom_vec;
+                                        self.position -= zoom_vec;
                                     }
                                 }
                             }
@@ -258,7 +268,7 @@ impl SceneViewer {
                                     let Vec2 { x: dx, y: dy } = *pos - pan_drag.last_position;
 
                                     if dy != 0.0 || dx != 0.0 {
-                                        self.offset += vec3(dx, dy, 0.0) * PAN_SENSITIVITY;
+                                        self.position += vec3(dx, dy, 0.0) * PAN_SENSITIVITY;
                                     }
                                 }
                             }
@@ -349,7 +359,7 @@ impl SceneViewer {
                 // Clone stuff for the paint callback
                 let scene = self.renderer.clone();
                 let rotation = self.rotation;
-                let position = self.offset;
+                let position = self.position;
                 let show_points = self.show_points;
                 let show_edges = self.show_edges;
                 let show_surfaces = self.show_surfaces;
