@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::Point4d;
+use primitives::{Angle, Point4d};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -13,27 +13,11 @@ use std::{f64::consts::PI, time::Instant};
 use viewer::run_viewer;
 
 fn main() {
-    let w = 2f64.sqrt() / 2.0;
-    let curve = Curve::new(
-        vec![
-            Point4d::new(1.0, 1.0, 0.0, 0.0),
-            Point4d::new(w, 1.0, 1.0, 0.0),
-            Point4d::new(1.0, 0.0, 1.0, 0.0),
-            Point4d::new(w, -1.0, 1.0, 0.0),
-            Point4d::new(1.0, -1.0, 0.0, 0.0),
-            Point4d::new(w, -1.0, -1.0, 0.0),
-            Point4d::new(1.0, 0.0, -1.0, 0.0),
-            Point4d::new(w, 1.0, -1.0, 0.0),
-            Point4d::new(1.0, 1.0, 0.0, 0.0),
-        ],
-        vec![
-            0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
-        ],
-    );
+    let curve = Curve::arc(Angle::deg(315.0));
 
     let mut points = Vec::new();
 
-    let num_pts = 50;
+    let num_pts = 100;
     let start = Instant::now();
     for i in 0..=num_pts {
         let t = i as f64 / num_pts as f64;
