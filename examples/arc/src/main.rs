@@ -26,22 +26,6 @@ fn main() {
             Point4d::new(w, 1.0, -1.0, 0.0),
             Point4d::new(1.0, 1.0, 0.0, 0.0),
         ],
-        /*
-        vec![
-            0.0,
-            0.0,
-            0.0,
-            PI / 2.0,
-            PI / 2.0,
-            PI,
-            PI,
-            3.0 * PI / 2.0,
-            3.0 * PI / 2.0,
-            2.0 * PI,
-            2.0 * PI,
-            2.0 * PI,
-        ],
-        */
         vec![
             0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
         ],
@@ -49,7 +33,7 @@ fn main() {
 
     let mut points = Vec::new();
 
-    let num_pts = 5000;
+    let num_pts = 50;
     let start = Instant::now();
     for i in 0..=num_pts {
         let t = i as f64 / num_pts as f64;
