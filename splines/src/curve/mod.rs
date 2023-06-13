@@ -1,19 +1,19 @@
 mod builders;
 
-use cgmath::{Matrix4, Point3, Rad, Transform};
+use cgmath::{Matrix4, Point3, Rad, Transform, Vector4, Zero};
 use primitives::{Angle, Point4d};
 
-use crate::{basis, normalize_knots};
+use crate::{basis, normalize_knots, Pt4};
 pub use builders::*;
 
 #[derive(Debug)]
 pub struct Curve {
-    points: Vec<Point4d>,
+    points: Vec<Pt4>,
     knots: Vec<f64>,
     order: usize,
 }
 impl Curve {
-    pub fn new(points: Vec<Point4d>, knots: Vec<f64>) -> Self {
+    pub fn new(points: Vec<Pt4>, knots: Vec<f64>) -> Self {
         // Do some validation
         let num_knots = knots.len();
         let num_points = points.len();
@@ -53,20 +53,26 @@ impl Curve {
         }
     }
 
-    pub fn eval(&self, t: f64) -> Point4d {
+    pub fn eval(&self, t: f64) -> Pt4 {
         self.points
             .iter()
             .enumerate()
             .map(|(j, p)| {
                 let basis = basis(&self.knots, j, self.order, t);
-                Point4d {
-                    w: p.w * basis,
+                Pt4 {
                     x: p.w * p.x * basis,
                     y: p.w * p.y * basis,
                     z: p.w * p.z * basis,
+                    w: p.w * basis,
                 }
             })
-            .sum()
+            .reduce(|acc, p| Pt4 {
+                x: acc.x + p.x,
+                y: acc.y + p.y,
+                z: acc.z + p.z,
+                w: acc.w + p.w,
+            })
+            .unwrap()
     }
 
     pub fn transform(&mut self, transform: Matrix4<f64>) {

@@ -1,8 +1,34 @@
 mod curve;
 mod surface;
 
+use cgmath::{Point3, Vector3, Vector4};
 pub use curve::*;
 pub use surface::*;
+
+type Pt3 = Point3<f64>;
+type Pt4 = Vector4<f64>;
+
+pub trait SplineHelpers3 {
+    fn as_f32(&self) -> Point3<f32>;
+}
+impl SplineHelpers3 for Pt3 {
+    fn as_f32(&self) -> Point3<f32> {
+        self.cast::<f32>().unwrap()
+    }
+}
+
+pub trait SplineHelpers4 {
+    fn project(&self) -> Pt3;
+}
+impl SplineHelpers4 for Pt4 {
+    fn project(&self) -> Pt3 {
+        Pt3 {
+            x: self.x / self.w,
+            y: self.y / self.w,
+            z: self.z / self.w,
+        }
+    }
+}
 
 fn normalize_knots(knots: Vec<f64>) -> Vec<f64> {
     let max_knot = knots[knots.len() - 1].clone();

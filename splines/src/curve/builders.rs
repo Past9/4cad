@@ -1,7 +1,7 @@
 use cgmath::{Matrix4, Rad};
-use primitives::{Angle, Point4d};
+use primitives::Angle;
 
-use crate::Curve;
+use crate::{Curve, Pt4};
 
 impl Curve {
     pub fn arc(angle: Angle) -> Curve {
@@ -35,9 +35,9 @@ impl Curve {
 
         Curve::new(
             vec![
-                Point4d::new(1.0, 1.0, 0.0, 0.0),
-                Point4d::new(half_angle.cos(), 1.0, half_angle.tan(), 0.0),
-                Point4d::new(1.0, angle.cos(), angle.sin(), 0.0),
+                Pt4::new(1.0, 0.0, 0.0, 1.0),
+                Pt4::new(1.0, half_angle.tan(), 0.0, half_angle.cos()),
+                Pt4::new(angle.cos(), angle.sin(), 0.0, 1.0),
             ],
             vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
         )

@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, Point4d};
+use primitives::Angle;
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -8,8 +8,8 @@ use render::{
     Rgba,
 };
 
-use splines::Curve;
-use std::{f64::consts::PI, time::Instant};
+use splines::{Curve, SplineHelpers3, SplineHelpers4};
+use std::time::Instant;
 use viewer::run_viewer;
 
 fn main() {
@@ -26,7 +26,7 @@ fn main() {
 
         points.push(ModelPoint::new(
             0.into(),
-            p3d.into(),
+            p3d.as_f32(),
             Vector3::zero(),
             Rgba::WHITE,
         ));
