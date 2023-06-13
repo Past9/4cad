@@ -1,16 +1,15 @@
-use crate::{basis, normalize_knots};
-use primitives::Point4d;
+use crate::{basis, normalize_knots, Pt4};
 
 #[derive(Debug)]
 pub struct Surface {
-    points: Vec<Vec<Point4d>>,
+    points: Vec<Vec<Pt4>>,
     knots_u: Vec<f64>,
     knots_v: Vec<f64>,
     order_u: usize,
     order_v: usize,
 }
 impl Surface {
-    pub fn new(points: Vec<Vec<Point4d>>, knots_u: Vec<f64>, knots_v: Vec<f64>) -> Self {
+    pub fn new(points: Vec<Vec<Pt4>>, knots_u: Vec<f64>, knots_v: Vec<f64>) -> Self {
         let num_knots_u = knots_u.len();
         let num_points_u = points.len();
         let order_u = num_knots_u - num_points_u;
@@ -51,13 +50,13 @@ impl Surface {
         }
     }
 
-    pub fn eval(&self, u: f64, v: f64) -> Point4d {
+    pub fn eval(&self, u: f64, v: f64) -> Pt4 {
         ij_iter(self.points.len(), self.points[0].len())
             .map(|(i, j)| {
                 let basis_u = basis(&self.knots_u, i, self.order_u, u);
                 let basis_v = basis(&self.knots_v, j, self.order_v, v);
                 let p = &self.points[i][j];
-                Point4d {
+                Pt4 {
                     w: p.w * basis_u * basis_v,
                     x: p.w * p.x * basis_u * basis_v,
                     y: p.w * p.y * basis_u * basis_v,

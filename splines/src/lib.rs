@@ -1,12 +1,12 @@
 mod curve;
 mod surface;
 
-use cgmath::{Point3, Vector3, Vector4};
+use cgmath::{Point3, Vector4};
 pub use curve::*;
 pub use surface::*;
 
-type Pt3 = Point3<f64>;
-type Pt4 = Vector4<f64>;
+pub type Pt3 = Point3<f64>;
+pub type Pt4 = Vector4<f64>;
 
 pub trait SplineHelpers3 {
     fn as_f32(&self) -> Point3<f32>;

@@ -8,5 +8,5 @@ members = [
     "viewer",
     "components",
     "examples/arc",
-    "examples/skylight",
+    "examples/cylinder",
 ]

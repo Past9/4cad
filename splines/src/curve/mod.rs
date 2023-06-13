@@ -1,9 +1,8 @@
 mod builders;
 
-use cgmath::{Matrix4, Point3, Rad, Transform, Vector4, Zero};
-use primitives::{Angle, Point4d};
-
 use crate::{basis, normalize_knots, Pt4};
+use cgmath::{Matrix4, Point3, Transform};
+
 pub use builders::*;
 
 #[derive(Debug)]
@@ -66,17 +65,12 @@ impl Curve {
                     w: p.w * basis,
                 }
             })
-            .reduce(|acc, p| Pt4 {
-                x: acc.x + p.x,
-                y: acc.y + p.y,
-                z: acc.z + p.z,
-                w: acc.w + p.w,
-            })
-            .unwrap()
+            .sum()
     }
 
     pub fn transform(&mut self, transform: Matrix4<f64>) {
         for point in self.points.iter_mut() {
+            // Apply transform to only the XYZ coordinates
             let xyz = Point3::new(point.x, point.y, point.z);
             let xyz = transform.transform_point(xyz);
             point.x = xyz.x;
