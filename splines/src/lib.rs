@@ -11,11 +11,16 @@ pub type Pt3 = Point3<f64>;
 pub type Pt4 = Vector4<f64>;
 
 pub trait SplineHelpers3 {
-    fn as_f32(&self) -> Point3<f32>;
+    fn as_f32(self) -> Point3<f32>;
+    fn to_pt4(self, w: f64) -> Pt4;
 }
 impl SplineHelpers3 for Pt3 {
-    fn as_f32(&self) -> Point3<f32> {
+    fn as_f32(self) -> Point3<f32> {
         self.cast::<f32>().unwrap()
+    }
+
+    fn to_pt4(self, w: f64) -> Pt4 {
+        Pt4::new(self.x, self.y, self.z, w)
     }
 }
 

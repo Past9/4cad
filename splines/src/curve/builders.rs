@@ -1,9 +1,16 @@
 use cgmath::{Matrix4, Rad};
 use primitives::Angle;
 
-use crate::{Curve, Pt4};
+use crate::{Curve, Pt3, Pt4, SplineHelpers3};
 
 impl Curve {
+    pub fn line(start: Pt3, end: Pt3) -> Curve {
+        Self::new(
+            vec![start.to_pt4(1.0), end.to_pt4(1.0)],
+            vec![0.0, 0.0, 1.0, 1.0],
+        )
+    }
+
     pub fn arc(angle: Angle) -> Curve {
         let mut full_points = vec![];
         let mut full_knots = vec![0.0, 0.0, 0.0];
