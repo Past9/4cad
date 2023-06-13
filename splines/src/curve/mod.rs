@@ -1,15 +1,15 @@
 mod builders;
 
-use crate::{basis, normalize_knots, Pt4};
-use cgmath::{Matrix4, Point3, Transform};
+use crate::{basis, normalize_knots, Pt4, SplineHelpers4};
+use cgmath::Matrix4;
 
 pub use builders::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Curve {
-    points: Vec<Pt4>,
-    knots: Vec<f64>,
-    order: usize,
+    pub(crate) points: Vec<Pt4>,
+    pub(crate) knots: Vec<f64>,
+    pub(crate) order: usize,
 }
 impl Curve {
     pub fn new(points: Vec<Pt4>, knots: Vec<f64>) -> Self {
@@ -69,13 +69,6 @@ impl Curve {
     }
 
     pub fn transform(&mut self, transform: Matrix4<f64>) {
-        for point in self.points.iter_mut() {
-            // Apply transform to only the XYZ coordinates
-            let xyz = Point3::new(point.x, point.y, point.z);
-            let xyz = transform.transform_point(xyz);
-            point.x = xyz.x;
-            point.y = xyz.y;
-            point.z = xyz.z;
-        }
+        self.points.iter_mut().for_each(|p| p.transform(transform));
     }
 }

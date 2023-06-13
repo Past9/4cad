@@ -1,4 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
+use primitives::Angle;
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -6,41 +7,12 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Pt4, SplineHelpers3, SplineHelpers4, Surface};
+use splines::{Curve, SplineHelpers3, SplineHelpers4, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {
-    let w = 2f64.sqrt() / 2.0;
-    let surface = Surface::new(
-        vec![
-            vec![
-                Pt4::new(1.0, 0.0, 0.0, 1.0),
-                Pt4::new(1.0, 1.0, 0.0, w),
-                Pt4::new(0.0, 1.0, 0.0, 1.0),
-                Pt4::new(-1.0, 1.0, 0.0, w),
-                Pt4::new(-1.0, 0.0, 0.0, 1.0),
-                Pt4::new(-1.0, -1.0, 0.0, w),
-                Pt4::new(0.0, -1.0, 0.0, 1.0),
-                Pt4::new(1.0, -1.0, 0.0, w),
-                Pt4::new(1.0, 0.0, 0.0, 1.0),
-            ],
-            vec![
-                Pt4::new(1.0, 0.0, 4.0, 1.0),
-                Pt4::new(1.0, 1.0, 4.0, w),
-                Pt4::new(0.0, 1.0, 4.0, 1.0),
-                Pt4::new(-1.0, 1.0, 4.0, w),
-                Pt4::new(-1.0, 0.0, 4.0, 1.0),
-                Pt4::new(-1.0, -1.0, 4.0, w),
-                Pt4::new(0.0, -1.0, 4.0, 1.0),
-                Pt4::new(1.0, -1.0, 4.0, w),
-                Pt4::new(1.0, 0.0, 4.0, 1.0),
-            ],
-        ],
-        vec![0.0, 0.0, 1.0, 1.0],
-        vec![
-            0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
-        ],
-    );
+    let curve = Curve::arc(Angle::deg(270.0));
+    let surface = Surface::rule_curve(curve, Vec3::new(0.0, 0.0, 4.0));
 
     let mut points = Vec::new();
 

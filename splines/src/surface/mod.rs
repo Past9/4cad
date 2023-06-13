@@ -1,4 +1,9 @@
-use crate::{basis, normalize_knots, Pt4};
+mod builders;
+
+use crate::{basis, normalize_knots, Pt4, SplineHelpers4};
+use cgmath::Matrix4;
+
+pub use builders::*;
 
 #[derive(Debug)]
 pub struct Surface {
@@ -64,6 +69,12 @@ impl Surface {
                 }
             })
             .sum()
+    }
+
+    pub fn transform(&mut self, transform: Matrix4<f64>) {
+        self.points
+            .iter_mut()
+            .for_each(|row| row.iter_mut().for_each(|p| p.transform(transform)));
     }
 }
 

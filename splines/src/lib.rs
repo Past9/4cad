@@ -1,10 +1,12 @@
 mod curve;
 mod surface;
 
-use cgmath::{Point3, Vector4};
+use cgmath::{Matrix4, Point3, Transform, Vector3, Vector4};
 pub use curve::*;
 pub use surface::*;
 
+pub type Mat4 = Matrix4<f64>;
+pub type Vec3 = Vector3<f64>;
 pub type Pt3 = Point3<f64>;
 pub type Pt4 = Vector4<f64>;
 
@@ -19,6 +21,7 @@ impl SplineHelpers3 for Pt3 {
 
 pub trait SplineHelpers4 {
     fn project(&self) -> Pt3;
+    fn transform(&mut self, transform: Matrix4<f64>);
 }
 impl SplineHelpers4 for Pt4 {
     fn project(&self) -> Pt3 {
@@ -27,6 +30,14 @@ impl SplineHelpers4 for Pt4 {
             y: self.y / self.w,
             z: self.z / self.w,
         }
+    }
+
+    fn transform(&mut self, transform: Matrix4<f64>) {
+        let xyz = Point3::new(self.x, self.y, self.z);
+        let xyz = transform.transform_point(xyz);
+        self.x = xyz.x;
+        self.y = xyz.y;
+        self.z = xyz.z;
     }
 }
 
