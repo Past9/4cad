@@ -7,7 +7,7 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, SplineHelpers3, SplineHelpers4, Surface, Vec3};
+use splines::{Curve, EPoint, HPoint, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {

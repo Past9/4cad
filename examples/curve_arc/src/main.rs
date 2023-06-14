@@ -8,7 +8,7 @@ use render::{
     Rgba,
 };
 
-use splines::{Curve, SplineHelpers3, SplineHelpers4};
+use splines::{Curve, EPoint, HPoint};
 use std::time::Instant;
 use viewer::run_viewer;
 

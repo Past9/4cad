@@ -1,6 +1,6 @@
 mod builders;
 
-use crate::{basis, normalize_knots, Pt4, SplineHelpers4};
+use crate::{basis, normalize_knots, HPoint, Pt4};
 use cgmath::Matrix4;
 
 pub use builders::*;

@@ -10,26 +10,27 @@ pub type Vec3 = Vector3<f64>;
 pub type Pt3 = Point3<f64>;
 pub type Pt4 = Vector4<f64>;
 
-pub trait SplineHelpers3 {
+pub trait EPoint {
     fn as_f32(self) -> Point3<f32>;
-    fn to_pt4(self, w: f64) -> Pt4;
+    fn to_hpoint(self, w: f64) -> Pt4;
 }
-impl SplineHelpers3 for Pt3 {
+impl EPoint for Pt3 {
     fn as_f32(self) -> Point3<f32> {
         self.cast::<f32>().unwrap()
     }
 
-    fn to_pt4(self, w: f64) -> Pt4 {
+    fn to_hpoint(self, w: f64) -> Pt4 {
         Pt4::new(self.x, self.y, self.z, w)
     }
 }
 
-pub trait SplineHelpers4 {
+pub trait HPoint {
     fn project(&self) -> Pt3;
     fn transform(&self, transform: &Matrix4<f64>) -> Self;
     fn weight(&self) -> Self;
+    fn unweight(&self) -> Self;
 }
-impl SplineHelpers4 for Pt4 {
+impl HPoint for Pt4 {
     fn project(&self) -> Pt3 {
         Pt3 {
             x: self.x / self.w,
@@ -55,6 +56,15 @@ impl SplineHelpers4 for Pt4 {
             x: self.x * self.w,
             y: self.y * self.w,
             z: self.z * self.w,
+            w: self.w,
+        }
+    }
+
+    fn unweight(&self) -> Self {
+        Self {
+            x: self.x / self.w,
+            y: self.y / self.w,
+            z: self.z / self.w,
             w: self.w,
         }
     }

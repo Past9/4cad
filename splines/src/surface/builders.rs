@@ -1,11 +1,11 @@
-use crate::{Curve, Mat4, SplineHelpers4, Surface, Vec3};
+use crate::{Curve, HPoint, Mat4, Surface, Vec3};
 
 impl Surface {
     pub fn rule_curve(curve: Curve, direction: Vec3) -> Self {
         let transform = Mat4::from_translation(direction);
 
         let Curve {
-            points: row1,
+            unweighted: row1,
             knots: knots_v,
             ..
         } = curve;
@@ -86,13 +86,14 @@ impl Surface {
         //      knot_vector_from_either
         //  )
         let Curve {
-            points: start_points,
+            unweighted: start_points,
             knots: start_knots,
             ..
         } = start;
 
         let Curve {
-            points: end_points, ..
+            unweighted: end_points,
+            ..
         } = end;
 
         Self::new(

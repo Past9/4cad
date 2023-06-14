@@ -9,5 +9,5 @@ members = [
     "components",
     "examples/curve_arc",
     "examples/surface_ruled_curve",
-    "examples/surface_lofted_curves",
+    "examples/surface_ruled_curves",
 ]

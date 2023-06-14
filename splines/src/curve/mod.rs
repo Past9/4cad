@@ -2,7 +2,7 @@ mod builders;
 
 use std::cmp::{max, min};
 
-use crate::{basis, knot_span, normalize_knots, Pt4, SplineHelpers4};
+use crate::{basis, knot_span, normalize_knots, HPoint, Pt4};
 use cgmath::{Matrix4, Zero};
 
 pub use builders::*;
@@ -10,16 +10,25 @@ pub use builders::*;
 #[derive(Debug, Clone)]
 pub struct Curve {
     pub(crate) weighted: Vec<Pt4>,
-    pub(crate) points: Vec<Pt4>,
+    pub(crate) unweighted: Vec<Pt4>,
     pub(crate) knots: Vec<f64>,
     pub(crate) order: usize,
     pub(crate) degree: usize,
 }
 impl Curve {
-    pub fn new(points: Vec<Pt4>, knots: Vec<f64>) -> Self {
-        // Do some validation
+    pub fn new(unweighted: Vec<Pt4>, knots: Vec<f64>) -> Self {
+        let weighted = unweighted.iter().map(HPoint::weight).collect();
+        Self::create(unweighted, weighted, knots)
+    }
+
+    pub fn weighted(weighted: Vec<Pt4>, knots: Vec<f64>) -> Self {
+        let unweighted = weighted.iter().map(HPoint::unweight).collect();
+        Self::create(unweighted, weighted, knots)
+    }
+
+    fn create(unweighted: Vec<Pt4>, weighted: Vec<Pt4>, knots: Vec<f64>) -> Self {
         let num_knots = knots.len();
-        let num_points = points.len();
+        let num_points = unweighted.len();
         let order = num_knots - num_points;
         let degree = order - 1;
         if degree < 1 {
@@ -50,12 +59,20 @@ impl Curve {
         }
 
         Self {
-            weighted: points.iter().map(SplineHelpers4::weight).collect(),
-            points,
+            weighted,
+            unweighted,
             knots,
             order,
             degree,
         }
+    }
+
+    pub fn num_pts(&self) -> usize {
+        self.unweighted.len()
+    }
+
+    pub fn order(&self) -> usize {
+        self.order
     }
 
     pub fn degree(&self) -> usize {
@@ -76,91 +93,72 @@ impl Curve {
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
         Self::new(
-            self.points.iter().map(|p| p.transform(transform)).collect(),
+            self.unweighted
+                .iter()
+                .map(|p| p.transform(transform))
+                .collect(),
             self.knots.clone(),
         )
     }
 
-    pub fn refine_knots(&self, knots: Vec<f64>) -> Self {
-        let n = self.points.len() - 1;
-        let r = knots.len() - 1;
+    pub fn refine_knots(&self, add_knots: Vec<f64>) -> Self {
+        let span_a = knot_span(&self.knots, self.unweighted.len(), add_knots[0]);
+        let span_b = knot_span(
+            &self.knots,
+            self.unweighted.len(),
+            add_knots[add_knots.len() - 1],
+        ) + 1;
 
-        let p = self.degree;
-        let self_knots = &self.knots;
-        let pw = self
-            .points
-            .iter()
-            .map(|p| Pt4 {
-                x: p.x * p.w,
-                y: p.y * p.w,
-                z: p.z * p.w,
-                w: p.w,
-            })
-            .collect::<Vec<_>>();
-        let x = &knots;
+        let m = self.unweighted.len() + self.degree;
+        let mut out_knots = vec![0.0; m + add_knots.len() + 1];
+        let mut out_points = vec![Pt4::zero(); self.unweighted.len() + add_knots.len()];
 
-        let m = n + p + 1;
-        let a = knot_span(&self.knots, self.points.len(), x[0]);
-        let b = knot_span(&self.knots, self.points.len(), x[r]) + 1;
-
-        let mut ubar = vec![0.0; m + r + 2];
-        let mut qw = vec![Pt4::zero(); n + r + 2];
-
-        for j in 0..=a - p {
-            qw[j] = pw[j];
+        for j in 0..=span_a - self.degree {
+            out_points[j] = self.weighted[j];
         }
 
-        for j in b - 1..=n {
-            qw[j + r + 1] = pw[j];
+        for j in span_b - 1..self.unweighted.len() {
+            out_points[j + add_knots.len()] = self.weighted[j];
         }
 
-        for j in 0..=a {
-            ubar[j] = self_knots[j];
+        for j in 0..=span_a {
+            out_knots[j] = self.knots[j];
         }
 
-        for j in b + p..=m {
-            ubar[j + r + 1] = self_knots[j];
+        for j in span_b + self.degree..=m {
+            out_knots[j + add_knots.len()] = self.knots[j];
         }
 
-        let mut i = b + p - 1;
-        let mut k = b + p + r;
+        let mut i = span_b + self.degree - 1;
+        let mut k = span_b + self.degree + add_knots.len() - 1;
 
-        for j in (0..=r).rev() {
-            while x[j] <= self_knots[i] && i > a {
-                qw[k - p - 1] = pw[i - p - 1];
-                ubar[k] = self_knots[i];
+        for j in (0..add_knots.len()).rev() {
+            while add_knots[j] <= self.knots[i] && i > span_a {
+                out_points[k - self.degree - 1] = self.weighted[i - self.degree - 1];
+                out_knots[k] = self.knots[i];
                 k = k - 1;
-                i = i - 1
+                i = i - 1;
             }
 
-            qw[k - p - 1] = qw[k - p];
+            out_points[k - self.degree - 1] = out_points[k - self.degree];
 
-            for l in 1..=p {
-                let ind = k - p + l;
-                let mut alfa = ubar[k + l] - x[j];
-                if alfa.abs() == 0.0 {
-                    qw[ind - 1] = qw[ind];
+            for l in 1..=self.degree {
+                let ind = k - self.degree + l;
+                let mut alpha = out_knots[k + l] - add_knots[j];
+                if alpha.abs() == 0.0 {
+                    out_points[ind - 1] = out_points[ind];
                 } else {
-                    alfa = alfa / (ubar[k + l] - self_knots[i - p + l]);
-                    qw[ind - 1] = alfa * qw[ind - 1] + (1.0 - alfa) * qw[ind];
+                    alpha = alpha / (out_knots[k + l] - self.knots[i - self.degree + l]);
+                    out_points[ind - 1] =
+                        alpha * out_points[ind - 1] + (1.0 - alpha) * out_points[ind];
                 }
             }
 
-            ubar[k] = x[j];
+            out_knots[k] = add_knots[j];
             k = k - 1;
         }
 
-        Self::new(
-            qw.into_iter()
-                .map(|p| Pt4 {
-                    x: p.x / p.w,
-                    y: p.y / p.w,
-                    z: p.z / p.w,
-                    w: p.w,
-                })
-                .collect::<Vec<_>>(),
-            ubar,
-        )
+        Self::weighted(out_points, out_knots)
     }
 
     pub fn elevate_degree(&self, num_elevations: usize) -> Self {

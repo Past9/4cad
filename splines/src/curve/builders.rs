@@ -1,12 +1,12 @@
 use cgmath::{Matrix4, Rad};
 use primitives::Angle;
 
-use crate::{Curve, Pt3, Pt4, SplineHelpers3};
+use crate::{Curve, EPoint, Pt3, Pt4};
 
 impl Curve {
     pub fn line(start: Pt3, end: Pt3) -> Curve {
         Self::new(
-            vec![start.to_pt4(1.0), end.to_pt4(1.0)],
+            vec![start.to_hpoint(1.0), end.to_hpoint(1.0)],
             vec![0.0, 0.0, 1.0, 1.0],
         )
     }
@@ -20,14 +20,15 @@ impl Curve {
 
         for s in 0..num_sections as usize {
             let start_angle = section_angle * s as f64;
-            let section = Self::arc_section(section_angle).transform(&Matrix4::from_angle_z(Rad(start_angle.0)));
+            let section = Self::arc_section(section_angle)
+                .transform(&Matrix4::from_angle_z(Rad(start_angle.0)));
 
             if s == 0 {
-                full_points.extend(section.points);
+                full_points.extend(section.unweighted);
             } else {
                 let knot = (s) as f64 / num_sections as f64;
                 full_knots.extend([knot, knot]);
-                full_points.extend(section.points.into_iter().skip(1));
+                full_points.extend(section.unweighted.into_iter().skip(1));
             }
         }
 

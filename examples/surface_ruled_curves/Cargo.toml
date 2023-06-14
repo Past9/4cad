@@ -1,5 +1,5 @@
 [package]
-name = "surface_lofted_curves"
+name = "surface_ruled_curves"
 version = "0.1.0"
 edition = "2021"
 
