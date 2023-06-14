@@ -268,18 +268,25 @@ impl Curve {
     }
 
     pub fn refine_knots(&self, knots: Vec<f64>) -> Self {
-        let n = self.points.len();
+        println!("knots {:?}", knots);
+        let n = self.points.len() - 1;
+        let r = knots.len() - 1;
+
         let p = self.degree;
         let U = &self.knots;
         let Pw = &self.points;
         let X = &knots;
-        let r = knots.len() - 1;
-        let mut Ubar = vec![0.0; self.knots.len() + knots.len()];
-        let mut Qw = vec![Pt4::zero(); n + r + 2];
 
         let m = n + p + 1;
-        let a = knot_span(&self.knots, n, X[0]);
-        let b = knot_span(&self.knots, n, X[r]) + 1;
+        println!("getting a: {:?} {} {}", self.knots, self.points.len(), X[0]);
+        let a = knot_span(&self.knots, self.points.len(), X[0]);
+        println!("got a");
+        println!("getting b");
+        let b = knot_span(&self.knots, self.points.len(), X[r]) + 1;
+        println!("got b");
+
+        let mut Ubar = vec![0.0; m + r + 2];
+        let mut Qw = vec![Pt4::zero(); n + r + 2];
 
         for j in 0..=a - p {
             Qw[j] = Pw[j];
@@ -297,7 +304,7 @@ impl Curve {
             Ubar[j + r + 1] = U[j];
         }
 
-        let mut i = b + p + 1;
+        let mut i = b + p - 1;
         let mut k = b + p + r;
 
         for j in (0..=r).rev() {
@@ -322,7 +329,7 @@ impl Curve {
             }
 
             Ubar[k] = X[j];
-            k = k - 1
+            k = k - 1;
         }
 
         Self::new(Qw, Ubar)

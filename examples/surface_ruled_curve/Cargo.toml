@@ -1,5 +1,5 @@
 [package]
-name = "arc"
+name = "surface_ruled_curve"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,5 +9,5 @@ edition = "2021"
 splines = { path = "../../splines" }
 render = { path = "../../render" }
 primitives = { path = "../../primitives" }
-viewer = { path = "../../viewer" }
 cgmath = { version = "0.18.0" }
+viewer = { path = "../../viewer" }

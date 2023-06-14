@@ -1,5 +1,5 @@
 [package]
-name = "cylinder"
+name = "surface_lofted_curves"
 version = "0.1.0"
 edition = "2021"
 

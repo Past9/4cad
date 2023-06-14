@@ -7,6 +7,7 @@ members = [
     "brep",
     "viewer",
     "components",
-    "examples/arc",
-    "examples/cylinder",
+    "examples/curve_arc",
+    "examples/surface_ruled_curve",
+    "examples/surface_lofted_curves",
 ]

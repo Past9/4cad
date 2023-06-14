@@ -1,5 +1,3 @@
-use std::collections::{BTreeSet, HashSet};
-
 use crate::{Curve, Mat4, SplineHelpers4, Surface, Vec3};
 
 impl Surface {
@@ -48,8 +46,26 @@ impl Surface {
             .cloned()
             .collect::<Vec<_>>();
 
-        let start = start.refine_knots(end_knots_not_in_start);
-        let end = end.refine_knots(start_knots_not_in_end);
+        println!("start.knots {:?}", start.knots);
+        println!("end.knots {:?}", end.knots);
+        println!("end_knots_not_in_start {:?}", end_knots_not_in_start);
+        println!("start_knots_not_in_end {:?}", start_knots_not_in_end);
+
+        let start = if end_knots_not_in_start.len() > 0 {
+            start.refine_knots(end_knots_not_in_start)
+        } else {
+            start
+        };
+
+        println!("final start.knots {:?}", start.knots);
+
+        let end = if start_knots_not_in_end.len() > 0 {
+            end.refine_knots(start_knots_not_in_end)
+        } else {
+            end
+        };
+
+        println!("final end.knots {:?}", end.knots);
 
         if start.knots() != end.knots() {
             panic!(
