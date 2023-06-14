@@ -9,6 +9,7 @@ pub use builders::*;
 
 #[derive(Debug, Clone)]
 pub struct Curve {
+    pub(crate) weighted: Vec<Pt4>,
     pub(crate) points: Vec<Pt4>,
     pub(crate) knots: Vec<f64>,
     pub(crate) order: usize,
@@ -49,6 +50,7 @@ impl Curve {
         }
 
         Self {
+            weighted: points.iter().map(SplineHelpers4::weight).collect(),
             points,
             knots,
             order,
@@ -64,7 +66,106 @@ impl Curve {
         &self.knots
     }
 
+    pub fn eval(&self, t: f64) -> Pt4 {
+        self.weighted
+            .iter()
+            .enumerate()
+            .map(|(j, p)| p * basis(&self.knots, j, self.order, t))
+            .sum()
+    }
+
+    pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
+        Self::new(
+            self.points.iter().map(|p| p.transform(transform)).collect(),
+            self.knots.clone(),
+        )
+    }
+
+    pub fn refine_knots(&self, knots: Vec<f64>) -> Self {
+        let n = self.points.len() - 1;
+        let r = knots.len() - 1;
+
+        let p = self.degree;
+        let self_knots = &self.knots;
+        let pw = self
+            .points
+            .iter()
+            .map(|p| Pt4 {
+                x: p.x * p.w,
+                y: p.y * p.w,
+                z: p.z * p.w,
+                w: p.w,
+            })
+            .collect::<Vec<_>>();
+        let x = &knots;
+
+        let m = n + p + 1;
+        let a = knot_span(&self.knots, self.points.len(), x[0]);
+        let b = knot_span(&self.knots, self.points.len(), x[r]) + 1;
+
+        let mut ubar = vec![0.0; m + r + 2];
+        let mut qw = vec![Pt4::zero(); n + r + 2];
+
+        for j in 0..=a - p {
+            qw[j] = pw[j];
+        }
+
+        for j in b - 1..=n {
+            qw[j + r + 1] = pw[j];
+        }
+
+        for j in 0..=a {
+            ubar[j] = self_knots[j];
+        }
+
+        for j in b + p..=m {
+            ubar[j + r + 1] = self_knots[j];
+        }
+
+        let mut i = b + p - 1;
+        let mut k = b + p + r;
+
+        for j in (0..=r).rev() {
+            while x[j] <= self_knots[i] && i > a {
+                qw[k - p - 1] = pw[i - p - 1];
+                ubar[k] = self_knots[i];
+                k = k - 1;
+                i = i - 1
+            }
+
+            qw[k - p - 1] = qw[k - p];
+
+            for l in 1..=p {
+                let ind = k - p + l;
+                let mut alfa = ubar[k + l] - x[j];
+                if alfa.abs() == 0.0 {
+                    qw[ind - 1] = qw[ind];
+                } else {
+                    alfa = alfa / (ubar[k + l] - self_knots[i - p + l]);
+                    qw[ind - 1] = alfa * qw[ind - 1] + (1.0 - alfa) * qw[ind];
+                }
+            }
+
+            ubar[k] = x[j];
+            k = k - 1;
+        }
+
+        Self::new(
+            qw.into_iter()
+                .map(|p| Pt4 {
+                    x: p.x / p.w,
+                    y: p.y / p.w,
+                    z: p.z / p.w,
+                    w: p.w,
+                })
+                .collect::<Vec<_>>(),
+            ubar,
+        )
+    }
+
     pub fn elevate_degree(&self, num_elevations: usize) -> Self {
+        todo!()
+        /*
         let n = self.points.len() as i64;
         let p = self.degree as i64;
         let U = &self.knots;
@@ -222,7 +323,7 @@ impl Curve {
             }
 
             if b < m {
-                // Set up for next pass thourgh loop
+                // Set up for next pass through loop
                 for j in 0..r {
                     bpts[j as usize] = Nextbpts[j as usize];
                 }
@@ -245,94 +346,7 @@ impl Curve {
         nh = (mh - ph - 1) as usize;
 
         Self::new(Qw, Uh)
-    }
-
-    pub fn eval(&self, t: f64) -> Pt4 {
-        self.points
-            .iter()
-            .enumerate()
-            .map(|(j, p)| {
-                let basis = basis(&self.knots, j, self.order, t);
-                Pt4 {
-                    x: p.w * p.x * basis,
-                    y: p.w * p.y * basis,
-                    z: p.w * p.z * basis,
-                    w: p.w * basis,
-                }
-            })
-            .sum()
-    }
-
-    pub fn transform(&mut self, transform: Matrix4<f64>) {
-        self.points.iter_mut().for_each(|p| p.transform(transform));
-    }
-
-    pub fn refine_knots(&self, knots: Vec<f64>) -> Self {
-        println!("knots {:?}", knots);
-        let n = self.points.len() - 1;
-        let r = knots.len() - 1;
-
-        let p = self.degree;
-        let U = &self.knots;
-        let Pw = &self.points;
-        let X = &knots;
-
-        let m = n + p + 1;
-        println!("getting a: {:?} {} {}", self.knots, self.points.len(), X[0]);
-        let a = knot_span(&self.knots, self.points.len(), X[0]);
-        println!("got a");
-        println!("getting b");
-        let b = knot_span(&self.knots, self.points.len(), X[r]) + 1;
-        println!("got b");
-
-        let mut Ubar = vec![0.0; m + r + 2];
-        let mut Qw = vec![Pt4::zero(); n + r + 2];
-
-        for j in 0..=a - p {
-            Qw[j] = Pw[j];
-        }
-
-        for j in b - 1..=n {
-            Qw[j + r + 1] = Pw[j];
-        }
-
-        for j in 0..=a {
-            Ubar[j] = U[j];
-        }
-
-        for j in b + p..=m {
-            Ubar[j + r + 1] = U[j];
-        }
-
-        let mut i = b + p - 1;
-        let mut k = b + p + r;
-
-        for j in (0..=r).rev() {
-            while X[j] <= U[i] && i > a {
-                Qw[k - p - 1] = Pw[i - p - 1];
-                Ubar[k] = U[i];
-                k = k - 1;
-                i = i - 1
-            }
-
-            Qw[k - p - 1] = Qw[k - p];
-
-            for l in 1..=p {
-                let ind = k - p + l;
-                let mut alfa = Ubar[k + l] - X[j];
-                if alfa.abs() == 0.0 {
-                    Qw[ind - 1] = Qw[ind];
-                } else {
-                    alfa = alfa / (Ubar[k + l] - U[i - p + l]);
-                    Qw[ind - 1] = alfa * Qw[ind - 1] + (1.0 - alfa) * Qw[ind];
-                }
-            }
-
-            Ubar[k] = X[j];
-            k = k - 1;
-        }
-
-        Self::new(Qw, Ubar)
+        */
     }
 }
 

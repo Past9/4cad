@@ -20,8 +20,7 @@ impl Curve {
 
         for s in 0..num_sections as usize {
             let start_angle = section_angle * s as f64;
-            let mut section = Self::arc_section(section_angle);
-            section.transform(Matrix4::from_angle_z(Rad(start_angle.0)));
+            let section = Self::arc_section(section_angle).transform(&Matrix4::from_angle_z(Rad(start_angle.0)));
 
             if s == 0 {
                 full_points.extend(section.points);

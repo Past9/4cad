@@ -26,7 +26,8 @@ impl SplineHelpers3 for Pt3 {
 
 pub trait SplineHelpers4 {
     fn project(&self) -> Pt3;
-    fn transform(&mut self, transform: Matrix4<f64>);
+    fn transform(&self, transform: &Matrix4<f64>) -> Self;
+    fn weight(&self) -> Self;
 }
 impl SplineHelpers4 for Pt4 {
     fn project(&self) -> Pt3 {
@@ -37,12 +38,25 @@ impl SplineHelpers4 for Pt4 {
         }
     }
 
-    fn transform(&mut self, transform: Matrix4<f64>) {
+    fn transform(&self, transform: &Matrix4<f64>) -> Self {
         let xyz = Point3::new(self.x, self.y, self.z);
         let xyz = transform.transform_point(xyz);
-        self.x = xyz.x;
-        self.y = xyz.y;
-        self.z = xyz.z;
+
+        Self {
+            x: xyz.x,
+            y: xyz.y,
+            z: xyz.z,
+            w: self.w,
+        }
+    }
+
+    fn weight(&self) -> Self {
+        Self {
+            x: self.x * self.w,
+            y: self.y * self.w,
+            z: self.z * self.w,
+            w: self.w,
+        }
     }
 }
 

@@ -21,7 +21,7 @@ fn main() {
     let mut points = Vec::new();
 
     let num_pts = 50;
-    for i in 0..=0 {
+    for i in 0..=num_pts {
         for j in 0..=num_pts {
             let u = i as f64 / num_pts as f64;
             let v = j as f64 / num_pts as f64;

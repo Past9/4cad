@@ -10,8 +10,11 @@ impl Surface {
             ..
         } = curve;
 
-        let mut row2 = row1.clone();
-        row2.iter_mut().for_each(|p| p.transform(transform));
+        let row2 = row1
+            .clone()
+            .into_iter()
+            .map(|p| p.transform(&transform))
+            .collect();
 
         Self::new(vec![row1, row2], vec![0.0, 0.0, 1.0, 1.0], knots_v)
     }

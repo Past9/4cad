@@ -71,10 +71,19 @@ impl Surface {
             .sum()
     }
 
-    pub fn transform(&mut self, transform: Matrix4<f64>) {
-        self.points
-            .iter_mut()
-            .for_each(|row| row.iter_mut().for_each(|p| p.transform(transform)));
+    pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
+        Self::new(
+            self.points
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .map(|p| p.transform(transform))
+                        .collect::<Vec<_>>()
+                })
+                .collect(),
+            self.knots_u.clone(),
+            self.knots_v.clone(),
+        )
     }
 }
 
