@@ -1,8 +1,6 @@
 mod builders;
 
-use std::cmp::{max, min};
-
-use crate::{basis, knot_span, normalize_knots, HPoint, Pt4};
+use crate::{basis, knots::KnotVec, HPoint, Pt4, TOL};
 use cgmath::{Matrix4, Zero};
 
 pub use builders::*;
@@ -11,22 +9,22 @@ pub use builders::*;
 pub struct Curve {
     pub(crate) weighted: Vec<Pt4>,
     pub(crate) unweighted: Vec<Pt4>,
-    pub(crate) knots: Vec<f64>,
+    pub(crate) knots: KnotVec,
     pub(crate) order: usize,
     pub(crate) degree: usize,
 }
 impl Curve {
-    pub fn new(unweighted: Vec<Pt4>, knots: Vec<f64>) -> Self {
+    pub fn new(unweighted: Vec<Pt4>, knots: KnotVec) -> Self {
         let weighted = unweighted.iter().map(HPoint::weight).collect();
         Self::create(unweighted, weighted, knots)
     }
 
-    pub fn weighted(weighted: Vec<Pt4>, knots: Vec<f64>) -> Self {
+    pub fn weighted(weighted: Vec<Pt4>, knots: KnotVec) -> Self {
         let unweighted = weighted.iter().map(HPoint::unweight).collect();
         Self::create(unweighted, weighted, knots)
     }
 
-    fn create(unweighted: Vec<Pt4>, weighted: Vec<Pt4>, knots: Vec<f64>) -> Self {
+    fn create(unweighted: Vec<Pt4>, weighted: Vec<Pt4>, knots: KnotVec) -> Self {
         let num_knots = knots.len();
         let num_points = unweighted.len();
         let order = num_knots - num_points;
@@ -38,25 +36,7 @@ impl Curve {
             );
         }
 
-        let knots = normalize_knots(knots);
-
-        for i in 0..order {
-            if knots[i] != 0.0 {
-                panic!(
-                    "Unclamped curve: First {} normalized knots must be 0, but knots are {:?}",
-                    order, knots
-                );
-            }
-        }
-
-        for i in 0..order {
-            if knots[knots.len() - i - 1] != 1.0 {
-                panic!(
-                    "Unclamped curve: Last {} normalized knots must be 1, but knots are {:?}",
-                    order, knots
-                );
-            }
-        }
+        knots.assert_clamped(degree);
 
         Self {
             weighted,
@@ -79,7 +59,7 @@ impl Curve {
         self.degree
     }
 
-    pub fn knots(&self) -> &[f64] {
+    pub fn knots(&self) -> &KnotVec {
         &self.knots
     }
 
@@ -101,13 +81,33 @@ impl Curve {
         )
     }
 
+    /// Adds the necessary knots so that the curve's knot vector
+    /// matches `final_knots`. Does not remove knots, so if there
+    /// are any knots in the current knot vector that are not in
+    /// `final_knots`, and error will be thrown.
+    pub fn refine_to(&self, final_knots: &KnotVec) -> Self {
+        let self_knots_not_in_final = self.knots.without(final_knots);
+        if self_knots_not_in_final.len() > 0 {
+            panic!(
+                "Cannot refine curve with knot vector {:?} to final knot vector {:?} because it contains knots that do not exist in final knot vector.", 
+                self.knots, 
+                self_knots_not_in_final
+            );
+        }
+
+        let final_knots_not_in_self = final_knots.without(&self.knots);
+
+        self.refine_knots(final_knots_not_in_self)
+    }
+
+    /// Adds the given knots to the knot vector, adding and moving control
+    /// points as necessary but leaving the shape of the curve intact.
     pub fn refine_knots(&self, add_knots: Vec<f64>) -> Self {
-        let span_a = knot_span(&self.knots, self.unweighted.len(), add_knots[0]);
-        let span_b = knot_span(
-            &self.knots,
-            self.unweighted.len(),
-            add_knots[add_knots.len() - 1],
-        ) + 1;
+        let span_a = self.knots.find_span(self.degree, add_knots[0]);
+        let span_b = self
+            .knots
+            .find_span(self.degree, add_knots[add_knots.len() - 1])
+            + 1;
 
         let m = self.unweighted.len() + self.degree;
         let mut out_knots = vec![0.0; m + add_knots.len() + 1];
@@ -145,7 +145,7 @@ impl Curve {
             for l in 1..=self.degree {
                 let ind = k - self.degree + l;
                 let mut alpha = out_knots[k + l] - add_knots[j];
-                if alpha.abs() == 0.0 {
+                if alpha.abs() <= TOL {
                     out_points[ind - 1] = out_points[ind];
                 } else {
                     alpha = alpha / (out_knots[k + l] - self.knots[i - self.degree + l]);
@@ -158,7 +158,7 @@ impl Curve {
             k = k - 1;
         }
 
-        Self::weighted(out_points, out_knots)
+        Self::weighted(out_points, KnotVec::new(out_knots))
     }
 
     pub fn elevate_degree(&self, num_elevations: usize) -> Self {

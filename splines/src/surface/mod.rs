@@ -1,6 +1,6 @@
 mod builders;
 
-use crate::{basis, normalize_knots, HPoint, Pt4};
+use crate::{basis, knots::KnotVec, HPoint, Pt4};
 use cgmath::Matrix4;
 
 pub use builders::*;
@@ -8,13 +8,13 @@ pub use builders::*;
 #[derive(Debug)]
 pub struct Surface {
     points: Vec<Vec<Pt4>>,
-    knots_u: Vec<f64>,
-    knots_v: Vec<f64>,
+    knots_u: KnotVec,
+    knots_v: KnotVec,
     order_u: usize,
     order_v: usize,
 }
 impl Surface {
-    pub fn new(points: Vec<Vec<Pt4>>, knots_u: Vec<f64>, knots_v: Vec<f64>) -> Self {
+    pub fn new(points: Vec<Vec<Pt4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
         let num_knots_u = knots_u.len();
         let num_points_u = points.len();
         let order_u = num_knots_u - num_points_u;
@@ -46,10 +46,13 @@ impl Surface {
             }
         }
 
+        knots_u.assert_clamped(degree_u);
+        knots_v.assert_clamped(degree_v);
+
         Self {
             points,
-            knots_u: normalize_knots(knots_u),
-            knots_v: normalize_knots(knots_v),
+            knots_u,
+            knots_v,
             order_u,
             order_v,
         }

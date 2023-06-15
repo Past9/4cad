@@ -1,14 +1,71 @@
 mod curve;
+mod knots;
 mod surface;
+
+use std::cmp::max;
 
 use cgmath::{Matrix4, Point3, Transform, Vector3, Vector4};
 pub use curve::*;
+use knots::KnotVec;
 pub use surface::*;
 
 pub type Mat4 = Matrix4<f64>;
 pub type Vec3 = Vector3<f64>;
 pub type Pt3 = Point3<f64>;
 pub type Pt4 = Vector4<f64>;
+
+const TOL: f64 = 10.0e-8;
+
+pub trait TolEq {
+    fn toleq(self, rhs: Self) -> bool;
+    fn toleq_avg(self, rhs: Self) -> Option<Self>
+    where
+        Self: Sized;
+}
+impl TolEq for f64 {
+    fn toleq(self, rhs: Self) -> bool {
+        (self - rhs).abs() <= TOL
+    }
+
+    fn toleq_avg(self, rhs: Self) -> Option<Self> {
+        if self.toleq(rhs) {
+            Some((self + rhs) / 2.0)
+        } else {
+            None
+        }
+    }
+}
+impl TolEq for Vec<f64> {
+    fn toleq(self, rhs: Self) -> bool {
+        if self.len() == rhs.len() {
+            self.iter().zip(rhs.iter()).all(|(l, r)| l.toleq(*r))
+        } else {
+            false
+        }
+    }
+
+    fn toleq_avg(self, rhs: Self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        if self.len() == rhs.len() {
+            let mut knots = vec![];
+            for i in 0..self.len() {
+                let l = self[i];
+                let r = rhs[i];
+
+                if let Some(avg) = l.toleq_avg(r) {
+                    knots.push(avg);
+                } else {
+                    return None;
+                }
+            }
+            Some(knots)
+        } else {
+            None
+        }
+    }
+}
 
 pub trait EPoint {
     fn as_f32(self) -> Point3<f32>;
@@ -70,12 +127,7 @@ impl HPoint for Pt4 {
     }
 }
 
-fn normalize_knots(knots: Vec<f64>) -> Vec<f64> {
-    let max_knot = knots[knots.len() - 1].clone();
-    knots.into_iter().map(|knot| knot / &max_knot).collect()
-}
-
-fn basis(knots: &[f64], j: usize, m: usize, t: f64) -> f64 {
+fn basis(knots: &KnotVec, j: usize, m: usize, t: f64) -> f64 {
     if j == 0 && t == 0.0 {
         return 1.into();
     }
@@ -113,28 +165,4 @@ fn basis(knots: &[f64], j: usize, m: usize, t: f64) -> f64 {
 
         l + r
     }
-}
-
-fn knot_span(knots: &[f64], num_pts: usize, pos: f64) -> usize {
-    let degree = knots.len() - num_pts - 1;
-
-    if pos == knots[num_pts] {
-        return num_pts - 1;
-    }
-
-    let mut low = degree;
-    let mut high = num_pts + 1;
-    let mut mid = (low + high) / 2;
-
-    while pos < knots[mid] || pos >= knots[mid + 1] {
-        if pos < knots[mid] {
-            high = mid;
-        } else {
-            low = mid;
-        }
-
-        mid = (low + high) / 2;
-    }
-
-    return mid;
 }

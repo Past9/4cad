@@ -1,13 +1,13 @@
 use cgmath::{Matrix4, Rad};
 use primitives::Angle;
 
-use crate::{Curve, EPoint, Pt3, Pt4};
+use crate::{knots::KnotVec, Curve, EPoint, Pt3, Pt4};
 
 impl Curve {
     pub fn line(start: Pt3, end: Pt3) -> Curve {
         Self::new(
             vec![start.to_hpoint(1.0), end.to_hpoint(1.0)],
-            vec![0.0, 0.0, 1.0, 1.0],
+            KnotVec::from([0.0, 0.0, 1.0, 1.0]),
         )
     }
 
@@ -34,7 +34,7 @@ impl Curve {
 
         full_knots.extend([1.0, 1.0, 1.0]);
 
-        Self::new(full_points, full_knots)
+        Self::new(full_points, KnotVec::new(full_knots))
     }
 
     fn arc_section(angle: Angle) -> Curve {
@@ -46,7 +46,7 @@ impl Curve {
                 Pt4::new(1.0, half_angle.tan(), 0.0, half_angle.cos()),
                 Pt4::new(angle.cos(), angle.sin(), 0.0, 1.0),
             ],
-            vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+            KnotVec::from([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]),
         )
     }
 }
