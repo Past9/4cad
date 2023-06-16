@@ -189,12 +189,12 @@ impl Curve {
 
     pub fn elevate_degree(&self, t: usize) -> Self {
         let t: i64 = t as i64;
-        let n: i64 = self.weighted.len() as i64;
+        let n: i64 = self.weighted.len() as i64 - 1;
         let p: i64 = self.degree as i64;
         let u = &self.knots;
         let pw = &self.weighted;
-        let mut uh = vec![0.0; self.knots.len() + t as usize * 2];
-        let mut qw = vec![Pt4::zero(); (uh.len() as i64 - (p + t) - 1) as usize];
+        let mut uh = vec![];
+        let mut qw = vec![];
 
         let m: i64 = n + p + 1;
         let ph: i64 = p + t;
@@ -221,17 +221,16 @@ impl Curve {
             }
         }
 
-        let mut mh: i64 = ph;
         let mut kind: i64 = ph + 1;
-        let r: i64 = -1;
+        let mut r: i64 = -1;
         let mut a: i64 = p;
         let mut b: i64 = p + 1;
         let mut cind: i64 = 1;
         let mut ua = u[0];
-        qw[0] = pw[0];
+        qw.push(pw[0]);
 
-        for i in 0..=ph {
-            uh[i as usize] = ua;
+        for _ in 0..=ph {
+            uh.push(ua);
         }
 
         // Initialize first bezier segment
@@ -249,11 +248,10 @@ impl Curve {
                 b += 1;
             }
 
-            let mul = b - 1 + 1;
-            mh += mul + t;
+            let mul = b - i + 1;
             let ub = u[b as usize];
             let oldr = r;
-            let r = p - mul;
+            r = p - mul;
 
             let lbz = if oldr > 0 { (oldr + 2) / 2 } else { 1 };
             let rbz = if r > 0 { ph - (r + 1) / 2 } else { ph };
@@ -303,6 +301,9 @@ impl Curve {
                         // Loop and compute the new control points for one removal step
                         if i < cind {
                             let alf = (ub - uh[i as usize]) / (ua - uh[i as usize]);
+                            if qw.len() <= i as usize {
+                                qw.push(Pt4::zero());
+                            }
                             qw[i as usize] =
                                 alf * qw[i as usize] + (1.0 - alf) * qw[(i - 1) as usize];
                         }
@@ -329,14 +330,14 @@ impl Curve {
 
             if a != p {
                 // Load the knot ua
-                for i in 0..ph - oldr {
-                    uh[kind as usize] = ua;
+                for _ in 0..ph - oldr {
+                    uh.push(ua);
                     kind += 1;
                 }
             }
 
             for j in lbz..=rbz {
-                qw[cind as usize] = ebpts[j as usize];
+                qw.push(ebpts[j as usize]);
                 cind += 1;
             }
 
@@ -355,7 +356,7 @@ impl Curve {
                 ua = ub;
             } else {
                 for i in 0..=ph {
-                    uh[(kind + i) as usize] = ub;
+                    uh.push(ub);
                 }
             }
         }
