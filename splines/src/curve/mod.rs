@@ -187,7 +187,185 @@ impl Curve {
         self.elevate_degree(degree - self.degree)
     }
 
+    pub fn elevate_degree(&self, t: usize) -> Self {
+        let t: i64 = t as i64;
+        let n: i64 = self.weighted.len() as i64;
+        let p: i64 = self.degree as i64;
+        let u = &self.knots;
+        let pw = &self.weighted;
+        let mut uh = vec![0.0; self.knots.len() + t as usize * 2];
+        let mut qw = vec![Pt4::zero(); (uh.len() as i64 - (p + t) - 1) as usize];
+
+        let m: i64 = n + p + 1;
+        let ph: i64 = p + t;
+        let ph2: i64 = ph / 2;
+
+        // Compute bezier degree elevation coefficients
+        let mut bezalfs = vec![vec![0.0; p as usize + 1]; ph as usize + 1];
+        bezalfs[0][0] = 1.0;
+        bezalfs[ph as usize][p as usize] = 1.0;
+        for i in 1..=ph2 {
+            let inv = 1.0 / bin(ph as usize, i as usize) as f64;
+            let mpi = min(p, i);
+
+            for j in max(0, i - t)..=mpi {
+                bezalfs[i as usize][j as usize] =
+                    inv * bin(p as usize, j as usize) * bin(t as usize, (i - j) as usize);
+            }
+        }
+
+        for i in ph2 + 1..=ph - 1 {
+            let mpi = min(p, i);
+            for j in max(0, i - t)..=mpi {
+                bezalfs[i as usize][j as usize] = bezalfs[(ph - i) as usize][(p - j) as usize];
+            }
+        }
+
+        let mut mh: i64 = ph;
+        let mut kind: i64 = ph + 1;
+        let r: i64 = -1;
+        let mut a: i64 = p;
+        let mut b: i64 = p + 1;
+        let mut cind: i64 = 1;
+        let mut ua = u[0];
+        qw[0] = pw[0];
+
+        for i in 0..=ph {
+            uh[i as usize] = ua;
+        }
+
+        // Initialize first bezier segment
+        let mut bpts = vec![Pt4::zero(); p as usize + 1];
+        for i in 0..=p {
+            bpts[i as usize] = pw[i as usize];
+        }
+
+        let mut alfs = vec![0.0; (p - 1) as usize];
+        let mut nextbpts = vec![Pt4::zero(); (p - 1) as usize];
+        let mut ebpts = vec![Pt4::zero(); (p + t + 1) as usize];
+        while b < m {
+            let i = b;
+            while b < m && u[b as usize] == u[(b + 1) as usize] {
+                b += 1;
+            }
+
+            let mul = b - 1 + 1;
+            mh += mul + t;
+            let ub = u[b as usize];
+            let oldr = r;
+            let r = p - mul;
+
+            let lbz = if oldr > 0 { (oldr + 2) / 2 } else { 1 };
+            let rbz = if r > 0 { ph - (r + 1) / 2 } else { ph };
+
+            if r > 0 {
+                // Insert knot to get bezier segment
+                let numer = ub - ua;
+                for k in (mul + 1..=p).rev() {
+                    alfs[(k - mul - 1) as usize] = numer / (u[(a + k) as usize] - ua);
+                }
+
+                for j in 1..=r {
+                    let save = r - j;
+                    let s = mul + j;
+                    for k in (s..=p).rev() {
+                        bpts[k as usize] = alfs[(k - s) as usize] * bpts[k as usize]
+                            + (1.0 - alfs[(k - s) as usize]) * bpts[(k - 1) as usize];
+                    }
+                    nextbpts[save as usize] = bpts[p as usize];
+                }
+            }
+
+            // Degree elevate bezier
+            for i in lbz..=ph {
+                // Only points lbz...ph are used below
+                ebpts[i as usize] = Pt4::zero();
+                let mpi = min(p, i);
+                for j in max(0, i - t)..=mpi {
+                    ebpts[i as usize] =
+                        ebpts[i as usize] + (bezalfs[i as usize][j as usize] * bpts[j as usize]);
+                }
+            }
+
+            if oldr > 1 {
+                // Must remove knot u=u[a] oldr times
+                let mut first = kind - 2;
+                let mut last = kind;
+                let den = ub - ua;
+                let bet = (ub - uh[(kind - 1) as usize]) / den;
+
+                // Knot removal loop
+                for tr in 1..oldr {
+                    let mut i = first;
+                    let mut j = last;
+                    let mut kj = j - kind + 1;
+                    while j - i > tr {
+                        // Loop and compute the new control points for one removal step
+                        if i < cind {
+                            let alf = (ub - uh[i as usize]) / (ua - uh[i as usize]);
+                            qw[i as usize] =
+                                alf * qw[i as usize] + (1.0 - alf) * qw[(i - 1) as usize];
+                        }
+
+                        if j >= lbz {
+                            if j - tr <= kind - ph + oldr {
+                                let gam = (ub - uh[(j - tr) as usize]) / den;
+                                ebpts[kj as usize] = gam * ebpts[kj as usize]
+                                    + (1.0 - gam) * ebpts[(kj + 1) as usize];
+                            } else {
+                                ebpts[kj as usize] = bet * ebpts[kj as usize]
+                                    + (1.0 - bet) * ebpts[(kj + 1) as usize];
+                            }
+                        }
+
+                        i += 1;
+                        j -= 1;
+                        kj -= 1;
+                    }
+                    first -= 1;
+                    last += 1;
+                }
+            }
+
+            if a != p {
+                // Load the knot ua
+                for i in 0..ph - oldr {
+                    uh[kind as usize] = ua;
+                    kind += 1;
+                }
+            }
+
+            for j in lbz..=rbz {
+                qw[cind as usize] = ebpts[j as usize];
+                cind += 1;
+            }
+
+            if b < m {
+                // Set up for next pass through loop
+                for j in 0..r {
+                    bpts[j as usize] = nextbpts[j as usize];
+                }
+
+                for j in r..=p {
+                    bpts[j as usize] = pw[(b - p + j) as usize];
+                }
+
+                a = b;
+                b += 1;
+                ua = ub;
+            } else {
+                for i in 0..=ph {
+                    uh[(kind + i) as usize] = ub;
+                }
+            }
+        }
+
+        Self::weighted(qw, KnotVec::new(uh))
+    }
+
+    /*
     pub fn elevate_degree(&self, num_elevations: usize) -> Self {
+        println!("self {:?}", self);
         if num_elevations == 0 {
             return self.clone();
         }
@@ -225,11 +403,19 @@ impl Curve {
         // Construct the new knot vector
         let new_knots = KnotVec::uniform(new_weighted.len(), new_degree);
 
-        Self::weighted(new_weighted, new_knots)
+        println!("new_knots {:?}", new_knots);
+
+        Self::weighted(
+            new_weighted,
+            KnotVec::new(vec![
+                0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5, 0.75, 0.75, 0.75, 1.0, 1.0,
+                1.0, 1.0,
+            ]),
+        )
     }
 
     /// Decomposes the NURBS curve into a series of bezier segments. Returns
-    /// a `Vec` of each segment's control points.
+    /// a `Vec` of each segment's weighted control points.
     fn decompose(&self) -> Vec<Vec<Pt4>> {
         let m = self.weighted.len() + self.degree;
         let mut a = self.degree;
@@ -294,4 +480,5 @@ impl Curve {
 
         bezier_ctrl_pts
     }
+    */
 }

@@ -13,7 +13,7 @@ use std::time::Instant;
 use viewer::run_viewer;
 
 fn main() {
-    let curve = Curve::arc(Angle::deg(315.0)).elevate_degree(1);
+    let curve = Curve::arc(Angle::deg(360.0)).elevate_degree(1);
 
     let mut points = Vec::new();
 

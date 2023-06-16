@@ -3,6 +3,8 @@ use primitives::Angle;
 
 use crate::{knots::KnotVec, Curve, EPoint, Pt3, Pt4};
 
+const ARC_SPLIT_DEG: f64 = 90.0;
+
 impl Curve {
     pub fn line(start: Pt3, end: Pt3) -> Curve {
         Self::new(
@@ -15,7 +17,7 @@ impl Curve {
         let mut full_points = vec![];
         let mut full_knots = vec![0.0, 0.0, 0.0];
 
-        let num_sections = (angle / Angle::deg(120.0)).ceil().abs();
+        let num_sections = (angle / Angle::deg(ARC_SPLIT_DEG)).ceil().abs();
         let section_angle = angle / num_sections;
 
         for s in 0..num_sections as usize {
