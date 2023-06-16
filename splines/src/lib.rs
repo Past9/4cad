@@ -6,7 +6,7 @@ use std::cmp::max;
 
 use cgmath::{Matrix4, Point3, Transform, Vector3, Vector4};
 pub use curve::*;
-use knots::KnotVec;
+pub use knots::KnotVec;
 pub use surface::*;
 
 pub type Mat4 = Matrix4<f64>;

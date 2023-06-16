@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::{cmp::max, ops::Index};
 
 use crate::TolEq;
 
@@ -11,6 +11,19 @@ impl KnotVec {
         Self {
             knots: Self::normalize_knots(knots),
         }
+    }
+
+    pub fn uniform(num_points: usize, degree: usize) -> Self {
+        let num_total_knots = num_points + degree + 1;
+        let num_clamp_knots = degree + 1;
+        let num_middle_knots = num_total_knots - num_clamp_knots * 2;
+        let mut new_knots = vec![0.0; num_clamp_knots];
+        for i in 1..=num_middle_knots {
+            new_knots.push(i as f64);
+        }
+        new_knots.extend(vec![(num_middle_knots + 1) as f64; num_clamp_knots]);
+
+        Self::new(new_knots)
     }
 
     pub fn from<const N: usize>(knots: [f64; N]) -> Self {

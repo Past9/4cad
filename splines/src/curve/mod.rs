@@ -1,9 +1,9 @@
 mod builders;
 
 use core::num;
-use std::cmp::{min, max};
+use std::cmp::{max, min};
 
-use crate::{basis, knots::KnotVec, HPoint, Pt4, TOL, bin};
+use crate::{basis, bin, knots::KnotVec, HPoint, Pt4, TOL};
 use cgmath::{Matrix4, Zero};
 
 pub use builders::*;
@@ -50,6 +50,14 @@ impl Curve {
         }
     }
 
+    pub fn take_weighted(self) -> Vec<Pt4> {
+        self.weighted
+    }
+
+    pub fn take_unweighted(self) -> Vec<Pt4> {
+        self.weighted
+    }
+
     pub fn num_pts(&self) -> usize {
         self.unweighted.len()
     }
@@ -93,7 +101,7 @@ impl Curve {
         if self_knots_not_in_final.len() > 0 {
             panic!(
                 "Cannot refine curve with knot vector {:?} to final knot vector {:?} because it contains knots that do not exist in final knot vector.", 
-                self.knots, 
+                self.knots,
                 self_knots_not_in_final
             );
         }
@@ -168,29 +176,42 @@ impl Curve {
         Self::weighted(out_points, KnotVec::new(out_knots))
     }
 
+    pub fn elevate_degree_to(&self, degree: usize) -> Self {
+        if degree < self.degree {
+            panic!(
+                "Tried to elevate degree {} curve to degree {}",
+                self.degree, degree
+            );
+        }
+
+        self.elevate_degree(degree - self.degree)
+    }
+
     pub fn elevate_degree(&self, num_elevations: usize) -> Self {
-        println!("elevate_degree for {:?} (num_elevations = {})", self, num_elevations);
+        if num_elevations == 0 {
+            return self.clone();
+        }
+
+        let new_degree = self.degree + num_elevations;
+
         // Decompose into beziers
         let beziers = self.decompose();
-
-        println!("beziers {:?}", beziers);
 
         // Degree elevate each bezier
         let mut elevated_beziers = Vec::new();
         for bezier in beziers.iter() {
             let mut elevated_points = vec![Pt4::zero(); self.degree + 1 + num_elevations];
             for i in 0..elevated_points.len() {
-                let start = max(0, i as i64 - num_elevations  as i64) as usize;
+                let start = max(0, i as i64 - num_elevations as i64) as usize;
                 let end = min(self.degree, i);
                 for j in start..=end {
-                    let coeff = (bin(self.degree, j) * bin(num_elevations, i - j)) / bin(self.degree + num_elevations, i);
+                    let coeff = (bin(self.degree, j) * bin(num_elevations, i - j))
+                        / bin(self.degree + num_elevations, i);
                     elevated_points[i] += coeff * bezier[j];
                 }
             }
             elevated_beziers.push(elevated_points);
         }
-
-        println!("elevated_beziers {:?}", elevated_beziers);
 
         // Combine the elevated beziers back into a single curve
         let mut new_weighted = vec![];
@@ -201,22 +222,10 @@ impl Curve {
         }
         new_weighted.extend(elevated_beziers.last().unwrap().into_iter().map(|pt| *pt));
 
-        println!("new_weighted {:?}", new_weighted);
+        // Construct the new knot vector
+        let new_knots = KnotVec::uniform(new_weighted.len(), new_degree);
 
-        // Generate uniform knots
-        let new_degree = self.degree + 1;
-        let num_total_knots = new_weighted.len() + new_degree + 1;
-        let num_clamp_knots = new_degree + 1;
-        let num_middle_knots = num_total_knots - num_clamp_knots * 2;
-        let mut new_knots = vec![0.0; num_clamp_knots];
-        for i in 1..=num_middle_knots {
-            new_knots.push(i as f64);
-        }
-        new_knots.extend(vec![(num_middle_knots + 1) as f64; num_clamp_knots]);
-
-        println!("new_knots {:?}", new_knots);
-
-        Self::new(new_weighted, KnotVec::new(new_knots))
+        Self::weighted(new_weighted, new_knots)
     }
 
     /// Decomposes the NURBS curve into a series of bezier segments. Returns
@@ -226,22 +235,22 @@ impl Curve {
         let mut a = self.degree;
         let mut b = self.degree + 1;
         let mut nb = 0;
-    
+
         let new_bezier_points = vec![Pt4::zero(); self.degree + 1];
         let mut bezier_ctrl_pts: Vec<Vec<Pt4>> = Vec::new();
-    
+
         bezier_ctrl_pts.push(new_bezier_points.clone());
-    
+
         for i in 0..=self.degree {
             bezier_ctrl_pts[nb][i] = self.weighted[i];
         }
-    
+
         while b < m {
             let i = b;
             while b < m && self.knots[b + 1] == self.knots[b] {
                 b += 1;
             }
-    
+
             let mult = b - i + 1;
             if mult < self.degree {
                 let numer = self.knots[b] - self.knots[a];
@@ -249,17 +258,17 @@ impl Curve {
                 for j in ((mult + 1)..=self.degree).rev() {
                     alphas[j - mult - 1] = numer / (self.knots[a + j] - self.knots[a]);
                 }
-    
+
                 let r = self.degree - mult;
                 for j in 1..=r {
                     let save = r - j;
                     let s = mult + j;
                     for k in (s..=self.degree).rev() {
                         let alpha = alphas[k - s];
-                        bezier_ctrl_pts[nb][k] =
-                            bezier_ctrl_pts[nb][k] * alpha + bezier_ctrl_pts[nb][k - 1] * (1.0 - alpha);
+                        bezier_ctrl_pts[nb][k] = bezier_ctrl_pts[nb][k] * alpha
+                            + bezier_ctrl_pts[nb][k - 1] * (1.0 - alpha);
                     }
-    
+
                     if b < m {
                         if bezier_ctrl_pts.len() - 1 < nb + 1 {
                             bezier_ctrl_pts.push(new_bezier_points.clone());
@@ -268,9 +277,9 @@ impl Curve {
                     }
                 }
             }
-    
+
             nb += 1;
-    
+
             if b < m {
                 for i in (self.degree - mult)..=self.degree {
                     if bezier_ctrl_pts.len() - 1 < nb {
@@ -282,8 +291,7 @@ impl Curve {
                 b += 1;
             }
         }
-    
+
         bezier_ctrl_pts
     }
 }
-
