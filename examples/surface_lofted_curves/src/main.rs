@@ -11,18 +11,23 @@ use splines::{Curve, EPoint, HPoint, KnotVec, Mat4, Pt3, Pt4, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {
-    let surface = Surface::rule_curves(
-        Curve::arc(Angle::deg(270.0)),
-        //Curve::arc(Angle::deg(150.0)).transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 4.0))),
-        Curve::new(
-            vec![
-                Pt4::new(-1.0, -1.0, 4.0, 1.0),
-                Pt4::new(-0.5, -0.5, 4.0, 1.0),
-                Pt4::new(0.5, 0.5, 4.0, 1.0),
-                Pt4::new(1.0, 1.0, 4.0, 1.0),
-            ],
-            KnotVec::uniform(4, 3),
-        ),
+    let surface = Surface::loft_curves(
+        &[
+            Curve::arc(Angle::deg(180.0)),
+            Curve::new(
+                vec![
+                    Pt4::new(1.0, 0.0, 4.0, 1.0),
+                    Pt4::new(0.5, -0.5, 4.0, 1.0),
+                    Pt4::new(0.0, -0.5, 4.0, 1.0),
+                    Pt4::new(-0.5, -0.5, 4.0, 1.0),
+                    Pt4::new(-1.0, 0.0, 4.0, 1.0),
+                ],
+                KnotVec::uniform(5, 2),
+            ),
+            Curve::arc(Angle::deg(180.0))
+                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 8.0))),
+        ],
+        1,
     );
 
     let mut points = Vec::new();

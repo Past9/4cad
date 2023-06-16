@@ -67,8 +67,8 @@ impl Surface {
 
         // Now construct a surface using the curves as rows of points in the
         // control net
-        let knots_u = curves[0].knots.clone();
-        let knots_v = KnotVec::uniform(curves.len(), degree);
+        let knots_u = KnotVec::uniform(curves.len(), degree);
+        let knots_v = curves[0].knots.clone();
         Self::weighted(
             curves.into_iter().map(|c| c.take_weighted()).collect(),
             knots_u,
