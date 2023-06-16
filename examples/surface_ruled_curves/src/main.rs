@@ -7,13 +7,14 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, EPoint, HPoint, Mat4, Surface, Vec3};
+use splines::{Curve, EPoint, HPoint, Mat4, Pt3, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {
     let surface = Surface::loft_surfaces(
         Curve::arc(Angle::deg(270.0)),
-        Curve::arc(Angle::deg(150.0)).transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 4.0))),
+        //Curve::arc(Angle::deg(150.0)).transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 4.0))),
+        Curve::line(Pt3::new(-1.0, -1.0, 4.0), Pt3::new(1.0, 1.0, 4.0)),
     );
 
     let mut points = Vec::new();

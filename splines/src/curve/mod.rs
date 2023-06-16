@@ -1,6 +1,9 @@
 mod builders;
 
-use crate::{basis, knots::KnotVec, HPoint, Pt4, TOL};
+use core::num;
+use std::cmp::{min, max};
+
+use crate::{basis, knots::KnotVec, HPoint, Pt4, TOL, bin};
 use cgmath::{Matrix4, Zero};
 
 pub use builders::*;
@@ -103,6 +106,10 @@ impl Curve {
     /// Adds the given knots to the knot vector, adding and moving control
     /// points as necessary but leaving the shape of the curve intact.
     pub fn refine_knots(&self, add_knots: Vec<f64>) -> Self {
+        if add_knots.len() == 0 {
+            return self.clone();
+        }
+
         let span_a = self.knots.find_span(self.degree, add_knots[0]);
         let span_b = self
             .knots
@@ -162,192 +169,121 @@ impl Curve {
     }
 
     pub fn elevate_degree(&self, num_elevations: usize) -> Self {
-        todo!()
-        /*
-        let n = self.points.len() as i64;
-        let p = self.degree as i64;
-        let U = &self.knots;
-        let Pw = &self.points;
-        let t = num_elevations as i64;
-        let mut nh: usize = 0;
-        let mut Uh = vec![0.0; self.knots.len() + num_elevations];
-        let mut Qw = vec![Pt4::zero(); todo!()];
+        println!("elevate_degree for {:?} (num_elevations = {})", self, num_elevations);
+        // Decompose into beziers
+        let beziers = self.decompose();
 
-        let m = n + p + 1;
-        let ph = p + t;
-        let ph2 = ph / 2;
+        println!("beziers {:?}", beziers);
 
-        let mut bezalfs = vec![vec![0.0; p as usize + 1]; p as usize + t as usize + 1];
-        let mut bpts = vec![Pt4::zero(); p as usize + 1];
-        let mut ebpts = vec![Pt4::zero(); p as usize + t as usize + 1];
-        let mut Nextbpts = vec![Pt4::zero(); p as usize - 1];
-        let mut alphas = vec![0.0; p as usize - 1];
+        // Degree elevate each bezier
+        let mut elevated_beziers = Vec::new();
+        for bezier in beziers.iter() {
+            let mut elevated_points = vec![Pt4::zero(); self.degree + 1 + num_elevations];
+            for i in 0..elevated_points.len() {
+                let start = max(0, i as i64 - num_elevations  as i64) as usize;
+                let end = min(self.degree, i);
+                for j in start..=end {
+                    let coeff = (bin(self.degree, j) * bin(num_elevations, i - j)) / bin(self.degree + num_elevations, i);
+                    elevated_points[i] += coeff * bezier[j];
+                }
+            }
+            elevated_beziers.push(elevated_points);
+        }
 
-        bezalfs[0][0] = 1.0;
-        bezalfs[ph as usize][p as usize] = 1.0;
+        println!("elevated_beziers {:?}", elevated_beziers);
 
-        for i in 1..=ph2 {
-            let inv = 1.0 / bin(ph as f64, i as f64);
-            let mpi = min(p, i);
-            for j in max(0, i - t)..=mpi {
-                bezalfs[i as usize][j as usize] =
-                    inv * bin(p as f64, j as f64) * bin(t as f64, (i - j) as f64);
+        // Combine the elevated beziers back into a single curve
+        let mut new_weighted = vec![];
+        for i in 0..elevated_beziers.len() - 1 {
+            for p in 0..elevated_beziers[i].len() - 1 {
+                new_weighted.push(elevated_beziers[i][p]);
             }
         }
+        new_weighted.extend(elevated_beziers.last().unwrap().into_iter().map(|pt| *pt));
 
-        for i in ph2 + 1..=ph - 1 {
-            let mpi = p.min(i);
-            for j in max(0, i - t)..=mpi {
-                bezalfs[i as usize][j as usize] = bezalfs[(ph - i) as usize][(p - j) as usize];
-            }
+        println!("new_weighted {:?}", new_weighted);
+
+        // Generate uniform knots
+        let new_degree = self.degree + 1;
+        let num_total_knots = new_weighted.len() + new_degree + 1;
+        let num_clamp_knots = new_degree + 1;
+        let num_middle_knots = num_total_knots - num_clamp_knots * 2;
+        let mut new_knots = vec![0.0; num_clamp_knots];
+        for i in 1..=num_middle_knots {
+            new_knots.push(i as f64);
         }
+        new_knots.extend(vec![(num_middle_knots + 1) as f64; num_clamp_knots]);
 
-        let mh = ph;
-        let mut kind = ph + 1;
-        let r: i64 = -1;
-        let a = p;
-        let mut b = p + 1;
-        let cind = 1;
-        let ua = U[0];
+        println!("new_knots {:?}", new_knots);
 
-        for i in 0..=ph {
-            Uh[i as usize] = ua;
+        Self::new(new_weighted, KnotVec::new(new_knots))
+    }
+
+    /// Decomposes the NURBS curve into a series of bezier segments. Returns
+    /// a `Vec` of each segment's control points.
+    fn decompose(&self) -> Vec<Vec<Pt4>> {
+        let m = self.weighted.len() + self.degree;
+        let mut a = self.degree;
+        let mut b = self.degree + 1;
+        let mut nb = 0;
+    
+        let new_bezier_points = vec![Pt4::zero(); self.degree + 1];
+        let mut bezier_ctrl_pts: Vec<Vec<Pt4>> = Vec::new();
+    
+        bezier_ctrl_pts.push(new_bezier_points.clone());
+    
+        for i in 0..=self.degree {
+            bezier_ctrl_pts[nb][i] = self.weighted[i];
         }
-
-        for i in 0..=p {
-            bpts[i as usize] = Pw[i as usize];
-        }
-
+    
         while b < m {
             let i = b;
-            while b < m && U[b as usize] == U[(b + 1) as usize] {
-                b = b + 1;
+            while b < m && self.knots[b + 1] == self.knots[b] {
+                b += 1;
             }
-
-            let mul = b - i + 1;
-            let mh = mh + mul + t;
-            let ub = U[b as usize];
-            let oldr = r;
-            let r = p - mul;
-
-            let lbz: i64 = if oldr > 0 { (oldr + 2) / 2 } else { 1 };
-
-            let rbz = if r > 0 { ph - (r + 1) / 2 } else { ph };
-
-            if r > 0 {
-                // Insert knot to get bezier segment
-                let numer = ub - ua;
-                let mut alfs = vec![0.0; (p - mul) as usize];
-                for k in (mul + 1..=p).rev() {
-                    alfs[(k - mul - 1) as usize] = numer / (U[(a + k) as usize] - ua);
+    
+            let mult = b - i + 1;
+            if mult < self.degree {
+                let numer = self.knots[b] - self.knots[a];
+                let mut alphas = vec![0.0; self.degree - mult];
+                for j in ((mult + 1)..=self.degree).rev() {
+                    alphas[j - mult - 1] = numer / (self.knots[a + j] - self.knots[a]);
                 }
-
+    
+                let r = self.degree - mult;
                 for j in 1..=r {
                     let save = r - j;
-                    let s = mul + j;
-                    for k in (s..=p).rev() {
-                        bpts[k as usize] = alfs[(k - s) as usize] * bpts[k as usize]
-                            + (1.0 - alfs[(k - s) as usize]) * bpts[(k - 1) as usize];
+                    let s = mult + j;
+                    for k in (s..=self.degree).rev() {
+                        let alpha = alphas[k - s];
+                        bezier_ctrl_pts[nb][k] =
+                            bezier_ctrl_pts[nb][k] * alpha + bezier_ctrl_pts[nb][k - 1] * (1.0 - alpha);
                     }
-                    Nextbpts[save as usize] = bpts[p as usize];
-                }
-            }
-
-            for i in lbz..=ph {
-                // Degree elevate bezier
-                ebpts[i as usize] = Pt4::zero(); // 0.0 ?
-                let mpi = min(p, i);
-                for j in max(0, i - t)..=mpi {
-                    ebpts[i as usize] =
-                        ebpts[i as usize] + bezalfs[i as usize][j as usize] * bpts[j as usize];
-                }
-            }
-
-            if oldr > 1 {
-                // Must remove knot u = U[a] oldr times
-                let mut first = kind - 2;
-                let mut last = kind;
-                let den = ub - ua;
-                let bet = (ub - Uh[(kind - 1) as usize]) / den;
-
-                for tr in 1..oldr {
-                    // Knot removal loop
-                    let mut i = first;
-                    let mut j = last;
-                    let mut kj = j - kind + 1;
-
-                    while j - i > tr {
-                        // Loop and compute the control points
-                        // for one removal step
-                        if i < cind {
-                            let alf = (ub - Uh[i as usize]) / (ua - Uh[i as usize]);
-                            Qw[i as usize] =
-                                alf * Qw[i as usize] + (1.0 - alf) * Qw[(i - 1) as usize];
+    
+                    if b < m {
+                        if bezier_ctrl_pts.len() - 1 < nb + 1 {
+                            bezier_ctrl_pts.push(new_bezier_points.clone());
                         }
-
-                        if j >= lbz {
-                            if j - tr <= kind - ph + oldr {
-                                let gam = (ub - Uh[(j - tr) as usize]) / den;
-                                ebpts[kj as usize] = gam * ebpts[kj as usize]
-                                    + (1.0 - gam) * ebpts[(kj + 1) as usize];
-                            } else {
-                                ebpts[kj as usize] = bet * ebpts[kj as usize]
-                                    + (1.0 - bet) * ebpts[(kj + 1) as usize];
-                            }
-                        }
-
-                        i = i + 1;
-                        j = j - 1;
-                        kj = kj - 1;
+                        bezier_ctrl_pts[nb + 1][save] = bezier_ctrl_pts[nb][self.degree];
                     }
-
-                    first = first - 1;
-                    last = last + 1;
-                }
-            } // End of removing knot, u=U[a]
-
-            if a != p {
-                // Load the knot ua
-                for i in 0..ph - oldr {
-                    Uh[kind as usize] = ua;
-                    kind = kind + 1;
                 }
             }
-
-            for j in lbz..=rbz {
-                // Load control points into Qw
-                Qw[cind as usize] = ebpts[j as usize];
-                cind = cind + 1;
-            }
-
+    
+            nb += 1;
+    
             if b < m {
-                // Set up for next pass through loop
-                for j in 0..r {
-                    bpts[j as usize] = Nextbpts[j as usize];
+                for i in (self.degree - mult)..=self.degree {
+                    if bezier_ctrl_pts.len() - 1 < nb {
+                        bezier_ctrl_pts.push(new_bezier_points.clone());
+                    }
+                    bezier_ctrl_pts[nb][i] = self.weighted[b - self.degree + i];
                 }
-
-                for j in r..=p {
-                    bpts[j as usize] = Pw[(b - p + j) as usize];
-                }
-
                 a = b;
-                b = b + 1;
-                ua = ub;
-            } else {
-                // End knot
-                for i in 0..=ph {
-                    Uh[(kind + 1) as usize] = ub;
-                }
+                b += 1;
             }
         }
-
-        nh = (mh - ph - 1) as usize;
-
-        Self::new(Qw, Uh)
-        */
+    
+        bezier_ctrl_pts
     }
 }
 
-fn bin(a: f64, b: f64) -> f64 {
-    todo!()
-}
