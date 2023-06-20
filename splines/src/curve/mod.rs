@@ -75,11 +75,15 @@ impl Curve {
     }
 
     pub fn eval(&self, t: f64) -> Pt4 {
-        self.weighted
-            .iter()
-            .enumerate()
-            .map(|(j, p)| p * basis(&self.knots, j, self.order, t))
-            .sum()
+        // Alg A4.1
+        let span = self.knots.find_span(self.degree, t);
+        let basis = basis(span, t, self.degree, &self.knots);
+        let mut point = Pt4::zero();
+        for j in 0..=self.degree {
+            point += basis[j] * self.weighted[span - self.degree + j];
+        }
+
+        point
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {

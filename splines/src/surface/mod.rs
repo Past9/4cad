@@ -1,7 +1,7 @@
 mod builders;
 
 use crate::{basis, knots::KnotVec, HPoint, Pt4};
-use cgmath::Matrix4;
+use cgmath::{Matrix4, Zero};
 
 pub use builders::*;
 
@@ -11,6 +11,8 @@ pub struct Surface {
     weighted: Vec<Vec<Pt4>>,
     knots_u: KnotVec,
     knots_v: KnotVec,
+    degree_u: usize,
+    degree_v: usize,
     order_u: usize,
     order_v: usize,
 }
@@ -76,19 +78,36 @@ impl Surface {
             weighted,
             knots_u,
             knots_v,
+            degree_u,
+            degree_v,
             order_u,
             order_v,
         }
     }
 
     pub fn eval(&self, u: f64, v: f64) -> Pt4 {
-        ij_iter(self.weighted.len(), self.weighted[0].len())
-            .map(|(i, j)| {
-                self.weighted[i][j]
-                    * basis(&self.knots_u, i, self.order_u, u)
-                    * basis(&self.knots_v, j, self.order_v, v)
-            })
-            .sum()
+        // Alg A4.3
+
+        let span_u = self.knots_u.find_span(self.degree_u, u);
+        let basis_u = basis(span_u, u, self.degree_u, &self.knots_u);
+
+        let span_v = self.knots_v.find_span(self.degree_v, v);
+        let basis_v = basis(span_v, v, self.degree_v, &self.knots_v);
+
+        let mut temp = vec![Pt4::zero(); self.degree_v + 1];
+        for l in 0..=self.degree_v {
+            for k in 0..=self.degree_u {
+                temp[l] += basis_u[k]
+                    * self.weighted[span_u - self.degree_u + k][span_v - self.degree_v + l];
+            }
+        }
+
+        let mut point = Pt4::zero();
+        for l in 0..=self.degree_v {
+            point += basis_v[l] * temp[l];
+        }
+
+        point
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {

@@ -4,7 +4,7 @@ mod surface;
 
 use std::cmp::max;
 
-use cgmath::{Matrix4, Point3, Transform, Vector3, Vector4};
+use cgmath::{Matrix4, Point3, Transform, Vector3, Vector4, Zero};
 pub use curve::*;
 pub use knots::KnotVec;
 pub use surface::*;
@@ -145,42 +145,114 @@ fn bin(k: usize, i: usize) -> f64 {
     BINOMIAL_COEFFICIENTS[k][i]
 }
 
-fn basis(knots: &KnotVec, j: usize, m: usize, t: f64) -> f64 {
-    if j == 0 && t == 0.0 {
-        return 1.into();
-    }
+fn basis(span: usize, u: f64, degree: usize, knots: &KnotVec) -> Vec<f64> {
+    // Alg A2.2
+    let mut basis_vals = vec![0.0; degree + 1];
+    basis_vals[0] = 1.0;
 
-    if j == knots.len() - m - 1 && t == 1.0 {
-        return 1.into();
-    }
+    let mut left = vec![0.0; degree + 1];
+    let mut right = vec![0.0; degree + 1];
 
-    let tj = knots[j];
-    let tj1 = knots[j + 1];
-
-    if m == 1 {
-        if tj <= t && t < tj1 {
-            1.0
-        } else {
-            0.0
+    for j in 1..=degree {
+        left[j] = u - knots[span + 1 - j];
+        right[j] = knots[span + j] - u;
+        let mut saved = 0.0;
+        for r in 0..j {
+            let temp = basis_vals[r] / (right[r + 1] + left[j - r]);
+            basis_vals[r] = saved + right[r + 1] * temp;
+            saved = left[j - r] * temp;
         }
-    } else {
-        let tjm = &knots[j + m];
-        let tjmsub1 = &knots[j + m - 1];
 
-        let den1 = tjmsub1 - tj;
-        let l = if den1 == 0.0 {
-            0.into()
-        } else {
-            ((t - tj) / den1) * basis(knots, j, m - 1, t)
-        };
-
-        let den2 = tjm - tj1;
-        let r = if den2 == 0.0 {
-            0.into()
-        } else {
-            ((tjm - t) / den2) * basis(knots, j + 1, m - 1, t)
-        };
-
-        l + r
+        basis_vals[j] = saved;
     }
+
+    basis_vals
+}
+
+fn lu_solve(mat_a: Vec<Vec<f64>>, points: Vec<Pt4>) -> () {
+    // call lu_decomposition
+    // call forward_substitution
+    // call backward_substitution
+
+    let mut x = vec![Pt4::zero(); points.len()];
+
+    let decomp = lu_decomposition(mat_a);
+
+    for i in 0..points.len() {
+        //for j in 0..
+    }
+}
+
+#[derive(Debug)]
+struct LUDecomp {
+    upper: Vec<Vec<f64>>,
+    lower: Vec<Vec<f64>>,
+}
+
+fn lu_decomposition(mat: Vec<Vec<f64>>) -> LUDecomp {
+    println!("lu_decomposition input {:#?}", mat);
+
+    // Validate that the matrix is square and non-empty
+    if mat.len() == 0 {
+        panic!("Matrix is empty");
+    }
+
+    if mat[0].len() != mat.len() {
+        panic!("{}x{} matrix is not square", mat.len(), mat[0].len());
+    }
+
+    // Doolittle's method
+    let mut mat_u = vec![vec![0.0; mat.len()]; mat.len()];
+    let mut mat_l = mat_u.clone();
+
+    for i in 0..mat.len() {
+        for k in i..mat.len() {
+            mat_u[i][k] = mat[i][k] - (0..i).map(|j| mat_l[i][j] * mat_u[j][k]).sum::<f64>();
+
+            if i == k {
+                mat_l[k][i] = 1.0;
+            } else {
+                mat_l[k][i] = mat[k][i] - (0..i).map(|j| mat_l[k][j] * mat_u[j][i]).sum::<f64>();
+                if mat_u[i][i] != 0.0 {
+                    mat_l[k][i] /= mat_u[i][i];
+                } else {
+                    mat_l[k][i] = 0.0;
+                }
+            }
+        }
+    }
+
+    let output = LUDecomp {
+        upper: mat_u,
+        lower: mat_l,
+    };
+
+    println!("lu_decomposition output {:#?}", output);
+
+    output
+}
+
+fn forward_substitution(mat_l: &Vec<Vec<f64>>, mat_b: Vec<f64>) -> Vec<f64> {
+    let q = mat_b.len();
+    let mut mat_y = vec![0.0; q];
+    mat_y[1] = mat_b[0] / mat_l[0][0];
+
+    for i in 1..q {
+        mat_y[i] = mat_b[i] - (0..i).map(|j| mat_l[i][j] * mat_y[j]).sum::<f64>();
+        mat_y[i] /= mat_l[i][i];
+    }
+
+    mat_y
+}
+
+fn backward_substitution(mat_u: &Vec<Vec<f64>>, mat_y: Vec<f64>) -> Vec<f64> {
+    let q = mat_y.len();
+    let mut mat_x = vec![0.0; q];
+    mat_x[q - 1] = mat_y[q - 1] / mat_u[q - 1][q - 1];
+    for i in (0..=q - 2).rev() {
+        mat_x[i] = mat_y[i] - (i..q).map(|j| mat_u[i][j] * mat_x[j]).sum::<f64>();
+        mat_x[i] /= mat_u[i][i];
+    }
+
+    mat_x
 }

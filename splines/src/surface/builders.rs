@@ -50,6 +50,10 @@ impl Surface {
         // Refine the knots of all curves so they have identical
         // knot vectors.
         {
+            for i in 0..curves.len() {
+                println!("curves[{}].knots {:?}", i, curves[i].knots);
+            }
+
             // Start by merging each pair from the first pair forward.
             for i in 0..curves.len() - 1 {
                 let merged_knots = curves[i].knots().merge(curves[i + 1].knots());

@@ -8,12 +8,35 @@ use render::{
     Rgba,
 };
 
-use splines::{Curve, EPoint, HPoint};
+use splines::{Curve, EPoint, HPoint, KnotVec, Pt4};
 use std::time::Instant;
 use viewer::run_viewer;
 
 fn main() {
+    /*
     let curve = Curve::arc(Angle::deg(360.0)).elevate_degree(1);
+    let curve = Curve::new(
+        vec![
+            Pt4::new(1.0, 0.0, 1.0, 1.0),
+            Pt4::new(0.5, -0.5, 1.0, 1.0),
+            Pt4::new(0.0, -0.5, 1.0, 1.0),
+            Pt4::new(-0.5, -0.5, 1.0, 1.0),
+            Pt4::new(-1.0, 0.0, 1.0, 1.0),
+        ],
+        KnotVec::uniform(5, 2),
+    );
+    */
+
+    let curve = Curve::fit(
+        vec![
+            Pt4::new(-1.0, 0.0, 0.0, 1.0),
+            Pt4::new(0.0, 1.0, 0.0, 1.0),
+            Pt4::new(1.0, 0.0, 0.0, 1.0),
+        ],
+        2,
+    );
+
+    println!("curve {:#?}", curve);
 
     let mut points = Vec::new();
 

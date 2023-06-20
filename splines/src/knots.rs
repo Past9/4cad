@@ -88,6 +88,7 @@ impl KnotVec {
     }
 
     pub fn find_span(&self, degree: usize, pos: f64) -> usize {
+        // Alg 2.1
         let num_pts = self.knots.len() - degree - 1;
 
         if pos == self[num_pts] {

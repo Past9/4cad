@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
 use primitives::Angle;
 use render::{
@@ -7,7 +9,7 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, EPoint, HPoint, KnotVec, Mat4, Pt3, Pt4, Surface, Vec3};
+use splines::{Curve, EPoint, HPoint, KnotVec, Mat4, Pt4, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {
@@ -16,23 +18,84 @@ fn main() {
             Curve::arc(Angle::deg(180.0)),
             Curve::new(
                 vec![
-                    Pt4::new(1.0, 0.0, 4.0, 1.0),
-                    Pt4::new(0.5, -0.5, 4.0, 1.0),
-                    Pt4::new(0.0, -0.5, 4.0, 1.0),
-                    Pt4::new(-0.5, -0.5, 4.0, 1.0),
-                    Pt4::new(-1.0, 0.0, 4.0, 1.0),
+                    Pt4::new(1.0, 0.0, 1.0, 1.0),
+                    Pt4::new(0.5, -0.5, 1.0, 1.0),
+                    Pt4::new(0.0, -0.5, 1.0, 1.0),
+                    Pt4::new(-0.5, -0.5, 1.0, 1.0),
+                    Pt4::new(-1.0, 0.0, 1.0, 1.0),
                 ],
                 KnotVec::uniform(5, 2),
             ),
+            /*
             Curve::arc(Angle::deg(180.0))
-                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 8.0))),
+                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 2.0))),
+                */
         ],
         1,
     );
 
+    /*
+    let surface = Surface::loft_curves(
+        &[
+            Curve::new(
+                vec![Pt4::new(-1.0, 0.0, 1.0, 1.0), Pt4::new(1.0, 0.0, 1.0, 1.0)],
+                KnotVec::from([0.0, 0.0, 1.0, 1.0]),
+            ),
+            Curve::new(
+                vec![
+                    Pt4::new(-1.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0, 0.0, 1.0, 1.0),
+                ],
+                KnotVec::from([0.0, 0.0, 0.0, 0.3, 0.5, 0.7, 1.0, 1.0, 1.0]),
+            ),
+            Curve::new(
+                vec![
+                    Pt4::new(-1.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0, 0.0, 1.0, 1.0),
+                ],
+                KnotVec::from([0.0, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0]),
+            ),
+            Curve::new(
+                vec![
+                    Pt4::new(-1.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0, 0.0, 1.0, 1.0),
+                ],
+                KnotVec::from([0.0, 0.0, 0.0, 0.3, 0.5, 0.7, 1.0, 1.0, 1.0]),
+            ),
+            Curve::new(
+                vec![
+                    Pt4::new(-1.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(-1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(2.0 / 3.0, 0.0, 1.0, 1.0),
+                    Pt4::new(1.0, 0.0, 1.0, 1.0),
+                ],
+                KnotVec::from([0.0, 0.0, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0, 1.0, 1.0]),
+            ),
+        ],
+        4,
+    );
+    */
+
+    println!("surface {:#?}", surface);
+
     let mut points = Vec::new();
 
-    let num_pts = 50;
+    let start = Instant::now();
+    let num_pts = 500;
     for i in 0..=num_pts {
         for j in 0..=num_pts {
             let u = i as f64 / num_pts as f64;
@@ -48,6 +111,8 @@ fn main() {
             ));
         }
     }
+    let end = Instant::now();
+    println!("{}us", (end - start).as_micros());
 
     let model = Model::empty().points(points);
 
