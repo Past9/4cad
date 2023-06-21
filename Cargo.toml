@@ -8,6 +8,7 @@ members = [
     "viewer",
     "components",
     "examples/curve_arc",
-    "examples/surface_ruled_curve",
+    "examples/curve_fit_quarter_circle",
     "examples/surface_lofted_curves",
+    "examples/surface_ruled_curve",
 ]

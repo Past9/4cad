@@ -92,10 +92,7 @@ impl Curve {
 
         println!("ctrl_pts {:#?}", ctrl_pts);
 
-        Self::new(
-            //ctrl_pts.into_iter().map(|pt| pt.to_hpoint(1.0)).collect(),
-            ctrl_pts, knots,
-        )
+        Self::weighted(ctrl_pts, knots)
     }
 
     pub fn arc(angle: Angle) -> Curve {

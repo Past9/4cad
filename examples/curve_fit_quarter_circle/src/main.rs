@@ -1,5 +1,4 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::Angle;
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -8,12 +7,27 @@ use render::{
     Rgba,
 };
 
-use splines::{Curve, EPoint, HPoint};
+use splines::{Curve, EPoint, HPoint, Pt4};
 use std::time::Instant;
 use viewer::run_viewer;
 
 fn main() {
-    let curve = Curve::arc(Angle::deg(270.0));
+    // These are the weighted coordinates of points on
+    // the start, middle, and end of a quarter circle.
+    // Fitting them should generate a quarter-circle arc.
+    let curve = Curve::fit(
+        vec![
+            Pt4::new(1.0, 0.0, 0.0, 1.0),
+            Pt4::new(
+                0.6035533905932737,
+                0.6035533905932737,
+                0.0,
+                0.8535533905932737,
+            ),
+            Pt4::new(0.0, 1.0, 0.0, 1.0),
+        ],
+        2,
+    );
 
     let mut points = Vec::new();
 
