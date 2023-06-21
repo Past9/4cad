@@ -16,7 +16,7 @@ impl Curve {
         )
     }
 
-    pub fn fit(points: Vec<Pt3>, degree: usize) -> Curve {
+    pub fn fit(points: Vec<Pt4>, degree: usize) -> Curve {
         let n = points.len();
 
         // Compute param values (Eq. 9.6, The NURBS Book)
@@ -70,11 +70,11 @@ impl Curve {
 
         let decomp = lu_decomposition(coeffs);
 
-        println!("decomp {:#?}", decomp);
+        //println!("decomp {:#?}", decomp);
 
-        let mut ctrl_pts = vec![Pt3::new(0.0, 0.0, 0.0); points.len()];
+        let mut ctrl_pts = vec![Pt4::new(0.0, 0.0, 0.0, 0.0); points.len()];
 
-        for i in 0..3 {
+        for i in 0..4 {
             println!("i {}", i);
             let bt = points.iter().map(|pt| pt[i]).collect::<Vec<f64>>();
             println!("decomp.lower {:#?}", decomp.lower);
@@ -93,8 +93,8 @@ impl Curve {
         println!("ctrl_pts {:#?}", ctrl_pts);
 
         Self::new(
-            ctrl_pts.into_iter().map(|pt| pt.to_hpoint(1.0)).collect(),
-            knots,
+            //ctrl_pts.into_iter().map(|pt| pt.to_hpoint(1.0)).collect(),
+            ctrl_pts, knots,
         )
     }
 

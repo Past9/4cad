@@ -231,7 +231,7 @@ fn lu_decomposition(mat: Vec<Vec<f64>>) -> LUDecomp {
 fn forward_substitution(mat_l: &Vec<Vec<f64>>, mat_b: Vec<f64>) -> Vec<f64> {
     let q = mat_b.len();
     let mut mat_y = vec![0.0; q];
-    mat_y[1] = mat_b[0] / mat_l[0][0];
+    mat_y[0] = mat_b[0] / mat_l[0][0];
 
     for i in 1..q {
         mat_y[i] = mat_b[i] - (0..i).map(|j| mat_l[i][j] * mat_y[j]).sum::<f64>();

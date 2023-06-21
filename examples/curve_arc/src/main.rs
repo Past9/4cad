@@ -29,9 +29,9 @@ fn main() {
 
     let curve = Curve::fit(
         vec![
-            Pt3::new(-1.0, 0.0, 0.0),
-            Pt3::new(0.0, 1.0, 0.0),
-            Pt3::new(1.0, 0.0, 0.0),
+            Pt4::new(-1.0, 0.0, 0.0, 1.0),
+            Pt4::new(0.0, 1.0, 0.0, 1.0),
+            Pt4::new(1.0, 0.0, 0.0, 1.0),
         ],
         2,
     );
@@ -46,6 +46,8 @@ fn main() {
         let t = i as f64 / num_pts as f64;
         let p4d = curve.eval(t);
         let p3d = p4d.project();
+
+        println!("p3d.y {:?}", p3d.y);
 
         points.push(ModelPoint::new(
             0.into(),
