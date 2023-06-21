@@ -3,7 +3,7 @@ use primitives::Angle;
 
 use crate::{
     backward_substitution, basis, forward_substitution, knots::KnotVec, lu_decomposition, Curve,
-    EPoint, Pt3, Pt4,
+    EPoint, HPoint, Pt3, Pt4, Vec3,
 };
 
 const ARC_SPLIT_DEG: f64 = 90.0;
@@ -16,56 +16,86 @@ impl Curve {
         )
     }
 
-    pub fn fit(points: Vec<Pt4>, degree: usize) -> Curve {
+    pub fn fit(points: Vec<Pt3>, degree: usize) -> Curve {
         let n = points.len();
-        let num_knots = n + degree + 1;
 
         // Compute param values (Eq. 9.6, The NURBS Book)
+        let mut chord_lens = vec![0.0; n + 1];
+        chord_lens[n] = 1.0;
+        for i in 1..n {
+            let dist = (points[i] - points[i - 1]).magnitude();
+            chord_lens[i] = dist.sqrt();
+        }
+        let total_chord_len: f64 = chord_lens.iter().skip(1).take(chord_lens.len() - 2).sum();
+
         let mut uk = vec![0.0; n];
-        let d: f64 = (1..n)
-            .map(|k| (points[k] - points[k - 1]).magnitude().sqrt())
-            .sum();
-        for k in 1..n {
-            uk[k] = uk[k - 1] + ((points[k] - points[k - 1]).magnitude()).sqrt() / d;
+        for i in 0..n {
+            uk[i] = chord_lens.iter().take(i + 1).sum::<f64>() / total_chord_len;
         }
 
         // Compute knot vector (Eq. 9.8, The NURBS Book)
-        let num_middle_knots = num_knots - degree * 2 - 2;
-        let mut knots = (0..=degree)
-            .map(|_| 0.0) // First degree + 1 points;
-            .chain((0..num_middle_knots).map(|_| 0.0)) // Middle knots, will be overwritten
-            .chain((0..=degree).map(|_| 1.0)) // Last degree + 1 knots
-            .collect::<Vec<f64>>();
-
-        for j in 1..=(n - degree - 1) {
-            knots[j + degree] =
-                (1.0 / degree as f64) * (j..=j + degree - 1).map(|i| uk[i]).sum::<f64>()
+        let mut knots = vec![0.0; degree + 1];
+        for i in 0..n - degree - 1 {
+            knots.push((1.0 / degree as f64) * (i + 1..i + degree + 1).map(|j| uk[j]).sum::<f64>());
         }
-
+        knots.extend((0..degree + 1).map(|_| 1.0));
         let knots = KnotVec::new(knots);
+
+        println!("knots {:?}", knots);
 
         let mut coeffs = vec![vec![0.0; n]; n];
         for i in 0..n {
             let span = knots.find_span(degree, uk[i]);
-            //coeffs[i][span - degree] = basis(span, uk[i], degree, &knots);
-            coeffs[i] = basis(span, uk[i], degree, &knots);
-            println!("coeffs[{}] = {:#?}", i, coeffs[i]);
+            coeffs[i] = coeffs[i]
+                .iter()
+                .take(span - degree)
+                .cloned()
+                .chain(basis(span, uk[i], degree, &knots).into_iter())
+                .collect();
         }
+
+        /*
+        // transpose coeffs
+        let mut coeffs2 = vec![vec![0.0; n]; n];
+        for i in 0..coeffs.len() {
+            for j in 0..coeffs[0].len() {
+                coeffs2[j][i] = coeffs[i][j];
+            }
+        }
+        println!("coeffs2 = {:#?}", coeffs2);
+        coeffs = coeffs2;
+        */
+
+        println!("coeffs {:#?}", coeffs);
 
         let decomp = lu_decomposition(coeffs);
 
-        let mut ctrl_pts = vec![Pt4::zero(); points.len()];
+        println!("decomp {:#?}", decomp);
 
-        for i in 0..4 {
+        let mut ctrl_pts = vec![Pt3::new(0.0, 0.0, 0.0); points.len()];
+
+        for i in 0..3 {
+            println!("i {}", i);
             let bt = points.iter().map(|pt| pt[i]).collect::<Vec<f64>>();
+            println!("decomp.lower {:#?}", decomp.lower);
+            println!("bt {:#?}", bt);
             let y = forward_substitution(&decomp.lower, bt);
+            println!("decomp.upper {:#?}", decomp.upper);
+            println!("y {:#?}", y);
             let xt = backward_substitution(&decomp.upper, y);
+            println!("xt {:?}", xt);
             for j in 0..points.len() {
+                println!("j {}", j);
                 ctrl_pts[j][i] = xt[j];
             }
         }
 
-        Self::weighted(ctrl_pts, knots)
+        println!("ctrl_pts {:#?}", ctrl_pts);
+
+        Self::new(
+            ctrl_pts.into_iter().map(|pt| pt.to_hpoint(1.0)).collect(),
+            knots,
+        )
     }
 
     pub fn arc(angle: Angle) -> Curve {

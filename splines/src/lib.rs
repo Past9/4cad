@@ -190,8 +190,6 @@ struct LUDecomp {
 }
 
 fn lu_decomposition(mat: Vec<Vec<f64>>) -> LUDecomp {
-    println!("lu_decomposition input {:#?}", mat);
-
     // Validate that the matrix is square and non-empty
     if mat.len() == 0 {
         panic!("Matrix is empty");
@@ -226,8 +224,6 @@ fn lu_decomposition(mat: Vec<Vec<f64>>) -> LUDecomp {
         upper: mat_u,
         lower: mat_l,
     };
-
-    println!("lu_decomposition output {:#?}", output);
 
     output
 }

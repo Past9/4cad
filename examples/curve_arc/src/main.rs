@@ -8,7 +8,7 @@ use render::{
     Rgba,
 };
 
-use splines::{Curve, EPoint, HPoint, KnotVec, Pt4};
+use splines::{Curve, EPoint, HPoint, KnotVec, Pt3, Pt4};
 use std::time::Instant;
 use viewer::run_viewer;
 
@@ -29,9 +29,9 @@ fn main() {
 
     let curve = Curve::fit(
         vec![
-            Pt4::new(-1.0, 0.0, 0.0, 1.0),
-            Pt4::new(0.0, 1.0, 0.0, 1.0),
-            Pt4::new(1.0, 0.0, 0.0, 1.0),
+            Pt3::new(-1.0, 0.0, 0.0),
+            Pt3::new(0.0, 1.0, 0.0),
+            Pt3::new(1.0, 0.0, 0.0),
         ],
         2,
     );
