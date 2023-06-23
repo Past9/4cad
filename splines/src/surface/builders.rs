@@ -1,4 +1,6 @@
-use crate::{knots::KnotVec, Curve, HPoint, Mat4, Surface, Vec3};
+use cgmath::InnerSpace;
+
+use crate::{get_params, knots::KnotVec, transpose, Curve, HPoint, Mat4, Surface, Vec3};
 
 impl Surface {
     pub fn rule_curve(curve: Curve, direction: Vec3) -> Self {
@@ -50,10 +52,6 @@ impl Surface {
         // Refine the knots of all curves so they have identical
         // knot vectors.
         {
-            for i in 0..curves.len() {
-                println!("curves[{}].knots {:?}", i, curves[i].knots);
-            }
-
             // Start by merging each pair from the first pair forward.
             for i in 0..curves.len() - 1 {
                 let merged_knots = curves[i].knots().merge(curves[i + 1].knots());
@@ -69,12 +67,66 @@ impl Surface {
             }
         }
 
-        // Now construct a surface using the curves as rows of points in the
-        // control net
-        let knots_u = KnotVec::uniform(curves.len(), degree);
-        let knots_v = curves[0].knots.clone();
+        // We now interpolate points along the V-direction to generate control points for the surface.
+        let v_curves = {
+            let n = curves[0].weighted.len();
+
+            // Calculate the total chord lengh along each new V-direction curve
+            let total_chord_len = {
+                let mut d = vec![];
+                for i in 0..n {
+                    d.push(
+                        (1..curves.len())
+                            .map(|k| {
+                                (curves[k].weighted[i] - curves[k - 1].weighted[i]).magnitude()
+                            })
+                            .sum::<f64>(),
+                    );
+                }
+                d
+            };
+
+            // Calculate the parameterization of the new curves using Eq 10.8
+            let params = {
+                let mut params: Vec<f64> = Vec::with_capacity(curves.len());
+                params.push(0.0);
+                for k in 1..curves.len() - 1 {
+                    params.push(
+                        params[k - 1]
+                            + (0..n)
+                                .map(|i| {
+                                    (curves[k].weighted[i] - curves[k - 1].weighted[i]).magnitude()
+                                        / total_chord_len[i]
+                                })
+                                .sum::<f64>()
+                                / (n as f64),
+                    );
+                }
+                params.push(1.0);
+                params
+            };
+
+            // Now create the curves by fitting them to the control points along the
+            // V direction, using the parameterization computed above
+            (0..n)
+                .map(|i| {
+                    Curve::fit_with_params(
+                        curves.iter().map(|curve| curve.weighted[i]).collect(),
+                        degree,
+                        &params,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+
+        // We can get the U-direction knots from the original curves
+        let knots_u = curves[0].knots.clone();
+
+        // The V-direction knots come from the new interpolated curves, which are
+        // oriented along the V-direction
+        let knots_v = v_curves[0].knots().clone();
         Self::weighted(
-            curves.into_iter().map(|c| c.take_weighted()).collect(),
+            v_curves.into_iter().map(Curve::take_weighted).collect(),
             knots_u,
             knots_v,
         )
@@ -100,16 +152,6 @@ impl Surface {
         let merged_knots = start.knots().merge(end.knots());
         let start = start.refine_to(&merged_knots);
         let end = end.refine_to(&merged_knots);
-
-        /*
-        if start.knots() != end.knots() {
-            panic!(
-                "Unequal knot vectors ({:?} != {:?})",
-                start.knots(),
-                end.knots()
-            );
-        }
-        */
 
         // Construct a surface with each curve as a row of control points and
         // appropriate knot vectors, like this:

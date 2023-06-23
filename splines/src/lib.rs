@@ -4,7 +4,7 @@ mod surface;
 
 use std::cmp::max;
 
-use cgmath::{Matrix4, Point3, Transform, Vector3, Vector4, Zero};
+use cgmath::{InnerSpace, Matrix4, Point3, Transform, Vector3, Vector4, Zero};
 pub use curve::*;
 pub use knots::KnotVec;
 pub use surface::*;
@@ -251,4 +251,61 @@ fn backward_substitution(mat_u: &Vec<Vec<f64>>, mat_y: Vec<f64>) -> Vec<f64> {
     }
 
     mat_x
+}
+
+/*
+fn transpose<T: Clone>(grid: Vec<Vec<T>>) -> Vec<Vec<T>> {
+    let mut out = vec![vec![T::default(); grid.len()]; grid[0].len()];
+    for i in 0..grid.len() {
+        for j in 0..grid[0].len() {
+            out[j][i] = grid[i][j].clone();
+        }
+    }
+    out
+}
+*/
+
+fn get_params(points: &[Pt4]) -> Vec<f64> {
+    let n = points.len();
+    let mut chord_lens = vec![0.0; n + 1];
+    chord_lens[n] = 1.0;
+    for i in 1..n {
+        let dist = (points[i] - points[i - 1]).magnitude();
+        chord_lens[i] = dist.sqrt();
+    }
+    let total_chord_len: f64 = chord_lens.iter().skip(1).take(chord_lens.len() - 2).sum();
+
+    let mut uk = vec![0.0; n];
+    for i in 0..n {
+        uk[i] = chord_lens.iter().take(i + 1).sum::<f64>() / total_chord_len;
+    }
+
+    uk
+}
+
+fn transpose<T: Clone>(grid: Vec<Vec<T>>) -> Vec<Vec<T>> {
+    let mut out = Vec::new();
+
+    for i in 0..grid.len() {
+        let mut row = Vec::new();
+        for j in 0..grid[0].len() {
+            row.push(grid[j][i].clone());
+        }
+        out.push(row);
+    }
+
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::transpose;
+
+    #[test]
+    fn transposes_grid() {
+        assert_eq!(
+            transpose(vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]]),
+            vec![vec![1, 4, 7], vec![2, 5, 8], vec![3, 6, 9],]
+        );
+    }
 }

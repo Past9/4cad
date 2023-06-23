@@ -34,6 +34,10 @@ impl KnotVec {
         self.knots
     }
 
+    pub fn knots(&self) -> &[f64] {
+        &self.knots
+    }
+
     pub fn len(&self) -> usize {
         self.knots.len()
     }

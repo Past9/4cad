@@ -2,8 +2,8 @@ use cgmath::{InnerSpace, Matrix4, Rad, Zero};
 use primitives::Angle;
 
 use crate::{
-    backward_substitution, basis, forward_substitution, knots::KnotVec, lu_decomposition, Curve,
-    EPoint, HPoint, Pt3, Pt4, Vec3,
+    backward_substitution, basis, forward_substitution, get_params, knots::KnotVec,
+    lu_decomposition, Curve, EPoint, HPoint, Pt3, Pt4, Vec3,
 };
 
 const ARC_SPLIT_DEG: f64 = 90.0;
@@ -16,83 +16,48 @@ impl Curve {
         )
     }
 
-    pub fn fit(points: Vec<Pt4>, degree: usize) -> Curve {
+    pub fn fit_with_params(points: Vec<Pt4>, degree: usize, params: &[f64]) -> Curve {
         let n = points.len();
-
-        // Compute param values (Eq. 9.6, The NURBS Book)
-        let mut chord_lens = vec![0.0; n + 1];
-        chord_lens[n] = 1.0;
-        for i in 1..n {
-            let dist = (points[i] - points[i - 1]).magnitude();
-            chord_lens[i] = dist.sqrt();
-        }
-        let total_chord_len: f64 = chord_lens.iter().skip(1).take(chord_lens.len() - 2).sum();
-
-        let mut uk = vec![0.0; n];
-        for i in 0..n {
-            uk[i] = chord_lens.iter().take(i + 1).sum::<f64>() / total_chord_len;
-        }
 
         // Compute knot vector (Eq. 9.8, The NURBS Book)
         let mut knots = vec![0.0; degree + 1];
         for i in 0..n - degree - 1 {
-            knots.push((1.0 / degree as f64) * (i + 1..i + degree + 1).map(|j| uk[j]).sum::<f64>());
+            knots.push(
+                (1.0 / degree as f64) * (i + 1..i + degree + 1).map(|j| params[j]).sum::<f64>(),
+            );
         }
         knots.extend((0..degree + 1).map(|_| 1.0));
         let knots = KnotVec::new(knots);
 
-        println!("knots {:?}", knots);
-
         let mut coeffs = vec![vec![0.0; n]; n];
         for i in 0..n {
-            let span = knots.find_span(degree, uk[i]);
-            coeffs[i] = coeffs[i]
-                .iter()
-                .take(span - degree)
-                .cloned()
-                .chain(basis(span, uk[i], degree, &knots).into_iter())
-                .collect();
-        }
-
-        /*
-        // transpose coeffs
-        let mut coeffs2 = vec![vec![0.0; n]; n];
-        for i in 0..coeffs.len() {
-            for j in 0..coeffs[0].len() {
-                coeffs2[j][i] = coeffs[i][j];
+            let span = knots.find_span(degree, params[i]);
+            let new_coeffs = basis(span, params[i], degree, &knots);
+            let start = span - degree;
+            for c in start..start + new_coeffs.len() {
+                coeffs[i][c] = new_coeffs[c - start];
             }
         }
-        println!("coeffs2 = {:#?}", coeffs2);
-        coeffs = coeffs2;
-        */
-
-        println!("coeffs {:#?}", coeffs);
 
         let decomp = lu_decomposition(coeffs);
-
-        //println!("decomp {:#?}", decomp);
 
         let mut ctrl_pts = vec![Pt4::new(0.0, 0.0, 0.0, 0.0); points.len()];
 
         for i in 0..4 {
-            println!("i {}", i);
             let bt = points.iter().map(|pt| pt[i]).collect::<Vec<f64>>();
-            println!("decomp.lower {:#?}", decomp.lower);
-            println!("bt {:#?}", bt);
             let y = forward_substitution(&decomp.lower, bt);
-            println!("decomp.upper {:#?}", decomp.upper);
-            println!("y {:#?}", y);
             let xt = backward_substitution(&decomp.upper, y);
-            println!("xt {:?}", xt);
             for j in 0..points.len() {
-                println!("j {}", j);
                 ctrl_pts[j][i] = xt[j];
             }
         }
 
-        println!("ctrl_pts {:#?}", ctrl_pts);
-
         Self::weighted(ctrl_pts, knots)
+    }
+
+    pub fn fit(points: Vec<Pt4>, degree: usize) -> Curve {
+        let params = get_params(&points);
+        Self::fit_with_params(points, degree, &params)
     }
 
     pub fn arc(angle: Angle) -> Curve {
