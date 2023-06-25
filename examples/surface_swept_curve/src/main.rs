@@ -38,19 +38,22 @@ fn main() {
     let profile = Curve::new(
         vec![
             Pt4::new(0.0, 0.0, -1.0, 1.0),
-            Pt4::new(0.0, 1.0, 0.0, 1.0),
+            Pt4::new(1.0, 0.0, 0.0, 1.0),
             Pt4::new(0.0, 0.0, 1.0, 1.0),
         ],
         KnotVec::uniform(3, 2),
     );
     let trajectory = Curve::new(
         vec![
-            Pt4::new(0.0, 0.0, 0.0, 1.0),
-            Pt4::new(1.0, 1.0, 0.0, 1.0),
-            Pt4::new(0.0, 2.0, 0.0, 1.0),
+            Pt4::new(0.0, -1.0, 0.0, 1.0),
+            Pt4::new(1.0, 0.0, 0.0, 1.0),
+            Pt4::new(0.0, 1.0, 0.0, 1.0),
+            //Pt4::new(-2.0, 1.5, 0.0, 1.0),
         ],
+        //KnotVec::uniform(4, 2),
         KnotVec::uniform(3, 2),
     );
+    //let trajectory = Curve::arc(Angle::deg(180.0));
     let surface = Surface::sweep_curve(profile.clone(), trajectory.clone(), 5, 1.0);
 
     let mut points = Vec::new();
