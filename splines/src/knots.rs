@@ -26,6 +26,34 @@ impl KnotVec {
         Self::new(new_knots)
     }
 
+    pub fn split_largest_span(&self, num_splits: usize) -> Self {
+        let mut new_knots = self.clone();
+        for _ in 0..num_splits {
+            new_knots = new_knots.do_split_largest_span();
+        }
+        new_knots
+    }
+
+    fn do_split_largest_span(self) -> Self {
+        let mut gap_index = 0;
+        let mut max_gap = 0.0;
+        for i in 1..self.knots.len() {
+            let gap = self.knots[i] - self.knots[i - 1];
+            if gap > max_gap {
+                gap_index = i;
+                max_gap = gap;
+            }
+        }
+
+        let mut knots = self.knots;
+
+        if max_gap > 0.0 {
+            knots.insert(gap_index, knots[gap_index - 1] + max_gap / 2.0);
+        }
+
+        Self { knots }
+    }
+
     pub fn from<const N: usize>(knots: [f64; N]) -> Self {
         Self::new(knots.to_vec())
     }

@@ -2,7 +2,9 @@ mod curve;
 mod knots;
 mod surface;
 
-use cgmath::{InnerSpace, Matrix4, Point3, Transform, Vector3, Vector4};
+use std::cmp::min;
+
+use cgmath::{InnerSpace, Matrix4, Point3, Transform, Vector3, Vector4, Zero};
 
 pub use curve::*;
 pub use knots::KnotVec;
@@ -166,6 +168,128 @@ fn basis(span: usize, u: f64, degree: usize, knots: &KnotVec) -> Vec<f64> {
     }
 
     basis_vals
+}
+
+fn curve_derivatives(
+    u: f64,
+    weighted: &[Pt4],
+    degree: usize,
+    knots: &KnotVec,
+    num_derivatives: usize,
+) -> Vec<Pt4> {
+    let num_derivatives = min(num_derivatives, degree);
+    let mut derivatives = vec![Pt4::zero(); num_derivatives + 1];
+
+    let span = knots.find_span(degree, u);
+    let basis_derivatives = basis_derivatives(span, u, degree, &knots, num_derivatives);
+
+    for k in 0..=num_derivatives {
+        for j in 0..=degree {
+            derivatives[k] += weighted[span - degree + j] * basis_derivatives[k][j];
+        }
+    }
+
+    derivatives
+}
+
+fn basis_derivatives(
+    span: usize,
+    u: f64,
+    degree: usize,
+    knots: &KnotVec,
+    num_derivatives: usize,
+) -> Vec<Vec<f64>> {
+    let mut left = vec![1.0; degree + 1];
+    let mut right = vec![1.0; degree + 1];
+    let mut ndu = vec![vec![1.0; degree + 1]; degree + 1];
+
+    for j in 1..=degree {
+        left[j] = u - knots[span + 1 - j];
+        right[j] = knots[span + j] - u;
+        let mut saved = 0.0;
+
+        for r in 0..j {
+            // Lower triangle
+            ndu[j][r] = right[r + 1] + left[j - r];
+            let temp = ndu[r][j - 1] / ndu[j][r];
+
+            // Upper triangle
+            ndu[r][j] = saved + right[r + 1] * temp;
+            saved = left[j - r] * temp;
+        }
+        ndu[j][j] = saved;
+    }
+
+    let mut derivatives: Vec<Vec<f64>> =
+        vec![vec![0.0; degree + 1]; usize::min(degree, num_derivatives) + 1];
+
+    // Load the basis functions
+    for j in 0..=degree {
+        derivatives[0][j] = ndu[j][degree];
+    }
+
+    // Begin calculating derivatives
+    let mut a: Vec<Vec<f64>> = vec![vec![1.0; degree + 1]; 2];
+
+    // This section computes the derivatives.
+    // Loop over the function index
+    for r in 0..=degree {
+        // Alternate rows in array a
+        let mut s1 = 0;
+        let mut s2 = 1;
+
+        a[0][0] = 1.0;
+
+        // Loop to compute kth derivative
+        for k in 1..=num_derivatives {
+            let mut d = 0.0;
+
+            let rk = r as i32 - k as i32;
+            let pk = degree as i32 - k as i32;
+
+            if r >= k {
+                a[s2][0] = a[s1][0] / ndu[(pk + 1) as usize][rk as usize];
+                d = a[s2][0] * ndu[rk as usize][pk as usize];
+            }
+
+            let j1 = if rk >= -1 { 1 } else { -rk } as usize;
+
+            let j2 = if r as i32 - 1 <= pk {
+                k - 1
+            } else {
+                degree - r
+            };
+
+            for j in j1..=j2 {
+                a[s2][j] =
+                    (a[s1][j] - a[s1][j - 1]) / ndu[(pk + 1) as usize][(rk + j as i32) as usize];
+                d += a[s2][j] * ndu[(rk + j as i32) as usize][pk as usize];
+            }
+
+            if r <= pk as usize {
+                a[s2][k] = -a[s1][k - 1] / ndu[((pk + 1) as usize)][r];
+                d += a[s2][k] * ndu[r][pk as usize];
+            }
+
+            derivatives[k][r] = d;
+
+            // Switch rows
+            let temp = s1;
+            s1 = s2;
+            s2 = temp;
+        }
+    }
+
+    // Multiply through by the correct factors
+    let mut r = degree as f64;
+    for k in 1..=num_derivatives {
+        for j in 0..=degree {
+            derivatives[k][j] *= r;
+        }
+        r *= degree as f64 - k as f64;
+    }
+
+    derivatives
 }
 
 #[derive(Debug)]

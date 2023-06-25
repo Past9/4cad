@@ -1,6 +1,6 @@
-use cgmath::InnerSpace;
+use cgmath::{EuclideanSpace, InnerSpace, Vector3, Vector4, Zero};
 
-use crate::{knots::KnotVec, Curve, HPoint, Mat4, Surface, Vec3};
+use crate::{knots::KnotVec, Curve, EPoint, HPoint, Mat4, Pt3, Pt4, Surface, Vec3};
 
 impl Surface {
     pub fn rule_curve(curve: Curve, direction: Vec3) -> Self {
@@ -21,6 +21,91 @@ impl Surface {
         Self::new(
             vec![row1, row2],
             KnotVec::from([0.0, 0.0, 1.0, 1.0]),
+            knots_v,
+        )
+    }
+
+    pub fn sweep_curve(
+        curve: Curve,
+        trajectory: Curve,
+        mut num_sections: usize,
+        scale: f64,
+    ) -> Self {
+        let q = trajectory.degree;
+        let ktv = trajectory.knots.len();
+
+        let knots_v = if ktv < num_sections + q {
+            // Refine trajectory's knot vector
+            let m = num_sections + q - ktv + 1;
+            trajectory.knots.split_largest_span(m)
+        } else {
+            // Increase the number of instances of `curve`
+            if ktv > num_sections + q + 1 {
+                num_sections = ktv - q - 1;
+            }
+
+            // Use trajectory's knot vector
+            trajectory.knots.clone()
+        };
+
+        // Compute parameters by averaging knots
+        let mut params_v = vec![0f64; num_sections];
+        params_v[num_sections - 1] = 1.0;
+        for k in 1..num_sections - 1 {
+            params_v[k] = (1..=q).map(|i| knots_v[k + i]).sum::<f64>() / q as f64;
+        }
+
+        println!("params_v {:?}", params_v);
+
+        let mut q_net = vec![vec![Pt4::zero(); curve.unweighted.len()]; num_sections];
+        for k in 0..num_sections {
+            // Transform and position section control points
+            let v = params_v[k];
+            let trajectory_ders = trajectory.eval_derivatives(v, 2);
+            let tder1 = trajectory_ders[1]; // - Pt4::origin();
+            let tder2 = trajectory_ders[2]; // - Pt4::origin();
+
+            println!("trajectory_ders {:#?}", trajectory_ders);
+
+            let o = trajectory.eval(v).project();
+            let x = tder1.normalize();
+            let z = tder1.cross(tder2).normalize(); // Normalize again?
+            let y = z.cross(x);
+
+            println!("o {:?}", o);
+            println!("x {:?}", x);
+            println!("y {:?}", y);
+            println!("z {:?}", z);
+
+            let mat_a = Mat4::new(
+                x.x, x.y, x.z, 0.0, y.x, y.y, y.z, 0.0, z.x, z.y, z.z, 0.0, 0.0, 0.0, 0.0, 1.0,
+            ) + Mat4::from_translation(o - Pt3::origin());
+
+            // let mut q = vec![Pt4::zero(); curve.unweighted.len()];
+            // let mut w = vec![0.0; curve.unweighted.len()];
+            for i in 0..curve.unweighted.len() {
+                let pt = curve.unweighted[i];
+                let transformed = mat_a.clone() * Vector4::new(pt.x, pt.y, pt.z, 1.0);
+                q_net[k][i] = Pt3::new(transformed.x, transformed.y, transformed.z)
+                    .to_hpoint(pt.w)
+                    .weight()
+                    * curve.unweighted[i].w;
+            }
+        }
+
+        //println!("q_net {:#?}", q_net);
+
+        let mut curves = vec![];
+        for i in 0..curve.unweighted.len() {
+            let points: Vec<Pt4> = (0..num_sections).map(|k| q_net[k][i]).collect();
+            curves.push(Curve::interpolate(points, q));
+        }
+
+        //println!("curves {:#?}", curves);
+
+        Self::weighted(
+            curves.into_iter().map(Curve::take_weighted).collect(),
+            curve.knots,
             knots_v,
         )
     }

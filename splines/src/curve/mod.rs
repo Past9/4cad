@@ -1,7 +1,10 @@
 mod builders;
 
-use crate::{basis, bin, knots::KnotVec, HPoint, Pt4, TOL};
-use cgmath::{Matrix4, Zero};
+use crate::{
+    basis, basis_derivatives, bin, curve_derivatives, knots::KnotVec, HPoint, Pt3, Pt4, Vec3, TOL,
+};
+use cgmath::{EuclideanSpace, Matrix4, Vector3, Zero};
+use core::num;
 use std::cmp::{max, min};
 
 pub use builders::*;
@@ -72,16 +75,33 @@ impl Curve {
         &self.knots
     }
 
-    pub fn eval(&self, t: f64) -> Pt4 {
+    pub fn eval(&self, u: f64) -> Pt4 {
         // Alg A4.1
-        let span = self.knots.find_span(self.degree, t);
-        let basis = basis(span, t, self.degree, &self.knots);
+        let span = self.knots.find_span(self.degree, u);
+        let basis = basis(span, u, self.degree, &self.knots);
         let mut point = Pt4::zero();
         for j in 0..=self.degree {
             point += basis[j] * self.weighted[span - self.degree + j];
         }
 
         point
+    }
+
+    pub fn eval_derivatives(&self, u: f64, num_derivatives: usize) -> Vec<Vec3> {
+        let homogeneous_derivatives =
+            curve_derivatives(u, &self.weighted, self.degree, &self.knots, num_derivatives);
+
+        let mut derivatives = vec![Vector3::zero(); num_derivatives + 1];
+
+        for k in 0..=num_derivatives {
+            let mut pt3 = homogeneous_derivatives[k].truncate();
+            for i in 1..=k {
+                pt3 -= derivatives[k - i] * bin(k, i) * homogeneous_derivatives[i].w;
+            }
+            derivatives[k] = pt3 / homogeneous_derivatives[0].w;
+        }
+
+        derivatives
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {

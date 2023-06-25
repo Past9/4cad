@@ -11,4 +11,5 @@ members = [
     "examples/curve_interpolate_quarter_circle",
     "examples/surface_skinned_curves",
     "examples/surface_ruled_curve",
+    "examples/surface_swept_curve",
 ]
