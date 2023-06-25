@@ -13,28 +13,6 @@ use splines::{Curve, EPoint, HPoint, KnotVec, Mat4, Pt4, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {
-    /*
-    let curves = vec![
-        Curve::arc(Angle::deg(180.0)),
-        Curve::new(
-            vec![
-                Pt4::new(1.0, 0.0, 1.0, 1.0),
-                Pt4::new(0.5, -0.5, 1.0, 1.0),
-                Pt4::new(0.0, -0.5, 1.0, 1.0),
-                Pt4::new(-0.5, -0.5, 1.0, 1.0),
-                Pt4::new(-1.0, 0.0, 1.0, 1.0),
-            ],
-            KnotVec::uniform(5, 2),
-        ),
-        Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 2.0))),
-        Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_translation(Vec3::new(0.0, 1.0, 3.0))),
-        Curve::arc(Angle::deg(180.0))
-            .transform(&Mat4::from_angle_x(Deg(180.0)))
-            .transform(&Mat4::from_translation(Vec3::new(0.0, 2.0, 4.0))),
-    ];
-    let surface = Surface::skin_curves(&curves, 3);
-    */
-
     let profile = Curve::new(
         vec![
             Pt4::new(0.0, 0.0, -1.0, 1.0),
@@ -48,10 +26,9 @@ fn main() {
             Pt4::new(0.5, -2.0, 0.0, 1.0),
             Pt4::new(1.5, 1.5, 0.0, 1.0),
             Pt4::new(0.5, 2.0, 0.0, 1.0),
-            //Pt4::new(-2.0, 1.5, 0.0, 1.0),
+            Pt4::new(-2.0, 1.5, 0.0, 1.0),
         ],
-        //KnotVec::uniform(4, 3),
-        KnotVec::uniform(3, 2),
+        KnotVec::uniform(4, 3),
     );
     //let trajectory = Curve::arc(Angle::deg(180.0));
     let surface = Surface::sweep_curve(profile.clone(), trajectory.clone(), 5, 1.0);

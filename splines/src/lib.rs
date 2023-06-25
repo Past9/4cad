@@ -362,7 +362,7 @@ fn backward_substitution(mat_u: &Vec<Vec<f64>>, mat_y: Vec<f64>) -> Vec<f64> {
     mat_x
 }
 
-fn get_params(points: &[Pt4]) -> Vec<f64> {
+fn get_interpolation_params(points: &[Pt4]) -> Vec<f64> {
     let n = points.len();
     let mut chord_lens = vec![0.0; n + 1];
     chord_lens[n] = 1.0;

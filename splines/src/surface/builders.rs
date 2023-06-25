@@ -34,7 +34,7 @@ impl Surface {
         let q = trajectory.degree;
         let ktv = trajectory.knots.len();
 
-        let knots_v = if ktv < num_sections + q {
+        let knots_v = if ktv <= num_sections + q {
             // Refine trajectory's knot vector
             let m = num_sections + q - ktv + 1;
             trajectory.knots.split_largest_span(m)
@@ -55,8 +55,6 @@ impl Surface {
             params_v[k] = (1..=q).map(|i| knots_v[k + i]).sum::<f64>() / q as f64;
         }
 
-        println!("params_v {:?}", params_v);
-
         let mut q_net = vec![vec![Pt4::zero(); curve.unweighted.len()]; num_sections];
         for k in 0..num_sections {
             // Transform and position section control points
@@ -65,21 +63,12 @@ impl Surface {
             let tder1 = trajectory_ders[1];
             let tder2 = trajectory_ders[2];
 
-            let o = trajectory_ders[0]; //trajectory.eval(v).project();
+            let o = trajectory_ders[0];
 
-            let x = tder1.normalize();
+            let y = tder1.normalize();
             let z = tder1.cross(tder2).normalize();
-            let y = x.cross(z);
+            let x = y.cross(z);
 
-            let mat_a = Mat4::from_translation(o)
-                * Mat4::new(
-                    y.x, y.y, y.z, 0.0, //
-                    x.x, x.y, x.z, 0.0, //
-                    z.x, z.y, z.z, 0.0, //
-                    0.0, 0.0, 0.0, 1.0, //
-                );
-
-            /*
             let mat_a = Mat4::from_translation(o)
                 * Mat4::new(
                     x.x, x.y, x.z, 0.0, //
@@ -87,9 +76,6 @@ impl Surface {
                     z.x, z.y, z.z, 0.0, //
                     0.0, 0.0, 0.0, 1.0, //
                 );
-                */
-
-            //let mat_a = Mat4::from_translation(o - Pt3::origin());
 
             for i in 0..curve.unweighted.len() {
                 let pt = curve.unweighted[i];
@@ -104,8 +90,7 @@ impl Surface {
         let mut curves = vec![];
         for i in 0..curve.unweighted.len() {
             let points: Vec<Pt4> = (0..num_sections).map(|k| q_net[k][i]).collect();
-            curves.push(Curve::interpolate(points, q));
-            //curves.push(Curve::interpolate_with_params(points, q, &params_v));
+            curves.push(Curve::interpolate_with_params(points, q, &params_v));
         }
 
         Self::weighted(

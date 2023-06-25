@@ -2,7 +2,7 @@ use cgmath::{Matrix4, Rad};
 use primitives::Angle;
 
 use crate::{
-    backward_substitution, basis, forward_substitution, get_params, knots::KnotVec,
+    backward_substitution, basis, forward_substitution, get_interpolation_params, knots::KnotVec,
     lu_decomposition, Curve, EPoint, Pt3, Pt4,
 };
 
@@ -56,7 +56,7 @@ impl Curve {
     }
 
     pub fn interpolate(points: Vec<Pt4>, degree: usize) -> Curve {
-        let params = get_params(&points);
+        let params = get_interpolation_params(&points);
         Self::interpolate_with_params(points, degree, &params)
     }
 
