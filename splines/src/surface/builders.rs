@@ -65,15 +65,29 @@ impl Surface {
             let tder1 = trajectory_ders[1];
             let tder2 = trajectory_ders[2];
 
-            let o = trajectory.eval(v).project();
-            let x = tder1.normalize();
-            let z = tder1.cross(tder2).normalize().normalize();
-            let y = z.cross(x);
+            let o = trajectory_ders[0]; //trajectory.eval(v).project();
 
-            let mat_a = Mat4::from_translation(o - Pt3::origin())
+            let x = tder1.normalize();
+            let z = tder1.cross(tder2).normalize();
+            let y = x.cross(z);
+
+            let mat_a = Mat4::from_translation(o)
                 * Mat4::new(
-                    x.x, x.y, x.z, 0.0, y.x, y.y, y.z, 0.0, z.x, z.y, z.z, 0.0, 0.0, 0.0, 0.0, 1.0,
+                    y.x, y.y, y.z, 0.0, //
+                    x.x, x.y, x.z, 0.0, //
+                    z.x, z.y, z.z, 0.0, //
+                    0.0, 0.0, 0.0, 1.0, //
                 );
+
+            /*
+            let mat_a = Mat4::from_translation(o)
+                * Mat4::new(
+                    x.x, x.y, x.z, 0.0, //
+                    y.x, y.y, y.z, 0.0, //
+                    z.x, z.y, z.z, 0.0, //
+                    0.0, 0.0, 0.0, 1.0, //
+                );
+                */
 
             //let mat_a = Mat4::from_translation(o - Pt3::origin());
 
