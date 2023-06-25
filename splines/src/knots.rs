@@ -1,4 +1,4 @@
-use std::{cmp::max, ops::Index};
+use std::ops::Index;
 
 use crate::TolEq;
 

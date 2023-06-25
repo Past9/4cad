@@ -15,7 +15,7 @@ fn main() {
     // These are the weighted coordinates of points on
     // the start, middle, and end of a quarter circle.
     // Fitting them should generate a quarter-circle arc.
-    let curve = Curve::fit(
+    let curve = Curve::interpolate(
         vec![
             Pt4::new(1.0, 0.0, 0.0, 1.0),
             Pt4::new(

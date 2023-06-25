@@ -1,9 +1,9 @@
-use cgmath::{InnerSpace, Matrix4, Rad, Zero};
+use cgmath::{Matrix4, Rad};
 use primitives::Angle;
 
 use crate::{
     backward_substitution, basis, forward_substitution, get_params, knots::KnotVec,
-    lu_decomposition, Curve, EPoint, HPoint, Pt3, Pt4, Vec3,
+    lu_decomposition, Curve, EPoint, Pt3, Pt4,
 };
 
 const ARC_SPLIT_DEG: f64 = 90.0;
@@ -16,7 +16,7 @@ impl Curve {
         )
     }
 
-    pub fn fit_with_params(points: Vec<Pt4>, degree: usize, params: &[f64]) -> Curve {
+    pub fn interpolate_with_params(points: Vec<Pt4>, degree: usize, params: &[f64]) -> Curve {
         let n = points.len();
 
         // Compute knot vector (Eq. 9.8, The NURBS Book)
@@ -55,9 +55,9 @@ impl Curve {
         Self::weighted(ctrl_pts, knots)
     }
 
-    pub fn fit(points: Vec<Pt4>, degree: usize) -> Curve {
+    pub fn interpolate(points: Vec<Pt4>, degree: usize) -> Curve {
         let params = get_params(&points);
-        Self::fit_with_params(points, degree, &params)
+        Self::interpolate_with_params(points, degree, &params)
     }
 
     pub fn arc(angle: Angle) -> Curve {

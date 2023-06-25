@@ -2,9 +2,8 @@ mod curve;
 mod knots;
 mod surface;
 
-use std::cmp::max;
+use cgmath::{InnerSpace, Matrix4, Point3, Transform, Vector3, Vector4};
 
-use cgmath::{InnerSpace, Matrix4, Point3, Transform, Vector3, Vector4, Zero};
 pub use curve::*;
 pub use knots::KnotVec;
 pub use surface::*;
@@ -169,20 +168,6 @@ fn basis(span: usize, u: f64, degree: usize, knots: &KnotVec) -> Vec<f64> {
     basis_vals
 }
 
-fn lu_solve(mat_a: Vec<Vec<f64>>, points: Vec<Pt4>) -> () {
-    // call lu_decomposition
-    // call forward_substitution
-    // call backward_substitution
-
-    let mut x = vec![Pt4::zero(); points.len()];
-
-    let decomp = lu_decomposition(mat_a);
-
-    for i in 0..points.len() {
-        //for j in 0..
-    }
-}
-
 #[derive(Debug)]
 struct LUDecomp {
     upper: Vec<Vec<f64>>,
@@ -252,18 +237,6 @@ fn backward_substitution(mat_u: &Vec<Vec<f64>>, mat_y: Vec<f64>) -> Vec<f64> {
 
     mat_x
 }
-
-/*
-fn transpose<T: Clone>(grid: Vec<Vec<T>>) -> Vec<Vec<T>> {
-    let mut out = vec![vec![T::default(); grid.len()]; grid[0].len()];
-    for i in 0..grid.len() {
-        for j in 0..grid[0].len() {
-            out[j][i] = grid[i][j].clone();
-        }
-    }
-    out
-}
-*/
 
 fn get_params(points: &[Pt4]) -> Vec<f64> {
     let n = points.len();

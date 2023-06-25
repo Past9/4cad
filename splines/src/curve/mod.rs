@@ -1,10 +1,8 @@
 mod builders;
 
-use core::num;
-use std::cmp::{max, min};
-
 use crate::{basis, bin, knots::KnotVec, HPoint, Pt4, TOL};
 use cgmath::{Matrix4, Zero};
+use std::cmp::{max, min};
 
 pub use builders::*;
 

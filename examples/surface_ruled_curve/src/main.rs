@@ -7,12 +7,18 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, EPoint, HPoint, Surface, Vec3};
+use splines::{Curve, EPoint, HPoint, Mat4, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {
     let curve = Curve::arc(Angle::deg(270.0));
-    let surface = Surface::rule_curve(curve, Vec3::new(0.0, 0.0, 4.0));
+    let surface = Surface::skin_curves(
+        &vec![
+            curve.clone(),
+            curve.transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 4.0))),
+        ],
+        1,
+    );
 
     let mut points = Vec::new();
 

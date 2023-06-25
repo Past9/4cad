@@ -31,7 +31,7 @@ fn main() {
             .transform(&Mat4::from_angle_x(Deg(180.0)))
             .transform(&Mat4::from_translation(Vec3::new(0.0, 2.0, 4.0))),
     ];
-    let surface = Surface::loft_curves(&curves, 3);
+    let surface = Surface::skin_curves(&curves, 3);
 
     let mut points = Vec::new();
 
