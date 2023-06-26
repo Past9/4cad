@@ -1,9 +1,10 @@
 mod builders;
 
 use crate::{
-    basis, basis_derivatives, bin, curve_derivatives, knots::KnotVec, HPoint, Pt3, Pt4, Vec3, TOL,
+    basis, basis_derivatives, bin, curve_derivatives, knots::KnotVec, EPoint, HPoint, Pt3, Pt4,
+    Vec3, TOL,
 };
-use cgmath::{EuclideanSpace, Matrix4, Vector3, Zero};
+use cgmath::{EuclideanSpace, Matrix4, Vector3, Vector4, Zero};
 use core::num;
 use std::cmp::{max, min};
 
@@ -18,7 +19,7 @@ pub struct Curve {
     pub(crate) degree: usize,
 }
 impl Curve {
-    pub fn new(unweighted: Vec<Pt4>, knots: KnotVec) -> Self {
+    pub fn unweighted(unweighted: Vec<Pt4>, knots: KnotVec) -> Self {
         let weighted = unweighted.iter().map(HPoint::weight).collect();
         Self::create(unweighted, weighted, knots)
     }
@@ -56,7 +57,7 @@ impl Curve {
     }
 
     pub fn take_unweighted(self) -> Vec<Pt4> {
-        self.weighted
+        self.unweighted
     }
 
     pub fn num_pts(&self) -> usize {
@@ -87,25 +88,26 @@ impl Curve {
         point
     }
 
-    pub fn eval_derivatives(&self, u: f64, num_derivatives: usize) -> Vec<Vec3> {
+    pub fn eval_derivatives(&self, u: f64, num_derivatives: usize) -> Vec<Vector4<f64>> {
         let homogeneous_derivatives =
             curve_derivatives(u, &self.weighted, self.degree, &self.knots, num_derivatives);
 
-        let mut derivatives = vec![Vector3::zero(); num_derivatives + 1];
+        let mut derivatives = vec![Vector4::zero(); num_derivatives + 1];
 
         for k in 0..=num_derivatives {
             let mut pt3 = homogeneous_derivatives[k].truncate();
             for i in 1..=k {
-                pt3 -= derivatives[k - i] * bin(k, i) * homogeneous_derivatives[i].w;
+                pt3 -= derivatives[k - i].truncate() * bin(k, i) * homogeneous_derivatives[i].w;
             }
-            derivatives[k] = pt3 / homogeneous_derivatives[0].w;
+            derivatives[k] = (Pt3::origin() + pt3).to_hpoint(homogeneous_derivatives[0].w);
+            // / homogeneous_derivatives[0].w;
         }
 
         derivatives
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
-        Self::new(
+        Self::unweighted(
             self.unweighted
                 .iter()
                 .map(|p| p.transform(transform))

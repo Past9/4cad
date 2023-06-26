@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
+use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Vector3, Zero};
 use primitives::Angle;
 use render::{
     camera::Camera,
@@ -13,6 +13,7 @@ use splines::{Curve, EPoint, HPoint, KnotVec, Mat4, Pt4, Surface, Vec3};
 use viewer::run_viewer;
 
 fn main() {
+    /*
     let profile = Curve::new(
         vec![
             Pt4::new(0.0, 0.0, -1.0, 1.0),
@@ -30,8 +31,33 @@ fn main() {
         ],
         KnotVec::uniform(4, 3),
     );
+    */
+    let profile = Curve::arc(Angle::deg(360.0))
+        .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))));
+    /*
+    let trajectory = Curve::unweighted(
+        vec![
+            Pt4::new(0.5, -2.0, 0.0, 1.0),
+            Pt4::new(1.5, 1.5, 0.0, 1.0),
+            Pt4::new(0.5, 2.0, 0.0, 1.0),
+            Pt4::new(-2.0, 1.5, 0.0, 1.0),
+        ],
+        KnotVec::uniform(4, 3),
+    );
+    */
+    let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
+    // println!("trajectory {:#?}", trajectory);
+
+    //println!("trajectory {:#?}", trajectory);
+
     //let trajectory = Curve::arc(Angle::deg(180.0));
-    let surface = Surface::sweep_curve(profile.clone(), trajectory.clone(), 5, 1.0);
+    let num_sections = 0;
+    let (_, _, sections) =
+        Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections, 1.0);
+    println!("sections.len() {}", sections.len());
+    let surface = Surface::sweep_curve(&profile, &trajectory, num_sections, 1.0);
+
+    let edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
 
     let mut points = Vec::new();
 
@@ -79,6 +105,49 @@ fn main() {
             Vector3::zero(),
             Rgba::GREEN,
         ));
+    }
+
+    for i in 0..=num_pts {
+        let t = i as f64 / num_pts as f64;
+        let p4d = edge.eval(t);
+        let p3d = p4d.project();
+
+        points.push(ModelPoint::new(
+            0.into(),
+            p3d.as_f32(),
+            Vector3::zero(),
+            Rgba::BLUE,
+        ));
+    }
+
+    for section in sections.iter() {
+        let num_pts = num_pts * 10;
+        for i in 0..=num_pts {
+            let t = i as f64 / num_pts as f64;
+            let p4d = section.eval(t);
+            let p3d = p4d.project();
+
+            points.push(ModelPoint::new(
+                0.into(),
+                p3d.as_f32(),
+                Vector3::zero(),
+                Rgba::YELLOW,
+            ));
+        }
+    }
+
+    for section in sections.iter() {
+        for i in 0..section.num_pts() {
+            points.push(ModelPoint::new(
+                0.into(),
+                {
+                    let pt = section.clone().take_unweighted()[i].truncate();
+                    Point3::new(pt.x as f32, pt.y as f32, pt.z as f32)
+                },
+                Vector3::zero(),
+                Rgba::MAGENTA,
+            ));
+        }
     }
 
     let model = Model::empty().points(points);

@@ -17,7 +17,7 @@ pub struct Surface {
     order_v: usize,
 }
 impl Surface {
-    pub fn new(unweighted: Vec<Vec<Pt4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
+    pub fn unweighted(unweighted: Vec<Vec<Pt4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
         let weighted: Vec<Vec<Pt4>> = unweighted
             .iter()
             .map(|row| row.iter().map(HPoint::weight).collect())
@@ -111,7 +111,7 @@ impl Surface {
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
-        Self::new(
+        Self::unweighted(
             self.unweighted
                 .iter()
                 .map(|row| {

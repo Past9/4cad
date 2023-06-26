@@ -15,7 +15,7 @@ use viewer::run_viewer;
 fn main() {
     let curves = vec![
         Curve::arc(Angle::deg(180.0)),
-        Curve::new(
+        Curve::unweighted(
             vec![
                 Pt4::new(1.0, 0.0, 1.0, 1.0),
                 Pt4::new(0.5, -0.5, 1.0, 1.0),

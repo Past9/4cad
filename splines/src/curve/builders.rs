@@ -10,7 +10,7 @@ const ARC_SPLIT_DEG: f64 = 90.0;
 
 impl Curve {
     pub fn line(start: Pt3, end: Pt3) -> Curve {
-        Self::new(
+        Self::unweighted(
             vec![start.to_hpoint(1.0), end.to_hpoint(1.0)],
             KnotVec::from([0.0, 0.0, 1.0, 1.0]),
         )
@@ -83,13 +83,13 @@ impl Curve {
 
         full_knots.extend([1.0, 1.0, 1.0]);
 
-        Self::new(full_points, KnotVec::new(full_knots))
+        Self::unweighted(full_points, KnotVec::new(full_knots))
     }
 
     fn arc_section(angle: Angle) -> Curve {
         let half_angle = angle / 2.0;
 
-        Curve::new(
+        Curve::unweighted(
             vec![
                 Pt4::new(1.0, 0.0, 0.0, 1.0),
                 Pt4::new(1.0, half_angle.tan(), 0.0, half_angle.cos()),
