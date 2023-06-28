@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Vector3, Zero};
-use primitives::Angle;
+use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
+use primitives::{Angle, HVec, Mat4};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -9,7 +9,7 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, EPoint, HPoint, KnotVec, Mat4, Pt4, Surface, Vec3};
+use splines::{Curve, Surface};
 use viewer::run_viewer;
 
 fn main() {
@@ -70,12 +70,7 @@ fn main() {
             let p4d = surface.eval(u, v);
             let p3d = p4d.project();
 
-            points.push(ModelPoint::new(
-                0.into(),
-                p3d.as_f32(),
-                Vector3::zero(),
-                Rgba::WHITE,
-            ));
+            points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
         }
     }
     let end = Instant::now();
@@ -86,12 +81,7 @@ fn main() {
         let p4d = profile.eval(t);
         let p3d = p4d.project();
 
-        points.push(ModelPoint::new(
-            0.into(),
-            p3d.as_f32(),
-            Vector3::zero(),
-            Rgba::RED,
-        ));
+        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::RED));
     }
 
     for i in 0..=num_pts {
@@ -99,12 +89,7 @@ fn main() {
         let p4d = trajectory.eval(t);
         let p3d = p4d.project();
 
-        points.push(ModelPoint::new(
-            0.into(),
-            p3d.as_f32(),
-            Vector3::zero(),
-            Rgba::GREEN,
-        ));
+        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::GREEN));
     }
 
     for i in 0..=num_pts {
@@ -112,12 +97,7 @@ fn main() {
         let p4d = edge.eval(t);
         let p3d = p4d.project();
 
-        points.push(ModelPoint::new(
-            0.into(),
-            p3d.as_f32(),
-            Vector3::zero(),
-            Rgba::BLUE,
-        ));
+        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::BLUE));
     }
 
     for section in sections.iter() {
@@ -129,7 +109,7 @@ fn main() {
 
             points.push(ModelPoint::new(
                 0.into(),
-                p3d.as_f32(),
+                p3d,
                 Vector3::zero(),
                 Rgba::YELLOW,
             ));
@@ -140,10 +120,7 @@ fn main() {
         for i in 0..section.num_pts() {
             points.push(ModelPoint::new(
                 0.into(),
-                {
-                    let pt = section.clone().take_unweighted()[i].truncate();
-                    Point3::new(pt.x as f32, pt.y as f32, pt.z as f32)
-                },
+                section.clone().take_unweighted()[i].truncate(),
                 Vector3::zero(),
                 Rgba::MAGENTA,
             ));

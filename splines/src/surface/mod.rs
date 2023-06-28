@@ -1,14 +1,15 @@
 mod builders;
 
-use crate::{basis, knots::KnotVec, HPoint, Pt4};
+use crate::{basis, knots::KnotVec, Vec4};
 use cgmath::{Matrix4, Zero};
 
 pub use builders::*;
+use primitives::HVec;
 
 #[derive(Debug)]
 pub struct Surface {
-    unweighted: Vec<Vec<Pt4>>,
-    weighted: Vec<Vec<Pt4>>,
+    unweighted: Vec<Vec<Vec4>>,
+    weighted: Vec<Vec<Vec4>>,
     knots_u: KnotVec,
     knots_v: KnotVec,
     degree_u: usize,
@@ -17,25 +18,25 @@ pub struct Surface {
     order_v: usize,
 }
 impl Surface {
-    pub fn unweighted(unweighted: Vec<Vec<Pt4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
-        let weighted: Vec<Vec<Pt4>> = unweighted
+    pub fn unweighted(unweighted: Vec<Vec<Vec4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
+        let weighted: Vec<Vec<Vec4>> = unweighted
             .iter()
-            .map(|row| row.iter().map(HPoint::weight).collect())
+            .map(|row| row.iter().map(HVec::weight).collect())
             .collect();
         Self::create(unweighted, weighted, knots_u, knots_v)
     }
 
-    pub fn weighted(weighted: Vec<Vec<Pt4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
-        let unweighted: Vec<Vec<Pt4>> = weighted
+    pub fn weighted(weighted: Vec<Vec<Vec4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
+        let unweighted: Vec<Vec<Vec4>> = weighted
             .iter()
-            .map(|row| row.iter().map(HPoint::unweight).collect())
+            .map(|row| row.iter().map(HVec::unweight).collect())
             .collect();
         Self::create(unweighted, weighted, knots_u, knots_v)
     }
 
     pub fn create(
-        unweighted: Vec<Vec<Pt4>>,
-        weighted: Vec<Vec<Pt4>>,
+        unweighted: Vec<Vec<Vec4>>,
+        weighted: Vec<Vec<Vec4>>,
         knots_u: KnotVec,
         knots_v: KnotVec,
     ) -> Self {
@@ -85,7 +86,7 @@ impl Surface {
         }
     }
 
-    pub fn eval(&self, u: f64, v: f64) -> Pt4 {
+    pub fn eval(&self, u: f64, v: f64) -> Vec4 {
         // Alg A4.3
 
         let span_u = self.knots_u.find_span(self.degree_u, u);
@@ -94,7 +95,7 @@ impl Surface {
         let span_v = self.knots_v.find_span(self.degree_v, v);
         let basis_v = basis(span_v, v, self.degree_v, &self.knots_v);
 
-        let mut temp = vec![Pt4::zero(); self.degree_v + 1];
+        let mut temp = vec![Vec4::zero(); self.degree_v + 1];
         for l in 0..=self.degree_v {
             for k in 0..=self.degree_u {
                 temp[l] += basis_u[k]
@@ -102,7 +103,7 @@ impl Surface {
             }
         }
 
-        let mut point = Pt4::zero();
+        let mut point = Vec4::zero();
         for l in 0..=self.degree_v {
             point += basis_v[l] * temp[l];
         }

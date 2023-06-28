@@ -1,35 +1,32 @@
 mod builders;
 
-use crate::{
-    basis, basis_derivatives, bin, curve_derivatives, knots::KnotVec, EPoint, HPoint, Pt3, Pt4,
-    Vec3, TOL,
-};
-use cgmath::{EuclideanSpace, Matrix4, Vector3, Vector4, Zero};
-use core::num;
+use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
+use cgmath::{Matrix4, Vector4, Zero};
+use primitives::{EVec, HVec, TOL};
 use std::cmp::{max, min};
 
 pub use builders::*;
 
 #[derive(Debug, Clone)]
 pub struct Curve {
-    pub(crate) weighted: Vec<Pt4>,
-    pub(crate) unweighted: Vec<Pt4>,
+    pub(crate) weighted: Vec<Vec4>,
+    pub(crate) unweighted: Vec<Vec4>,
     pub(crate) knots: KnotVec,
     pub(crate) order: usize,
     pub(crate) degree: usize,
 }
 impl Curve {
-    pub fn unweighted(unweighted: Vec<Pt4>, knots: KnotVec) -> Self {
-        let weighted = unweighted.iter().map(HPoint::weight).collect();
+    pub fn unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
+        let weighted = unweighted.iter().map(HVec::weight).collect();
         Self::create(unweighted, weighted, knots)
     }
 
-    pub fn weighted(weighted: Vec<Pt4>, knots: KnotVec) -> Self {
-        let unweighted = weighted.iter().map(HPoint::unweight).collect();
+    pub fn weighted(weighted: Vec<Vec4>, knots: KnotVec) -> Self {
+        let unweighted = weighted.iter().map(HVec::unweight).collect();
         Self::create(unweighted, weighted, knots)
     }
 
-    fn create(unweighted: Vec<Pt4>, weighted: Vec<Pt4>, knots: KnotVec) -> Self {
+    fn create(unweighted: Vec<Vec4>, weighted: Vec<Vec4>, knots: KnotVec) -> Self {
         let num_knots = knots.len();
         let num_points = unweighted.len();
         let order = num_knots - num_points;
@@ -52,11 +49,11 @@ impl Curve {
         }
     }
 
-    pub fn take_weighted(self) -> Vec<Pt4> {
+    pub fn take_weighted(self) -> Vec<Vec4> {
         self.weighted
     }
 
-    pub fn take_unweighted(self) -> Vec<Pt4> {
+    pub fn take_unweighted(self) -> Vec<Vec4> {
         self.unweighted
     }
 
@@ -76,11 +73,11 @@ impl Curve {
         &self.knots
     }
 
-    pub fn eval(&self, u: f64) -> Pt4 {
+    pub fn eval(&self, u: f64) -> Vec4 {
         // Alg A4.1
         let span = self.knots.find_span(self.degree, u);
         let basis = basis(span, u, self.degree, &self.knots);
-        let mut point = Pt4::zero();
+        let mut point = Vec4::zero();
         for j in 0..=self.degree {
             point += basis[j] * self.weighted[span - self.degree + j];
         }
@@ -99,7 +96,7 @@ impl Curve {
             for i in 1..=k {
                 pt3 -= derivatives[k - i].truncate() * bin(k, i) * homogeneous_derivatives[i].w;
             }
-            derivatives[k] = (Pt3::origin() + pt3).to_hpoint(homogeneous_derivatives[0].w);
+            derivatives[k] = pt3.to_hpoint(homogeneous_derivatives[0].w);
             // / homogeneous_derivatives[0].w;
         }
 
@@ -150,7 +147,7 @@ impl Curve {
 
         let m = self.unweighted.len() + self.degree;
         let mut out_knots = vec![0.0; m + add_knots.len() + 1];
-        let mut out_points = vec![Pt4::zero(); self.unweighted.len() + add_knots.len()];
+        let mut out_points = vec![Vec4::zero(); self.unweighted.len() + add_knots.len()];
 
         for j in 0..=span_a - self.degree {
             out_points[j] = self.weighted[j];
@@ -258,14 +255,14 @@ impl Curve {
         }
 
         // Initialize first bezier segment
-        let mut bpts = vec![Pt4::zero(); p as usize + 1];
+        let mut bpts = vec![Vec4::zero(); p as usize + 1];
         for i in 0..=p {
             bpts[i as usize] = pw[i as usize];
         }
 
         let mut alfs = vec![0.0; (p - 1) as usize];
-        let mut nextbpts = vec![Pt4::zero(); (p - 1) as usize];
-        let mut ebpts = vec![Pt4::zero(); (p + t + 1) as usize];
+        let mut nextbpts = vec![Vec4::zero(); (p - 1) as usize];
+        let mut ebpts = vec![Vec4::zero(); (p + t + 1) as usize];
         while b < m {
             let i = b;
             while b < m && u[b as usize] == u[(b + 1) as usize] {
@@ -301,7 +298,7 @@ impl Curve {
             // Degree elevate bezier
             for i in lbz..=ph {
                 // Only points lbz...ph are used below
-                ebpts[i as usize] = Pt4::zero();
+                ebpts[i as usize] = Vec4::zero();
                 let mpi = min(p, i);
                 for j in max(0, i - t)..=mpi {
                     ebpts[i as usize] =
@@ -326,7 +323,7 @@ impl Curve {
                         if i < cind {
                             let alf = (ub - uh[i as usize]) / (ua - uh[i as usize]);
                             if qw.len() <= i as usize {
-                                qw.push(Pt4::zero());
+                                qw.push(Vec4::zero());
                             }
                             qw[i as usize] =
                                 alf * qw[i as usize] + (1.0 - alf) * qw[(i - 1) as usize];

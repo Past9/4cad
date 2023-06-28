@@ -4,129 +4,12 @@ mod surface;
 
 use std::cmp::min;
 
-use cgmath::{InnerSpace, Matrix4, Point3, Transform, Vector3, Vector4, Zero};
+use cgmath::{InnerSpace, Zero};
 
 pub use curve::*;
 pub use knots::KnotVec;
+use primitives::Vec4;
 pub use surface::*;
-
-pub type Mat4 = Matrix4<f64>;
-pub type Vec3 = Vector3<f64>;
-pub type Pt3 = Point3<f64>;
-pub type Pt4 = Vector4<f64>;
-
-const TOL: f64 = 10.0e-8;
-
-pub trait TolEq {
-    fn toleq(self, rhs: Self) -> bool;
-    fn toleq_avg(self, rhs: Self) -> Option<Self>
-    where
-        Self: Sized;
-}
-impl TolEq for f64 {
-    fn toleq(self, rhs: Self) -> bool {
-        (self - rhs).abs() <= TOL
-    }
-
-    fn toleq_avg(self, rhs: Self) -> Option<Self> {
-        if self.toleq(rhs) {
-            Some((self + rhs) / 2.0)
-        } else {
-            None
-        }
-    }
-}
-impl TolEq for Vec<f64> {
-    fn toleq(self, rhs: Self) -> bool {
-        if self.len() == rhs.len() {
-            self.iter().zip(rhs.iter()).all(|(l, r)| l.toleq(*r))
-        } else {
-            false
-        }
-    }
-
-    fn toleq_avg(self, rhs: Self) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if self.len() == rhs.len() {
-            let mut knots = vec![];
-            for i in 0..self.len() {
-                let l = self[i];
-                let r = rhs[i];
-
-                if let Some(avg) = l.toleq_avg(r) {
-                    knots.push(avg);
-                } else {
-                    return None;
-                }
-            }
-            Some(knots)
-        } else {
-            None
-        }
-    }
-}
-
-pub trait EPoint {
-    fn as_f32(self) -> Point3<f32>;
-    fn to_hpoint(self, w: f64) -> Pt4;
-}
-impl EPoint for Pt3 {
-    fn as_f32(self) -> Point3<f32> {
-        self.cast::<f32>().unwrap()
-    }
-
-    fn to_hpoint(self, w: f64) -> Pt4 {
-        Pt4::new(self.x, self.y, self.z, w)
-    }
-}
-
-pub trait HPoint {
-    fn project(&self) -> Pt3;
-    fn transform(&self, transform: &Matrix4<f64>) -> Self;
-    fn weight(&self) -> Self;
-    fn unweight(&self) -> Self;
-}
-impl HPoint for Pt4 {
-    fn project(&self) -> Pt3 {
-        Pt3 {
-            x: self.x / self.w,
-            y: self.y / self.w,
-            z: self.z / self.w,
-        }
-    }
-
-    fn transform(&self, transform: &Matrix4<f64>) -> Self {
-        let xyz = Point3::new(self.x, self.y, self.z);
-        let xyz = transform.transform_point(xyz);
-
-        Self {
-            x: xyz.x,
-            y: xyz.y,
-            z: xyz.z,
-            w: self.w,
-        }
-    }
-
-    fn weight(&self) -> Self {
-        Self {
-            x: self.x * self.w,
-            y: self.y * self.w,
-            z: self.z * self.w,
-            w: self.w,
-        }
-    }
-
-    fn unweight(&self) -> Self {
-        Self {
-            x: self.x / self.w,
-            y: self.y / self.w,
-            z: self.z / self.w,
-            w: self.w,
-        }
-    }
-}
 
 const BINOMIAL_COEFFICIENTS: [[f64; 10]; 10] = [
     [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -172,13 +55,13 @@ fn basis(span: usize, u: f64, degree: usize, knots: &KnotVec) -> Vec<f64> {
 
 fn curve_derivatives(
     u: f64,
-    weighted: &[Pt4],
+    weighted: &[Vec4],
     degree: usize,
     knots: &KnotVec,
     num_derivatives: usize,
-) -> Vec<Pt4> {
+) -> Vec<Vec4> {
     let num_derivatives = min(num_derivatives, degree);
-    let mut derivatives = vec![Pt4::zero(); num_derivatives + 1];
+    let mut derivatives = vec![Vec4::zero(); num_derivatives + 1];
 
     let span = knots.find_span(degree, u);
     let basis_derivatives = basis_derivatives(span, u, degree, &knots, num_derivatives);
@@ -192,6 +75,11 @@ fn curve_derivatives(
     derivatives
 }
 
+/// Evaluates the point at `u` plus the specified number of derivaties an returns a
+/// `(num_derivatives + 1) x (degree)`-dimensional `Vec<Vec<f64>>`. When referencing
+/// this vector, the first index is the i-th derivative (with `0` being the 0-th
+/// derivative, or simply the point on the curve at `u`), and the second is the
+/// index of the basis function that was evaluated.
 fn basis_derivatives(
     span: usize,
     u: f64,
@@ -267,7 +155,7 @@ fn basis_derivatives(
             }
 
             if r <= pk as usize {
-                a[s2][k] = -a[s1][k - 1] / ndu[((pk + 1) as usize)][r];
+                a[s2][k] = -a[s1][k - 1] / ndu[(pk + 1) as usize][r];
                 d += a[s2][k] * ndu[r][pk as usize];
             }
 
@@ -362,7 +250,7 @@ fn backward_substitution(mat_u: &Vec<Vec<f64>>, mat_y: Vec<f64>) -> Vec<f64> {
     mat_x
 }
 
-fn get_interpolation_params(points: &[Pt4]) -> Vec<f64> {
+fn get_interpolation_params(points: &[Vec4]) -> Vec<f64> {
     let n = points.len();
     let mut chord_lens = vec![0.0; n + 1];
     chord_lens[n] = 1.0;

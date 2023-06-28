@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use cgmath::{Point3, Vector3};
+use primitives::Vec3;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use crate::Rgba;
@@ -14,16 +14,11 @@ pub struct ModelPoint {
     color: Rgba,
 }
 impl ModelPoint {
-    pub fn new(
-        id: ModelObjectId,
-        position: Point3<f32>,
-        expand: Vector3<f32>,
-        color: Rgba,
-    ) -> Self {
+    pub fn new(id: ModelObjectId, position: Vec3, expand: Vec3, color: Rgba) -> Self {
         Self {
             id,
-            position: [position.x, position.y, position.z],
-            expand: [expand.x, expand.y, expand.z],
+            position: [position.x as f32, position.y as f32, position.z as f32],
+            expand: [expand.x as f32, expand.y as f32, expand.z as f32],
             color,
         }
     }

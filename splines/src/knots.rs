@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use crate::TolEq;
+use primitives::TolEq;
 
 #[derive(Debug, Clone)]
 pub struct KnotVec {
@@ -232,7 +232,9 @@ impl TolEq for KnotVec {
 
 #[cfg(test)]
 mod tests {
-    use crate::{knots::KnotVec, TolEq};
+    use primitives::TolEq;
+
+    use crate::knots::KnotVec;
 
     #[test]
     fn merges_knots() {

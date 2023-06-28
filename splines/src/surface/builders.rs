@@ -1,8 +1,6 @@
-use cgmath::{EuclideanSpace, InnerSpace, Matrix, SquareMatrix, Vector3, Vector4, Zero};
-
-use crate::{
-    get_interpolation_params, knots::KnotVec, Curve, EPoint, HPoint, Mat4, Pt3, Pt4, Surface, Vec3,
-};
+use crate::{knots::KnotVec, Curve, Surface, Vec4};
+use cgmath::{InnerSpace, Vector4, Zero};
+use primitives::{HVec, Mat4, Vec3};
 
 impl Surface {
     pub fn rule_curve(curve: Curve, direction: Vec3) -> Self {
@@ -50,8 +48,6 @@ impl Surface {
             trajectory.knots.clone()
         };
 
-        println!("num_sections {}", num_sections);
-
         // Compute parameters by averaging knots
         let mut params_v = vec![0f64; num_sections];
         params_v[num_sections - 1] = 1.0;
@@ -64,10 +60,10 @@ impl Surface {
             // Transform and position section control points
             let v = params_v[k];
             let trajectory_ders = trajectory.eval_derivatives(v, 2);
-            let tder1 = trajectory_ders[1].project() - Pt3::origin();
-            let tder2 = trajectory_ders[2].project() - Pt3::origin();
+            let tder1 = trajectory_ders[1].project();
+            let tder2 = trajectory_ders[2].project();
 
-            let o = trajectory_ders[0].project() - Pt3::origin();
+            let o = trajectory_ders[0].project();
 
             let y = tder1.normalize();
             let z = tder1.cross(tder2).normalize();
@@ -81,11 +77,11 @@ impl Surface {
                     0.0, 0.0, 0.0, 1.0, //
                 );
 
-            let mut ctrl_pts = vec![Pt4::zero(); curve.unweighted.len()];
+            let mut ctrl_pts = vec![Vec4::zero(); curve.unweighted.len()];
             for i in 0..curve.num_pts() {
                 let pt = curve.unweighted[i];
                 let transformed = mat_a.clone() * Vector4::new(pt.x, pt.y, pt.z, 1.0);
-                ctrl_pts[i] = Pt4::new(transformed.x, transformed.y, transformed.z, pt.w).weight();
+                ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w).weight();
 
                 ctrl_pts[i] *= trajectory_ders[0].w;
             }
@@ -96,20 +92,12 @@ impl Surface {
     }
 
     pub fn sweep_curve(curve: &Curve, trajectory: &Curve, num_sections: usize, scale: f64) -> Self {
-        /*
-        let mut trajectory = trajectory.clone();
-        trajectory.knots = KnotVec::new(vec![0.0, 0.0, 0.0, 0.4, 0.6, 1.0, 1.0, 1.0]);
-        let trajectory = &trajectory;
-        */
-
         let (knots_v, params_v, section_curves) =
             Self::generate_sweep_section_curves(curve, trajectory, num_sections, scale);
 
-        println!("params_v {:?}", params_v);
-
         let mut curves = vec![];
         for i in 0..curve.num_pts() {
-            let points: Vec<Pt4> = (0..section_curves.len())
+            let points: Vec<Vec4> = (0..section_curves.len())
                 .map(|k| section_curves[k].weighted[i])
                 .collect();
             curves.push(Curve::interpolate_with_params(
@@ -118,11 +106,6 @@ impl Surface {
                 &params_v,
             ));
         }
-
-        println!("curve.knots {:?}", curve.knots);
-        println!("knots_v {:?}", knots_v);
-        println!("curves.len() {}", curves.len());
-        println!("curves[0] {:#?}", curves[0]);
 
         Self::weighted(
             curves.into_iter().map(Curve::take_weighted).collect(),

@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::Angle;
+use primitives::{Angle, HVec};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -8,7 +8,7 @@ use render::{
     Rgba,
 };
 
-use splines::{Curve, EPoint, HPoint};
+use splines::Curve;
 use std::time::Instant;
 use viewer::run_viewer;
 
@@ -24,12 +24,7 @@ fn main() {
         let p4d = curve.eval(t);
         let p3d = p4d.project();
 
-        points.push(ModelPoint::new(
-            0.into(),
-            p3d.as_f32(),
-            Vector3::zero(),
-            Rgba::WHITE,
-        ));
+        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
     }
     let end = Instant::now();
     println!("{}us", (end - start).as_micros());

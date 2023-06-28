@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::Angle;
+use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -9,7 +9,7 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, EPoint, HPoint, KnotVec, Mat4, Pt4, Surface, Vec3};
+use splines::{Curve, KnotVec, Surface};
 use viewer::run_viewer;
 
 fn main() {
@@ -17,11 +17,11 @@ fn main() {
         Curve::arc(Angle::deg(180.0)),
         Curve::unweighted(
             vec![
-                Pt4::new(1.0, 0.0, 1.0, 1.0),
-                Pt4::new(0.5, -0.5, 1.0, 1.0),
-                Pt4::new(0.0, -0.5, 1.0, 1.0),
-                Pt4::new(-0.5, -0.5, 1.0, 1.0),
-                Pt4::new(-1.0, 0.0, 1.0, 1.0),
+                Vec4::new(1.0, 0.0, 1.0, 1.0),
+                Vec4::new(0.5, -0.5, 1.0, 1.0),
+                Vec4::new(0.0, -0.5, 1.0, 1.0),
+                Vec4::new(-0.5, -0.5, 1.0, 1.0),
+                Vec4::new(-1.0, 0.0, 1.0, 1.0),
             ],
             KnotVec::uniform(5, 2),
         ),
@@ -44,12 +44,7 @@ fn main() {
             let p4d = surface.eval(u, v);
             let p3d = p4d.project();
 
-            points.push(ModelPoint::new(
-                0.into(),
-                p3d.as_f32(),
-                Vector3::zero(),
-                Rgba::WHITE,
-            ));
+            points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
         }
     }
     let end = Instant::now();
@@ -61,12 +56,7 @@ fn main() {
             let p4d = curve.eval(t);
             let p3d = p4d.project();
 
-            points.push(ModelPoint::new(
-                0.into(),
-                p3d.as_f32(),
-                Vector3::zero(),
-                Rgba::RED,
-            ));
+            points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::RED));
         }
     }
 

@@ -9,6 +9,7 @@ members = [
     "components",
     "examples/curve_arc",
     "examples/curve_interpolate_quarter_circle",
+    "examples/curve_interpolate_ders_half_circle",
     "examples/surface_skinned_curves",
     "examples/surface_ruled_curve",
     "examples/surface_swept_curve",

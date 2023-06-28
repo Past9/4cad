@@ -1,22 +1,142 @@
-use cgmath::{Matrix4, Rad};
-use primitives::Angle;
+use cgmath::{Matrix4, Rad, Zero};
+use primitives::{Angle, EVec, Vec3};
 
 use crate::{
-    backward_substitution, basis, forward_substitution, get_interpolation_params, knots::KnotVec,
-    lu_decomposition, Curve, EPoint, Pt3, Pt4,
+    backward_substitution, basis, basis_derivatives, forward_substitution,
+    get_interpolation_params, knots::KnotVec, lu_decomposition, Curve, Vec4,
 };
 
 const ARC_SPLIT_DEG: f64 = 90.0;
 
 impl Curve {
-    pub fn line(start: Pt3, end: Pt3) -> Curve {
+    pub fn line(start: Vec3, end: Vec3) -> Curve {
         Self::unweighted(
             vec![start.to_hpoint(1.0), end.to_hpoint(1.0)],
             KnotVec::from([0.0, 0.0, 1.0, 1.0]),
         )
     }
 
-    pub fn interpolate_with_params(points: Vec<Pt4>, degree: usize, params: &[f64]) -> Curve {
+    pub fn interpolate_ders(points_ders: Vec<(Vec4, Vec4)>, degree: usize) -> Curve {
+        let n = points_ders.len();
+
+        // Split points and derivatives
+        let mut points = Vec::new();
+        let mut ders = Vec::new();
+        for (point, der) in points_ders.into_iter() {
+            points.push(point);
+            ders.push(der);
+        }
+
+        // Compute params
+        let params = get_interpolation_params(&points);
+
+        println!("params {:?}", params);
+
+        // Compute knots
+        let num_knots = 2 * n + degree + 1;
+        let num_middle_knots = 2 * n - degree - 1;
+        let mut knots = vec![0.0; degree + 1];
+        for i in 0..num_middle_knots {
+            if degree == 2 {
+                let param_index = i / 2;
+                let knot = if i % 2 == 0 {
+                    (params[param_index] + params[param_index + 1]) / 2.0
+                } else {
+                    params[param_index + 1]
+                };
+
+                knots.push(knot);
+            } else {
+                unimplemented!("Knot calculation not implemented for degree {}", degree);
+            }
+        }
+        knots.extend((0..degree + 1).map(|_| 1.0));
+        let knots = KnotVec::new(knots);
+
+        println!("num_knots {}", num_knots);
+        println!("knots.len() {}", knots.len());
+        println!("knots {:?}", knots);
+
+        let mut coeffs = vec![];
+
+        let mut row1 = vec![0.0; 2 * n];
+        row1[0] = 1.0;
+        coeffs.push(row1);
+
+        let mut row2 = vec![0.0; 2 * n];
+        row2[0] = -1.0;
+        row2[1] = 1.0;
+        coeffs.push(row2);
+
+        for i in 1..n - 1 {
+            let span = knots.find_span(degree, params[i]);
+            println!("i {}", i);
+            println!("span @ {} {}", i, span);
+            let new_coeffs = basis_derivatives(span, params[i], degree, &knots, 1);
+            println!("new_coeffs {:#?}", new_coeffs);
+            let start = span - degree;
+            let mut point_row = vec![0.0; 2 * n];
+            let mut der_row = vec![0.0; 2 * n];
+            for c in start..start + new_coeffs[0].len() {
+                point_row[c] = new_coeffs[0][c - start]; // Point on curve
+                der_row[c] = new_coeffs[1][c - start]; // Derivative on curve
+            }
+            coeffs.push(point_row);
+            coeffs.push(der_row);
+        }
+
+        let mut row_2_last = vec![0.0; 2 * n];
+        row_2_last[2 * n - 2] = -1.0;
+        row_2_last[2 * n - 1] = 1.0;
+        coeffs.push(row_2_last);
+
+        let mut row_last = vec![0.0; 2 * n];
+        row_last[2 * n - 1] = 1.0;
+        coeffs.push(row_last);
+
+        println!("coeffs dimensions {} x {}", coeffs.len(), coeffs[0].len());
+        println!("coeffs {:#?}", coeffs);
+
+        let decomp = lu_decomposition(coeffs);
+
+        println!("decomp {:#?}", decomp);
+
+        let mut ctrl_pts = vec![Vec4::zero(); 2 * n];
+        for i in 0..4 {
+            let mut bt: Vec<f64> = vec![];
+            bt.push(points[0][i]);
+            bt.push((knots[degree + 1] / degree as f64) * ders[0][i]);
+
+            for p in 1..=n - 2 {
+                bt.push(points[p][i]);
+                bt.push(ders[p][i]);
+            }
+
+            bt.push((1.0 - knots[knots.len() - 1 - degree - 1]) / degree as f64 * ders[n - 1][i]);
+            bt.push(points[n - 1][i]);
+
+            println!("bt.len() {}", bt.len());
+            println!("bt {:?}", bt);
+
+            let y = forward_substitution(&decomp.lower, bt);
+            let xt = backward_substitution(&decomp.upper, y);
+            for j in 0..ctrl_pts.len() {
+                ctrl_pts[j][i] = xt[j];
+            }
+        }
+
+        println!("ctrl_pts {:#?}", ctrl_pts);
+        println!("knots {:?}", knots);
+
+        Self::weighted(ctrl_pts, knots)
+    }
+
+    pub fn interpolate(points: Vec<Vec4>, degree: usize) -> Curve {
+        let params = get_interpolation_params(&points);
+        Self::interpolate_with_params(points, degree, &params)
+    }
+
+    pub fn interpolate_with_params(points: Vec<Vec4>, degree: usize, params: &[f64]) -> Curve {
         let n = points.len();
 
         // Compute knot vector (Eq. 9.8, The NURBS Book)
@@ -41,7 +161,7 @@ impl Curve {
 
         let decomp = lu_decomposition(coeffs);
 
-        let mut ctrl_pts = vec![Pt4::new(0.0, 0.0, 0.0, 0.0); points.len()];
+        let mut ctrl_pts = vec![Vec4::new(0.0, 0.0, 0.0, 0.0); points.len()];
 
         for i in 0..4 {
             let bt = points.iter().map(|pt| pt[i]).collect::<Vec<f64>>();
@@ -53,11 +173,6 @@ impl Curve {
         }
 
         Self::weighted(ctrl_pts, knots)
-    }
-
-    pub fn interpolate(points: Vec<Pt4>, degree: usize) -> Curve {
-        let params = get_interpolation_params(&points);
-        Self::interpolate_with_params(points, degree, &params)
     }
 
     pub fn arc(angle: Angle) -> Curve {
@@ -91,9 +206,9 @@ impl Curve {
 
         Curve::unweighted(
             vec![
-                Pt4::new(1.0, 0.0, 0.0, 1.0),
-                Pt4::new(1.0, half_angle.tan(), 0.0, half_angle.cos()),
-                Pt4::new(angle.cos(), angle.sin(), 0.0, 1.0),
+                Vec4::new(1.0, 0.0, 0.0, 1.0),
+                Vec4::new(1.0, half_angle.tan(), 0.0, half_angle.cos()),
+                Vec4::new(angle.cos(), angle.sin(), 0.0, 1.0),
             ],
             KnotVec::from([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]),
         )

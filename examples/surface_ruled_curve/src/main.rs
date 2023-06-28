@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::Angle;
+use primitives::{Angle, HVec, Mat4, Vec3};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -7,7 +7,7 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, EPoint, HPoint, Mat4, Surface, Vec3};
+use splines::{Curve, Surface};
 use viewer::run_viewer;
 
 fn main() {
@@ -30,12 +30,7 @@ fn main() {
             let p4d = surface.eval(u, v);
             let p3d = p4d.project();
 
-            points.push(ModelPoint::new(
-                0.into(),
-                p3d.as_f32(),
-                Vector3::zero(),
-                Rgba::WHITE,
-            ));
+            points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
         }
     }
 
