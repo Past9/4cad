@@ -16,21 +16,27 @@ fn main() {
     let ref_circle = Curve::arc(Angle::deg(180.0));
     println!("ref_circle {:#?}", ref_circle);
 
+    let mut points_ders: Vec<(Vec4, Vec4)> = vec![];
+    let num_pts = 5;
+    for i in 0..=num_pts - 1 {
+        let t = i as f64 / (num_pts - 1) as f64;
+        let point_der = ref_circle.eval_derivatives(t, 2);
+        points_ders.push((
+            point_der[0], //.project().to_hpoint(1.0),
+            point_der[1], //.project().to_hpoint(1.0),
+        ));
+    }
+
+    println!("ref_circle points_ders {:#?}", points_ders);
+
     // These are the weighted coordinates of points on
     // the start, middle, and end of a quarter circle.
     // Fitting them should generate a quarter-circle arc.
+    let rt = 2f64.sqrt() / 2.0;
     let curve = Curve::interpolate_ders(
+        /*
         vec![
             /*
-            Pt4::new(1.0, 0.0, 0.0, 1.0),
-            Pt4::new(
-                0.6035533905932737,
-                0.6035533905932737,
-                0.0,
-                0.8535533905932737,
-            ),
-            Pt4::new(0.0, 1.0, 0.0, 1.0),
-            */
             (Vec4::new(1.0, 0.0, 0.0, 1.0), Vec4::new(0.0, 1.0, 0.0, 1.0)),
             (
                 Vec4::new(
@@ -39,26 +45,27 @@ fn main() {
                     0.0,
                     0.8535533905932737,
                 ),
-                Vec3::new(-1.0, 1.0, 0.0).normalize().to_hpoint(1.0),
+                Vec4::new(-rt, rt, 0.0, 1.0),
             ),
             (
-                Vec4::new(0.00000000000000006123233995736766, 1.0, 0.0, 1.0),
+                Vec4::new(0.0, 1.0, 0.0, 1.0),
                 Vec4::new(-1.0, 0.0, 0.0, 1.0),
             ),
+            */
+            (Vec4::new(1.0, 0.0, 0.0, 1.0), Vec4::new(0.0, 1.0, 0.0, 1.0)),
+            (Vec4::new(rt, rt, 0.0, 1.0), Vec4::new(-rt, rt, 0.0, 1.0)),
             (
-                Vec4::new(
-                    -0.6035533905932737,
-                    0.6035533905932737,
-                    0.0,
-                    0.8535533905932737,
-                ),
-                Vec3::new(-1.0, -1.0, 0.0).normalize().to_hpoint(1.0),
+                Vec4::new(0.0, 1.0, 0.0, 1.0),
+                Vec4::new(-1.0, 0.0, 0.0, 1.0),
             ),
+            (Vec4::new(-rt, rt, 0.0, 1.0), Vec4::new(-rt, -rt, 0.0, 1.0)),
             (
-                Vec4::new(-1.0, 0.00000000000000012246467991473532, 0.0, 1.0),
+                Vec4::new(-1.0, 0.0, 0.0, 1.0),
                 Vec4::new(0.0, -1.0, 0.0, 1.0),
             ),
         ],
+        */
+        points_ders,
         2,
     );
 
@@ -84,6 +91,22 @@ fn main() {
         let p3d = p4d.project();
 
         points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::RED));
+    }
+
+    let ctrl_pts = curve
+        .clone()
+        .take_weighted()
+        .into_iter()
+        .map(|pt| pt.project())
+        .collect::<Vec<_>>();
+    println!("ctrl_pts.len() {}", ctrl_pts.len());
+    for i in 0..ctrl_pts.len() {
+        points.push(ModelPoint::new(
+            0.into(),
+            ctrl_pts[i].into(),
+            Vector3::zero(),
+            Rgba::MAGENTA,
+        ));
     }
 
     let model = Model::empty().points(points);

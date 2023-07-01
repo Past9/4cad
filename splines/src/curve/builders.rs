@@ -37,13 +37,14 @@ impl Curve {
         let num_middle_knots = 2 * n - degree - 1;
         let mut knots = vec![0.0; degree + 1];
         for i in 0..num_middle_knots {
+            let x = i.rem_euclid(2);
             if degree == 2 {
                 let param_index = i / 2;
-                let knot = if i % 2 == 0 {
-                    (params[param_index] + params[param_index + 1]) / 2.0
-                } else {
-                    params[param_index + 1]
-                };
+                println!("param_index {}", param_index);
+                let i = i + 1;
+                let lower = (i - i % 2) / 2;
+                let upper = lower + i % 2;
+                let knot = (params[lower] + params[upper]) / 2.0;
 
                 knots.push(knot);
             } else {
@@ -55,7 +56,10 @@ impl Curve {
 
         println!("num_knots {}", num_knots);
         println!("knots.len() {}", knots.len());
+        println!("params {:?}", params);
         println!("knots {:?}", knots);
+
+        //panic!();
 
         let mut coeffs = vec![];
 
@@ -68,10 +72,11 @@ impl Curve {
         row2[1] = 1.0;
         coeffs.push(row2);
 
-        for i in 1..n - 1 {
+        for i in 1..=n - 2 {
             let span = knots.find_span(degree, params[i]);
             println!("i {}", i);
             println!("span @ {} {}", i, span);
+            println!("basis {:#?}", basis(span - 1, params[i], degree, &knots));
             let new_coeffs = basis_derivatives(span, params[i], degree, &knots, 1);
             println!("new_coeffs {:#?}", new_coeffs);
             let start = span - degree;
