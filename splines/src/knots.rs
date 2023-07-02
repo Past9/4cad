@@ -119,11 +119,11 @@ impl KnotVec {
         true
     }
 
-    pub fn find_span(&self, degree: usize, pos: f64) -> usize {
+    pub fn find_span(&self, degree: usize, u: f64) -> usize {
         // Alg 2.1
         let num_pts = self.knots.len() - degree - 1;
 
-        if pos == self[num_pts] {
+        if u == self[num_pts] {
             return num_pts - 1;
         }
 
@@ -131,8 +131,8 @@ impl KnotVec {
         let mut high = num_pts + 1;
         let mut mid = (low + high) / 2;
 
-        while pos < self[mid] || pos >= self[mid + 1] {
-            if pos < self[mid] {
+        while u < self[mid] || u >= self[mid + 1] {
+            if u < self[mid] {
                 high = mid;
             } else {
                 low = mid;

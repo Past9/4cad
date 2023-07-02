@@ -59,7 +59,32 @@ impl Curve {
         println!("params {:?}", params);
         println!("knots {:?}", knots);
 
-        //panic!();
+        let mut coeffs: Vec<Vec<f64>> = vec![];
+        for i in 0..n {
+            let mut point_row = vec![0.0; 2 * n];
+            let mut der_row = vec![0.0; 2 * n];
+            let span = knots.find_span(degree, params[i]);
+            let basis_ders = basis_derivatives(span, params[i], degree, &knots, 1);
+            println!("span {}", span);
+            println!("basis_ders {:?}", basis_ders);
+            let start = span - degree;
+            for c in start..=start + basis_ders.len() {
+                point_row[c] = basis_ders[0][c - start];
+                der_row[c] = basis_ders[1][c - start];
+            }
+            if i < n - 1 {
+                coeffs.push(point_row);
+                coeffs.push(der_row);
+            } else {
+                coeffs.push(der_row);
+                coeffs.push(point_row);
+            }
+        }
+
+        println!("coeffs {:#?}", coeffs);
+
+        /*
+        panic!();
 
         let mut coeffs = vec![];
 
@@ -72,14 +97,26 @@ impl Curve {
         row2[1] = 1.0;
         coeffs.push(row2);
 
-        for i in 1..=n - 2 {
+        for i in 1..=2 * (n - 1) - degree {
             let span = knots.find_span(degree, params[i]);
-            println!("i {}", i);
-            println!("span @ {} {}", i, span);
-            println!("basis {:#?}", basis(span - 1, params[i], degree, &knots));
-            let new_coeffs = basis_derivatives(span, params[i], degree, &knots, 1);
+
+            println!("i = {}", i);
+            println!("params[i] = {}", params[i]);
+            println!("span @ {} = {}", params[i], span);
+
+            println!("# basis = {:#?}", basis(1, params[i], degree, &knots));
+            println!("# basis = {:#?}", basis(2, params[i], degree, &knots));
+            println!("# basis = {:#?}", basis(3, params[i], degree, &knots));
+            println!("# basis = {:#?}", basis(4, params[i], degree, &knots));
+            println!("# basis = {:#?}", basis(5, params[i], degree, &knots));
+
+            println!(
+                "basis = {:#?}",
+                basis(span - degree, params[i], degree, &knots)
+            );
+            let new_coeffs = basis_derivatives(i, params[i], degree, &knots, 1);
             println!("new_coeffs {:#?}", new_coeffs);
-            let start = span - degree;
+            let start = span - degree - 1;
             let mut point_row = vec![0.0; 2 * n];
             let mut der_row = vec![0.0; 2 * n];
             for c in start..start + new_coeffs[0].len() {
@@ -91,24 +128,56 @@ impl Curve {
         }
 
         let mut row_2_last = vec![0.0; 2 * n];
-        row_2_last[2 * n - 2] = -1.0;
-        row_2_last[2 * n - 1] = 1.0;
+        let len = row_2_last.len();
+        row_2_last[len - 2] = -1.0;
+        row_2_last[len - 1] = 1.0;
         coeffs.push(row_2_last);
 
         let mut row_last = vec![0.0; 2 * n];
-        row_last[2 * n - 1] = 1.0;
+        let len = row_last.len();
+        row_last[len - 1] = 1.0;
         coeffs.push(row_last);
 
         println!("coeffs dimensions {} x {}", coeffs.len(), coeffs[0].len());
         println!("coeffs {:#?}", coeffs);
 
+        panic!();
+        */
+
         let decomp = lu_decomposition(coeffs);
 
         println!("decomp {:#?}", decomp);
 
+        let mut bt: Vec<Vec4> = vec![];
+
+        for i in 0..n {
+            let point = points[i];
+            let der = if i == 0 {
+                // First point derivative
+                //ders[i] * (knots[degree + 1] / degree as f64)
+                ders[i]
+            } else if i < n - 1 {
+                // Middle point derivatives
+                ders[i]
+            } else {
+                // Last point derivative
+                //ders[i] * ((1.0 - knots[knots.len() - degree - 2]) / degree as f64)
+                ders[i]
+            };
+
+            if i < n - 1 {
+                bt.push(point);
+                bt.push(der);
+            } else {
+                bt.push(der);
+                bt.push(point);
+            }
+        }
+
         let mut ctrl_pts = vec![Vec4::zero(); 2 * n];
         for i in 0..4 {
-            let mut bt: Vec<f64> = vec![];
+            let bt = bt.iter().map(|x| x[i]).collect::<Vec<f64>>();
+            /*
             bt.push(points[0][i]);
             bt.push((knots[degree + 1] / degree as f64) * ders[0][i]);
 
@@ -119,12 +188,14 @@ impl Curve {
 
             bt.push((1.0 - knots[knots.len() - 1 - degree - 1]) / degree as f64 * ders[n - 1][i]);
             bt.push(points[n - 1][i]);
+            */
 
             println!("bt.len() {}", bt.len());
             println!("bt {:?}", bt);
 
             let y = forward_substitution(&decomp.lower, bt);
             let xt = backward_substitution(&decomp.upper, y);
+
             for j in 0..ctrl_pts.len() {
                 ctrl_pts[j][i] = xt[j];
             }
@@ -133,7 +204,7 @@ impl Curve {
         println!("ctrl_pts {:#?}", ctrl_pts);
         println!("knots {:?}", knots);
 
-        Self::weighted(ctrl_pts, knots)
+        Self::unweighted(ctrl_pts, knots)
     }
 
     pub fn interpolate(points: Vec<Vec4>, degree: usize) -> Curve {

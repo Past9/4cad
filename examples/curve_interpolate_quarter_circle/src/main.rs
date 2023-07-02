@@ -15,22 +15,18 @@ use viewer::run_viewer;
 fn main() {
     let ref_circle = Curve::arc(Angle::deg(90.0));
 
+    let mut points = vec![];
+    let num_pts = 5;
+    for i in 0..num_pts {
+        let t = i as f64 / (num_pts - 1) as f64;
+        let point = ref_circle.eval(t);
+        points.push(point);
+    }
+
     // These are the weighted coordinates of points on
     // the start, middle, and end of a quarter circle.
     // Fitting them should generate a quarter-circle arc.
-    let curve = Curve::interpolate(
-        vec![
-            Vec4::new(1.0, 0.0, 0.0, 1.0),
-            Vec4::new(
-                0.6035533905932737,
-                0.6035533905932737,
-                0.0,
-                0.8535533905932737,
-            ),
-            Vec4::new(0.0, 1.0, 0.0, 1.0),
-        ],
-        2,
-    );
+    let curve = Curve::interpolate(points, 2);
 
     let mut points = Vec::new();
 

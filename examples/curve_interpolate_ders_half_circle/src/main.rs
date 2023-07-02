@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, EVec, HVec, Vec3, Vec4};
+use primitives::{Angle, EVec, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -8,19 +8,31 @@ use render::{
     Rgba,
 };
 
-use splines::Curve;
+use splines::{Curve, KnotVec};
 use std::time::Instant;
 use viewer::run_viewer;
 
 fn main() {
-    let ref_circle = Curve::arc(Angle::deg(180.0));
+    let ref_circle =
+        Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_translation(Vec3::new(0.0, -1.0, 0.0)));
+
+    /*
+    let ref_circle = Curve::unweighted(
+        vec![
+            Vec4::new(1.0, 0.0, 0.0, 1.0),
+            Vec4::new(0.0, -1.0, 0.0, 1.0),
+            Vec4::new(-1.0, 0.0, 0.0, 1.0),
+        ],
+        KnotVec::uniform(3, 2),
+    );
+    */
     println!("ref_circle {:#?}", ref_circle);
 
     let mut points_ders: Vec<(Vec4, Vec4)> = vec![];
     let num_pts = 5;
-    for i in 0..=num_pts - 1 {
+    for i in 0..num_pts {
         let t = i as f64 / (num_pts - 1) as f64;
-        let point_der = ref_circle.eval_derivatives(t, 2);
+        let point_der = ref_circle.eval_derivatives(t, 1);
         points_ders.push((
             point_der[0], //.project().to_hpoint(1.0),
             point_der[1], //.project().to_hpoint(1.0),
@@ -28,6 +40,8 @@ fn main() {
     }
 
     println!("ref_circle points_ders {:#?}", points_ders);
+
+    //panic!();
 
     // These are the weighted coordinates of points on
     // the start, middle, and end of a quarter circle.
@@ -71,10 +85,10 @@ fn main() {
 
     let mut points = Vec::new();
 
-    let num_pts = 270;
+    let eval_pts = 97;
     let start = Instant::now();
-    for i in 0..=num_pts {
-        let t = i as f64 / num_pts as f64;
+    for i in 0..=eval_pts {
+        let t = i as f64 / eval_pts as f64;
         let p4d = curve.eval(t);
         let p3d = p4d.project();
 
@@ -83,11 +97,11 @@ fn main() {
     let end = Instant::now();
     println!("{}us", (end - start).as_micros());
 
-    let ref_pts = 8;
-    for i in 0..=ref_pts {
-        let t = i as f64 / ref_pts as f64;
+    let num_eval_pts = 170;
+    for i in 0..=(num_eval_pts - 1) {
+        let t = i as f64 / (num_eval_pts - 1) as f64;
         let p4d = ref_circle.eval(t);
-        println!("Pt4::new({}, {}, {}, {}),", p4d.x, p4d.y, p4d.z, p4d.w);
+        //println!("Pt4::new({}, {}, {}, {}),", p4d.x, p4d.y, p4d.z, p4d.w);
         let p3d = p4d.project();
 
         points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::RED));

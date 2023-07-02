@@ -105,6 +105,13 @@ impl Surface {
                 trajectory.degree,
                 &params_v,
             ));
+            /*
+            curves.push(Curve::interpolate_with_params(
+                points,
+                trajectory.degree,
+                &params_v,
+            ));
+            */
         }
 
         Self::weighted(

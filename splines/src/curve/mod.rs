@@ -2,7 +2,7 @@ mod builders;
 
 use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
 use cgmath::{Matrix4, Vector4, Zero};
-use primitives::{EVec, HVec, TOL};
+use primitives::{EVec, HVec, Vec3, TOL};
 use std::cmp::{max, min};
 
 pub use builders::*;
@@ -86,21 +86,50 @@ impl Curve {
     }
 
     pub fn eval_derivatives(&self, u: f64, num_derivatives: usize) -> Vec<Vector4<f64>> {
-        let homogeneous_derivatives =
+        let homo_ders =
             curve_derivatives(u, &self.weighted, self.degree, &self.knots, num_derivatives);
 
+        println!("homo_ders {:#?}", homo_ders);
+
+        let mut derivatives = vec![Vec3::zero(); num_derivatives + 1];
+
+        for k in 0..=num_derivatives {
+            let mut v = homo_ders[k].truncate();
+            for i in 1..=k {
+                v -= bin(k, i) * homo_ders[i].w * derivatives[k - i];
+            }
+            derivatives[k] = v / homo_ders[0].w;
+        }
+
+        println!("derivatives {:#?}", derivatives);
+
+        let ders = derivatives
+            .into_iter()
+            //.map(|der| der.to_hpoint(homo_ders[0].w).weight())
+            .map(|der| der.to_hpoint(1.0))
+            .collect();
+
+        println!("ders {:#?}", ders);
+
+        ders
+
+        /*
         let mut derivatives = vec![Vector4::zero(); num_derivatives + 1];
 
         for k in 0..=num_derivatives {
-            let mut pt3 = homogeneous_derivatives[k].truncate();
+            //let mut pt3 = homogeneous_derivatives[k].truncate();
+            let mut pt4 = weighted_ders[k].clone();
             for i in 1..=k {
-                pt3 -= derivatives[k - i].truncate() * bin(k, i) * homogeneous_derivatives[i].w;
+                pt4 -= derivatives[k - i] * bin(k, i); // * homogeneous_derivatives[i].w;
             }
-            derivatives[k] = pt3.to_hpoint(homogeneous_derivatives[0].w);
+            //derivatives[k] = pt3.to_hpoint(homogeneous_derivatives[k].w);
+            derivatives[k] = pt4;
             // / homogeneous_derivatives[0].w;
         }
 
         derivatives
+        */
+        //homo_ders
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
