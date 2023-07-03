@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, HVec, Mat4};
+use primitives::{Angle, HVec, Mat4, Vec3};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -16,6 +16,7 @@ fn main() {
     let profile = Curve::arc(Angle::deg(360.0))
         .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))));
     let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
+    //.transform(&Mat4::from_translation(Vec3::new(2.0, 2.0, 2.0)));
 
     let num_sections = 0;
     let (_, _, sections) = Surface::generate_sweep_section_curves(&profile, &trajectory, 1.0);
@@ -26,7 +27,7 @@ fn main() {
 
     let mut points = Vec::new();
 
-    let num_pts = 200;
+    let num_pts = 100;
     let start = Instant::now();
     for i in 0..=num_pts {
         for j in 0..=num_pts {

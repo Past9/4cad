@@ -87,32 +87,37 @@ impl Surface {
             let mut ctrl_pts = vec![Vec4::zero(); profile.unweighted.len()];
             for i in 0..profile.num_pts() {
                 let p_pt = profile.unweighted[i];
-                let transformed = mat_a.clone() * Vector4::new(p_pt.x, p_pt.y, p_pt.z, 1.0);
+                let transformed =
+                    (mat_a.clone() * Vector4::new(p_pt.x, p_pt.y, p_pt.z, 1.0)).truncate();
 
-                let div_x = if !t_cpt.x.toleq(0.0) {
-                    t_pt.x / t_cpt.x
-                } else {
-                    1.0
-                };
+                /*
+                let ratio = (t_cpt.truncate() - o).dot(t_pt.truncate() - o);
+                println!("x {:?}", x);
+                println!("o {:?}", o);
+                println!("vecs {:?}, {:?}", t_cpt.truncate(), t_pt.truncate());
+                println!(
+                    "vec diffs {:?}, {:?}",
+                    t_cpt.truncate() - o,
+                    t_pt.truncate() - o
+                );
+                println!("ratio {:?}", ratio);
+                */
+                println!("x {:?}", x);
+                let t_cpt_extension = x.dot(t_cpt.truncate() - o);
+                println!("t_cpt_extension {:?}", t_cpt_extension);
+                let transformed_cpt_extension = x.dot(transformed - o);
+                println!("transformed_cpt_extension {:?}", transformed_cpt_extension);
 
-                let div_y = if !t_cpt.y.toleq(0.0) {
-                    t_pt.y / t_cpt.y
-                } else {
-                    1.0
-                };
+                let transformed = transformed + x * t_cpt_extension;
 
-                let div_z = if !t_cpt.z.toleq(0.0) {
-                    t_pt.z / t_cpt.z
-                } else {
-                    1.0
-                };
+                //let o_to_transformed = transformed - o;
 
-                println!("div_z {}", div_z);
+                //let transformed = o + o_to_transformed + x / t_cpt.w;
 
                 ctrl_pts[i] = Vec4::new(
-                    transformed.x / div_x,
-                    transformed.y / div_y,
-                    transformed.z / div_z,
+                    transformed.x,
+                    transformed.y,
+                    transformed.z,
                     p_pt.w * t_cpt.w,
                 );
 
