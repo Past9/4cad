@@ -81,11 +81,11 @@ impl Surface {
             for i in 0..curve.num_pts() {
                 let pt = curve.unweighted[i];
                 let transformed = mat_a.clone() * Vector4::new(pt.x, pt.y, pt.z, 1.0);
-                ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w).weight();
+                ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w); //.weight();
 
                 ctrl_pts[i] *= trajectory_ders[0].w;
             }
-            section_curves.push(Curve::weighted(ctrl_pts, curve.knots.clone()))
+            section_curves.push(Curve::unweighted(ctrl_pts, curve.knots.clone()))
         }
 
         (knots_v, params_v, section_curves)
@@ -105,13 +105,6 @@ impl Surface {
                 trajectory.degree,
                 &params_v,
             ));
-            /*
-            curves.push(Curve::interpolate_with_params(
-                points,
-                trajectory.degree,
-                &params_v,
-            ));
-            */
         }
 
         Self::weighted(

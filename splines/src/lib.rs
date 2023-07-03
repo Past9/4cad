@@ -168,8 +168,6 @@ fn basis_derivatives(
         }
     }
 
-    println!("derivatives {:?}", derivatives);
-
     // Multiply through by the correct factors
     let mut r = degree as f64;
     for k in 1..=num_derivatives {

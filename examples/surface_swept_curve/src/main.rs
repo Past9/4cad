@@ -45,13 +45,13 @@ fn main() {
         KnotVec::uniform(4, 3),
     );
     */
-    let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
+    let trajectory = Curve::arc(Angle::deg(90.0)).transform(&Mat4::from_scale(2.0));
     // println!("trajectory {:#?}", trajectory);
 
     //println!("trajectory {:#?}", trajectory);
 
     //let trajectory = Curve::arc(Angle::deg(180.0));
-    let num_sections = 0;
+    let num_sections = 3;
     let (_, _, sections) =
         Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections, 1.0);
     println!("sections.len() {}", sections.len());
