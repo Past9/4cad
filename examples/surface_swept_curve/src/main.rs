@@ -13,56 +13,21 @@ use splines::{Curve, Surface};
 use viewer::run_viewer;
 
 fn main() {
-    /*
-    let profile = Curve::new(
-        vec![
-            Pt4::new(0.0, 0.0, -1.0, 1.0),
-            Pt4::new(1.0, 0.0, 0.0, 1.0),
-            Pt4::new(0.0, 0.0, 2.0, 1.0),
-        ],
-        KnotVec::uniform(3, 2),
-    );
-    let trajectory = Curve::new(
-        vec![
-            Pt4::new(0.5, -2.0, 0.0, 1.0),
-            Pt4::new(1.5, 1.5, 0.0, 1.0),
-            Pt4::new(0.5, 2.0, 0.0, 1.0),
-            Pt4::new(-2.0, 1.5, 0.0, 1.0),
-        ],
-        KnotVec::uniform(4, 3),
-    );
-    */
     let profile = Curve::arc(Angle::deg(360.0))
         .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))));
-    /*
-    let trajectory = Curve::unweighted(
-        vec![
-            Pt4::new(0.5, -2.0, 0.0, 1.0),
-            Pt4::new(1.5, 1.5, 0.0, 1.0),
-            Pt4::new(0.5, 2.0, 0.0, 1.0),
-            Pt4::new(-2.0, 1.5, 0.0, 1.0),
-        ],
-        KnotVec::uniform(4, 3),
-    );
-    */
     let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
-    // println!("trajectory {:#?}", trajectory);
 
-    //println!("trajectory {:#?}", trajectory);
-
-    //let trajectory = Curve::arc(Angle::deg(180.0));
     let num_sections = 0;
-    let (_, _, sections) =
-        Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections, 1.0);
-    println!("sections.len() {}", sections.len());
-    let surface = Surface::sweep_curve(&profile, &trajectory, num_sections, 1.0);
+    let (_, _, sections) = Surface::generate_sweep_section_curves(&profile, &trajectory, 1.0);
+    let surface = Surface::sweep_curve(&profile, &trajectory, 1.0);
 
-    let edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
+    let inner_edge = Curve::arc(Angle::deg(360.0));
+    let outer_edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
 
     let mut points = Vec::new();
 
-    let start = Instant::now();
     let num_pts = 200;
+    let start = Instant::now();
     for i in 0..=num_pts {
         for j in 0..=num_pts {
             let u = i as f64 / num_pts as f64;
@@ -76,6 +41,7 @@ fn main() {
     let end = Instant::now();
     println!("{}us", (end - start).as_micros());
 
+    // Profile curve
     for i in 0..=num_pts {
         let t = i as f64 / num_pts as f64;
         let p4d = profile.eval(t);
@@ -84,6 +50,7 @@ fn main() {
         points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::RED));
     }
 
+    // Trajectory curve
     for i in 0..=num_pts {
         let t = i as f64 / num_pts as f64;
         let p4d = trajectory.eval(t);
@@ -92,14 +59,25 @@ fn main() {
         points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::GREEN));
     }
 
+    // Inner edge curve
     for i in 0..=num_pts {
         let t = i as f64 / num_pts as f64;
-        let p4d = edge.eval(t);
+        let p4d = inner_edge.eval(t);
         let p3d = p4d.project();
 
         points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::BLUE));
     }
 
+    // Outer edge curve
+    for i in 0..=num_pts {
+        let t = i as f64 / num_pts as f64;
+        let p4d = outer_edge.eval(t);
+        let p3d = p4d.project();
+
+        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::BLUE));
+    }
+
+    // Section curves
     for section in sections.iter() {
         let num_pts = num_pts * 10;
         for i in 0..=num_pts {
@@ -116,13 +94,14 @@ fn main() {
         }
     }
 
+    // Section curve control points
     for section in sections.iter() {
         for i in 0..section.num_pts() {
             points.push(ModelPoint::new(
                 0.into(),
                 section.clone().take_unweighted()[i].truncate(),
                 Vector3::zero(),
-                Rgba::MAGENTA,
+                Rgba::ORANGE,
             ));
         }
     }

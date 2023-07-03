@@ -25,6 +25,7 @@ impl Rgba {
     pub const DARK_GREEN: Self = Self([0.0, 0.5, 0.0, 1.0]);
     pub const DARK_BLUE: Self = Self([0.0, 0.0, 0.5, 1.0]);
 
+    pub const ORANGE: Self = Self([1.0, 0.5, 0.0, 1.0]);
     pub const YELLOW: Self = Self([1.0, 1.0, 0.0, 1.0]);
     pub const MAGENTA: Self = Self([1.0, 0.0, 1.0, 1.0]);
     pub const CYAN: Self = Self([0.0, 1.0, 1.0, 1.0]);

@@ -89,8 +89,6 @@ impl Curve {
         let homo_ders =
             curve_derivatives(u, &self.weighted, self.degree, &self.knots, num_derivatives);
 
-        println!("homo_ders {:#?}", homo_ders);
-
         let mut derivatives = vec![Vec3::zero(); num_derivatives + 1];
 
         for k in 0..=num_derivatives {
@@ -101,35 +99,12 @@ impl Curve {
             derivatives[k] = v / homo_ders[0].w;
         }
 
-        println!("derivatives {:#?}", derivatives);
-
         let ders = derivatives
             .into_iter()
-            //.map(|der| der.to_hpoint(homo_ders[0].w).weight())
             .map(|der| der.to_hpoint(1.0))
             .collect();
 
-        println!("ders {:#?}", ders);
-
         ders
-
-        /*
-        let mut derivatives = vec![Vector4::zero(); num_derivatives + 1];
-
-        for k in 0..=num_derivatives {
-            //let mut pt3 = homogeneous_derivatives[k].truncate();
-            let mut pt4 = weighted_ders[k].clone();
-            for i in 1..=k {
-                pt4 -= derivatives[k - i] * bin(k, i); // * homogeneous_derivatives[i].w;
-            }
-            //derivatives[k] = pt3.to_hpoint(homogeneous_derivatives[k].w);
-            derivatives[k] = pt4;
-            // / homogeneous_derivatives[0].w;
-        }
-
-        derivatives
-        */
-        //homo_ders
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {

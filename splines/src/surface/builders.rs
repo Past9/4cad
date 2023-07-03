@@ -26,14 +26,16 @@ impl Surface {
     }
 
     pub fn generate_sweep_section_curves(
-        curve: &Curve,
+        profile: &Curve,
         trajectory: &Curve,
-        mut num_sections: usize,
         scale: f64,
     ) -> (KnotVec, Vec<f64>, Vec<Curve>) {
         let q = trajectory.degree;
         let ktv = trajectory.knots.len();
 
+        let knots_v = trajectory.knots.clone();
+
+        /*
         let knots_v = if ktv <= num_sections + q {
             // Refine trajectory's knot vector
             let m = num_sections + q - ktv + 1;
@@ -47,26 +49,31 @@ impl Surface {
             // Use trajectory's knot vector
             trajectory.knots.clone()
         };
+        */
 
         // Compute parameters by averaging knots
-        let mut params_v = vec![0f64; num_sections];
-        params_v[num_sections - 1] = 1.0;
-        for k in 1..num_sections - 1 {
+        let mut params_v = vec![0f64; trajectory.num_pts()];
+        params_v[trajectory.num_pts() - 1] = 1.0;
+        for k in 1..trajectory.num_pts() - 1 {
             params_v[k] = (1..=q).map(|i| knots_v[k + i]).sum::<f64>() / q as f64;
         }
 
+        println!("params_v {:?}", params_v);
+
         let mut section_curves = vec![];
-        for k in 0..num_sections {
+        for k in 0..trajectory.num_pts() {
             // Transform and position section control points
             let v = params_v[k];
+            let t_cpt = trajectory.unweighted[k];
             let trajectory_ders = trajectory.eval_derivatives(v, 2);
-            let tder1 = trajectory_ders[1].project();
-            let tder2 = trajectory_ders[2].project();
+            let t_pt = trajectory_ders[0].clone();
+            let t_der1 = trajectory_ders[1].project();
+            let t_der2 = trajectory_ders[2].project();
 
-            let o = trajectory_ders[0].project();
+            let o = t_pt.project();
 
-            let y = tder1.normalize();
-            let z = tder1.cross(tder2).normalize();
+            let y = t_der1.normalize();
+            let z = t_der1.cross(t_der2).normalize();
             let x = y.cross(z);
 
             let mat_a = Mat4::from_translation(o)
@@ -77,24 +84,42 @@ impl Surface {
                     0.0, 0.0, 0.0, 1.0, //
                 );
 
-            let mut ctrl_pts = vec![Vec4::zero(); curve.unweighted.len()];
-            for i in 0..curve.num_pts() {
-                let pt = curve.unweighted[i];
-                let transformed = mat_a.clone() * Vector4::new(pt.x, pt.y, pt.z, 1.0);
-                ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w).weight();
+            let mut ctrl_pts = vec![Vec4::zero(); profile.unweighted.len()];
+            for i in 0..profile.num_pts() {
+                let p_pt = profile.unweighted[i];
+                let transformed = mat_a.clone() * Vector4::new(p_pt.x, p_pt.y, p_pt.z, 1.0);
+                ctrl_pts[i] = Vec4::new(
+                    transformed.x / (t_cpt.w * 1.0),
+                    transformed.y / (t_cpt.w * 1.0),
+                    transformed.z / (1.0),
+                    p_pt.w * t_cpt.w,
+                );
 
-                ctrl_pts[i] *= trajectory_ders[0].w;
+                //ctrl_pts[i] *= trajectory_ders[0].w;
             }
-            section_curves.push(Curve::weighted(ctrl_pts, curve.knots.clone()))
+            section_curves.push(Curve::unweighted(ctrl_pts, profile.knots.clone()))
         }
 
+        println!("knots_v {:#?}", knots_v);
+        println!("params_v {:#?}", params_v);
+        println!("section curves {:#?}", section_curves);
         (knots_v, params_v, section_curves)
     }
 
-    pub fn sweep_curve(curve: &Curve, trajectory: &Curve, num_sections: usize, scale: f64) -> Self {
+    pub fn sweep_curve(curve: &Curve, trajectory: &Curve, scale: f64) -> Self {
         let (knots_v, params_v, section_curves) =
-            Self::generate_sweep_section_curves(curve, trajectory, num_sections, scale);
+            Self::generate_sweep_section_curves(curve, trajectory, scale);
 
+        Self::unweighted(
+            section_curves
+                .into_iter()
+                .map(Curve::take_unweighted)
+                .collect(),
+            knots_v,
+            curve.knots.clone(),
+        )
+
+        /*
         let mut curves = vec![];
         for i in 0..curve.num_pts() {
             let points: Vec<Vec4> = (0..section_curves.len())
@@ -119,6 +144,7 @@ impl Surface {
             curve.knots.clone(),
             knots_v,
         )
+        */
     }
 
     pub fn skin_curves(curves: &[Curve], degree: usize) -> Self {
