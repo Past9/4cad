@@ -1,6 +1,6 @@
 use crate::{knots::KnotVec, Curve, Surface, Vec4};
 use cgmath::{InnerSpace, Vector4, Zero};
-use primitives::{HVec, Mat4, Vec3};
+use primitives::{HVec, Mat4, TolEq, Vec3};
 
 impl Surface {
     pub fn rule_curve(curve: Curve, direction: Vec3) -> Self {
@@ -88,10 +88,31 @@ impl Surface {
             for i in 0..profile.num_pts() {
                 let p_pt = profile.unweighted[i];
                 let transformed = mat_a.clone() * Vector4::new(p_pt.x, p_pt.y, p_pt.z, 1.0);
+
+                let div_x = if !t_cpt.x.toleq(0.0) {
+                    t_pt.x / t_cpt.x
+                } else {
+                    1.0
+                };
+
+                let div_y = if !t_cpt.y.toleq(0.0) {
+                    t_pt.y / t_cpt.y
+                } else {
+                    1.0
+                };
+
+                let div_z = if !t_cpt.z.toleq(0.0) {
+                    t_pt.z / t_cpt.z
+                } else {
+                    1.0
+                };
+
+                println!("div_z {}", div_z);
+
                 ctrl_pts[i] = Vec4::new(
-                    transformed.x / (t_cpt.w * 1.0),
-                    transformed.y / (t_cpt.w * 1.0),
-                    transformed.z / (1.0),
+                    transformed.x / div_x,
+                    transformed.y / div_y,
+                    transformed.z / div_z,
                     p_pt.w * t_cpt.w,
                 );
 
