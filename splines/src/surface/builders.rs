@@ -81,11 +81,11 @@ impl Surface {
             for i in 0..curve.num_pts() {
                 let pt = curve.unweighted[i];
                 let transformed = mat_a.clone() * Vector4::new(pt.x, pt.y, pt.z, 1.0);
-                ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w); //.weight();
+                ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w).weight();
 
-                ctrl_pts[i] *= trajectory_ders[0].w;
+                ctrl_pts[i] *= trajectory_ders[0].w; // * 200.0;
             }
-            section_curves.push(Curve::unweighted(ctrl_pts, curve.knots.clone()))
+            section_curves.push(Curve::weighted(ctrl_pts, curve.knots.clone()))
         }
 
         (knots_v, params_v, section_curves)
@@ -94,6 +94,8 @@ impl Surface {
     pub fn sweep_curve(curve: &Curve, trajectory: &Curve, num_sections: usize, scale: f64) -> Self {
         let (knots_v, params_v, section_curves) =
             Self::generate_sweep_section_curves(curve, trajectory, num_sections, scale);
+
+        println!("section_curves {:#?}", section_curves);
 
         let mut curves = vec![];
         for i in 0..curve.num_pts() {
