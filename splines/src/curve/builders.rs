@@ -2,8 +2,8 @@ use cgmath::{Matrix4, Rad, Zero};
 use primitives::{Angle, EVec, Vec3};
 
 use crate::{
-    backward_substitution, basis, basis_derivatives, forward_substitution,
-    get_interpolation_params, knots::KnotVec, lu_decomposition, Curve, Vec4,
+    backward_substitution, basis, basis_derivatives, forward_substitution, knots::KnotVec,
+    lu_decomposition, parameterize_by_chord_len, Curve, Vec4,
 };
 
 const ARC_SPLIT_DEG: f64 = 90.0;
@@ -28,7 +28,7 @@ impl Curve {
         }
 
         // Compute params
-        let params = get_interpolation_params(&points);
+        let params = parameterize_by_chord_len(&points);
 
         // Compute knots
         let num_middle_knots = 2 * n - degree - 1;
@@ -97,23 +97,36 @@ impl Curve {
         Self::unweighted(ctrl_pts, knots)
     }
 
+    /*
     pub fn interpolate(points: Vec<Vec4>, degree: usize) -> Curve {
         let params = get_interpolation_params(&points);
         Self::interpolate_with_params(points, degree, &params)
     }
+    */
 
-    pub fn interpolate_with_params(points: Vec<Vec4>, degree: usize, params: &[f64]) -> Curve {
+    pub fn interpolate(
+        points: Vec<Vec4>,
+        degree: usize,
+        params: Option<Vec<f64>>,
+        knots: Option<KnotVec>,
+    ) -> Curve {
+        println!("degree {}", degree);
+        println!("params {:?}", params);
         let n = points.len();
 
+        let params = params.unwrap_or_else(|| parameterize_by_chord_len(&points));
+
         // Compute knot vector (Eq. 9.8, The NURBS Book)
-        let mut knots = vec![0.0; degree + 1];
-        for i in 0..n - degree - 1 {
-            knots.push(
-                (1.0 / degree as f64) * (i + 1..i + degree + 1).map(|j| params[j]).sum::<f64>(),
-            );
-        }
-        knots.extend((0..degree + 1).map(|_| 1.0));
-        let knots = KnotVec::new(knots);
+        let knots = knots.unwrap_or_else(|| {
+            let mut knots = vec![0.0; degree + 1];
+            for i in 0..n - degree - 1 {
+                knots.push(
+                    (1.0 / degree as f64) * (i + 1..i + degree + 1).map(|j| params[j]).sum::<f64>(),
+                );
+            }
+            knots.extend((0..degree + 1).map(|_| 1.0));
+            KnotVec::new(knots)
+        });
 
         let mut coeffs = vec![vec![0.0; n]; n];
         for i in 0..n {

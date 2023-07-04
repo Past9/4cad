@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, HVec, Mat4};
+use primitives::{Angle, HVec, Mat4, Vec3};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -33,7 +33,10 @@ fn main() {
     );
     */
     let profile = Curve::arc(Angle::deg(360.0))
-        .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))));
+        //Curve::line(Vec3::new(-1.0, 0.0, 0.0), Vec3::new(1.0,0.0,0.0))
+        .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))))
+        //.transform(&Mat4::from_translation(Vec3::new(-1.0, 0.0, 0.0)));
+        .transform(&Mat4::from_scale(1.0));
     /*
     let trajectory = Curve::unweighted(
         vec![
@@ -45,17 +48,17 @@ fn main() {
         KnotVec::uniform(4, 3),
     );
     */
-    let trajectory = Curve::arc(Angle::deg(90.0)).transform(&Mat4::from_scale(2.0));
-    // println!("trajectory {:#?}", trajectory);
+    let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
 
     //println!("trajectory {:#?}", trajectory);
 
     //let trajectory = Curve::arc(Angle::deg(180.0));
     let num_sections = 3;
     let (_, _, sections) =
-        Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections, 1.0);
-    println!("sections.len() {}", sections.len());
-    let surface = Surface::sweep_curve(&profile, &trajectory, num_sections, 1.0);
+        Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections);
+    let surface = Surface::sweep_curve(&profile, &trajectory, num_sections);
+
+    println!("surface {:#?}", surface);
 
     let edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
 

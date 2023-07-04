@@ -26,10 +26,9 @@ impl Surface {
     }
 
     pub fn generate_sweep_section_curves(
-        curve: &Curve,
+        profile: &Curve,
         trajectory: &Curve,
         mut num_sections: usize,
-        scale: f64,
     ) -> (KnotVec, Vec<f64>, Vec<Curve>) {
         let q = trajectory.degree;
         let ktv = trajectory.knots.len();
@@ -77,43 +76,50 @@ impl Surface {
                     0.0, 0.0, 0.0, 1.0, //
                 );
 
-            let mut ctrl_pts = vec![Vec4::zero(); curve.unweighted.len()];
-            for i in 0..curve.num_pts() {
-                let pt = curve.unweighted[i];
+            let mut ctrl_pts = vec![Vec4::zero(); profile.unweighted.len()];
+            for i in 0..profile.num_pts() {
+                let pt = profile.unweighted[i];
                 let transformed = mat_a.clone() * Vector4::new(pt.x, pt.y, pt.z, 1.0);
                 ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w).weight();
 
                 ctrl_pts[i] *= trajectory_ders[0].w; // * 200.0;
             }
-            section_curves.push(Curve::weighted(ctrl_pts, curve.knots.clone()))
+            section_curves.push(Curve::weighted(ctrl_pts, profile.knots.clone()))
         }
 
         (knots_v, params_v, section_curves)
     }
 
-    pub fn sweep_curve(curve: &Curve, trajectory: &Curve, num_sections: usize, scale: f64) -> Self {
+    pub fn sweep_curve(profile: &Curve, trajectory: &Curve, num_sections: usize) -> Self {
         let (knots_v, params_v, section_curves) =
-            Self::generate_sweep_section_curves(curve, trajectory, num_sections, scale);
-
-        println!("section_curves {:#?}", section_curves);
+            Self::generate_sweep_section_curves(profile, trajectory, num_sections);
 
         let mut curves = vec![];
-        for i in 0..curve.num_pts() {
+        for i in 0..profile.num_pts() {
             let points: Vec<Vec4> = (0..section_curves.len())
                 .map(|k| section_curves[k].weighted[i])
                 .collect();
-            curves.push(Curve::interpolate_with_params(
+
+            if i == 0 {
+                println!("interpolate points {:#?}", points);
+                println!("interpolate params {:?}", params_v);
+            }
+
+            curves.push(Curve::interpolate(
                 points,
                 trajectory.degree,
-                &params_v,
+                Some(params_v.clone()),
+                Some(trajectory.knots.clone()),
             ));
         }
 
-        Self::weighted(
-            curves.into_iter().map(Curve::take_weighted).collect(),
-            curve.knots.clone(),
-            knots_v,
-        )
+        println!("curves[0] = {:#?}", curves[0]);
+
+        let ctrl_pts = curves.into_iter().map(Curve::take_weighted).collect();
+
+        let surf = Self::weighted(ctrl_pts, profile.knots.clone(), knots_v);
+
+        surf
     }
 
     pub fn skin_curves(curves: &[Curve], degree: usize) -> Self {
@@ -201,10 +207,11 @@ impl Surface {
             // along the V direction, using the parameterization computed above
             (0..n)
                 .map(|i| {
-                    Curve::interpolate_with_params(
+                    Curve::interpolate(
                         curves.iter().map(|curve| curve.weighted[i]).collect(),
                         degree,
-                        &params,
+                        Some(params.clone()),
+                        None,
                     )
                 })
                 .collect::<Vec<_>>()
