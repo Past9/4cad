@@ -1,4 +1,4 @@
-use crate::{knots::KnotVec, Curve, Surface, Vec4};
+use crate::{arbitrary_orthonormal, knots::KnotVec, Curve, Surface, Vec4};
 use cgmath::{InnerSpace, Vector4, Zero};
 use primitives::{HVec, Mat4, Vec3};
 
@@ -55,6 +55,7 @@ impl Surface {
         }
 
         let mut section_curves = vec![];
+        let mut last_b: Option<Vec3> = None;
         for k in 0..num_sections {
             // Transform and position section control points
             let v = params_v[k];
@@ -65,7 +66,23 @@ impl Surface {
             let o = trajectory_ders[0].project();
 
             let y = tder1.normalize();
-            let z = tder1.cross(tder2).normalize();
+
+            let z = {
+                // Eq 10.27
+                let ti = y;
+
+                //let b_i_minus_1 = last_b.unwrap_or_else(|| arbitrary_orthonormal(ti));
+                let b_i_minus_1 = last_b.unwrap_or_else(|| tder1.cross(tder2).normalize());
+
+                if k == 0 {};
+
+                let bi = b_i_minus_1 - b_i_minus_1.dot(ti) * ti;
+
+                last_b = Some(bi);
+
+                bi.normalize()
+            };
+
             let x = y.cross(z);
 
             let mat_a = Mat4::from_translation(o)
@@ -100,20 +117,14 @@ impl Surface {
                 .map(|k| section_curves[k].weighted[i])
                 .collect();
 
-            if i == 0 {
-                println!("interpolate points {:#?}", points);
-                println!("interpolate params {:?}", params_v);
-            }
-
             curves.push(Curve::interpolate(
                 points,
                 trajectory.degree,
                 Some(params_v.clone()),
-                Some(trajectory.knots.clone()),
+                //Some(trajectory.knots.clone()),
+                Some(knots_v.clone()),
             ));
         }
-
-        println!("curves[0] = {:#?}", curves[0]);
 
         let ctrl_pts = curves.into_iter().map(Curve::take_weighted).collect();
 

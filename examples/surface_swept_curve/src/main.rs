@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, HVec, Mat4};
+use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -9,17 +9,28 @@ use render::{
     scene::SceneBuilder,
     Rgba,
 };
-use splines::{Curve, Surface};
+use splines::{Curve, KnotVec, Surface};
 use viewer::run_viewer;
 
 fn main() {
     let profile = Curve::arc(Angle::deg(360.0))
         .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))))
-        .transform(&Mat4::from_scale(1.0));
+        .transform(&Mat4::from_scale(0.5));
 
-    let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
+    let trajectory = Curve::unweighted(
+        vec![
+            Vec4::new(-2.0, 0.0, 0.0, 1.0),
+            Vec4::new(-1.0, -1.0, 0.0, 1.0),
+            Vec4::new(0.0, 0.0, 0.0, 1.0),
+            Vec4::new(1.0, 1.0, 0.0, 1.0),
+            Vec4::new(2.0, 0.0, 0.0, 1.0),
+        ],
+        KnotVec::uniform(5, 2),
+    );
+    //.transform(&Mat4::from_translation(Vec3::new(0.0, -1.0, 0.0)));
+    //let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
 
-    let num_sections = 3;
+    let num_sections = 30;
     let (_, _, sections) =
         Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections);
     let surface = Surface::sweep_curve(&profile, &trajectory, num_sections);

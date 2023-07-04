@@ -8,7 +8,7 @@ use cgmath::{InnerSpace, Zero};
 
 pub use curve::*;
 pub use knots::KnotVec;
-use primitives::Vec4;
+use primitives::{TolEq, Vec3, Vec4};
 pub use surface::*;
 
 const BINOMIAL_COEFFICIENTS: [[f64; 10]; 10] = [
@@ -280,6 +280,62 @@ fn transpose<T: Clone>(grid: Vec<Vec<T>>) -> Vec<Vec<T>> {
     }
 
     out
+}
+
+/// Returns an arbitrary unit vector _b_ that is orthogonal to `a`. This is done by
+/// solving the equation _a · b_ = 0 for _b_ and then normalizing _b_. When solving
+/// the equation
+///
+/// _a<sub>i</sub>b<sub>i</sub>_ + _a<sub>j</sub>b<sub>j</sub>_ + _a<sub>k</sub>k<sub>k</sub>_ = 0
+///
+/// we set two of _b_'s components, _b<sub>i</sub>_ and _b<sub>j</sub>_ to 1 and then solve
+/// for the remaining _b<sub>k</sub>_, like this:
+///
+/// _b<sub>k</sub>_ = (-_a<sub>i</sub>_ - _a<sub>j</sub>_) / _a<sub>k</sub>_
+///
+/// Care must be taken to select _k_ so that _a<sub>k</sub>_ is not 0 to avoid division by 0.
+/// If all components of _a_ are zero, an error is thrown because there is no vector that is
+/// orthogonal to a zero-length vector.
+fn arbitrary_orthonormal(a: Vec3) -> Vec3 {
+    // Select k, the index of a's first non-zero component
+    let mut k: Option<usize> = None;
+    for n in 0..3 {
+        if !a[n].toleq(0.0) {
+            k = Some(n);
+            break;
+        }
+    }
+
+    let k = k.expect(&format!("Could not find a vector orthogonal to {:?}", a));
+
+    // Formulate the numerator and denominator
+    let mut num: f64 = 0.0;
+    let mut den: f64 = 0.0;
+    for n in 0..3 {
+        if n == k {
+            // The kth component of a is the denominator
+            den = a[n];
+        } else {
+            // The numerator is the negative sum of all of
+            // a's other components
+            num -= a[n];
+        }
+    }
+
+    // Create the non-normalized orthogonal vector b
+    let mut b = Vec3::zero();
+    for n in 0..3 {
+        if n == k {
+            // The kth component of b is num / den
+            b[n] = num / den;
+        } else {
+            // All other components of b are 1
+            b[n] = 1.0;
+        }
+    }
+
+    // Normalize and return b
+    b.normalize()
 }
 
 #[cfg(test)]
