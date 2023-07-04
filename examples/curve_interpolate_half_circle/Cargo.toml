@@ -1,5 +1,5 @@
 [package]
-name = "curve_interpolate_quarter_circle"
+name = "curve_interpolate_half_circle"
 version = "0.1.0"
 edition = "2021"
 

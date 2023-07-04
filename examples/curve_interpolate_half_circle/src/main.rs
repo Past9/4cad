@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
+use primitives::{Angle, HVec, Mat4};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -8,7 +8,7 @@ use render::{
     Rgba,
 };
 
-use splines::{Curve, Surface};
+use splines::Curve;
 use std::time::Instant;
 use viewer::run_viewer;
 
@@ -23,23 +23,10 @@ fn main() {
         points.push(point);
     }
 
-    println!("interpolate points {:#?}", points);
-
     // These are the weighted coordinates of points on
     // the start, middle, and end of a quarter circle.
     // Fitting them should generate a quarter-circle arc.
     let curve = Curve::interpolate(points, 2, None, Some(ref_circle.knots().clone()));
-
-    let surface = Surface::rule_curve(
-        curve
-            .clone()
-            .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, -1.0))),
-        Vec3::new(0.0, 0.0, 2.0),
-    );
-
-    println!("curve {:#?}", curve);
-
-    println!("surface {:#?}", surface);
 
     let mut points = Vec::new();
 
@@ -54,17 +41,6 @@ fn main() {
     }
     let end = Instant::now();
     println!("{}us", (end - start).as_micros());
-
-    for i in 0..=num_pts {
-        for j in 0..=num_pts {
-            let u = i as f64 / num_pts as f64;
-            let v = j as f64 / num_pts as f64;
-            let p4d = surface.eval(u, v);
-            let p3d = p4d.project();
-
-            points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
-        }
-    }
 
     let ref_pts = 400;
     for i in 0..=ref_pts {

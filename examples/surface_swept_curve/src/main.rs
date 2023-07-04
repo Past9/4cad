@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, HVec, Mat4, Vec3};
+use primitives::{Angle, HVec, Mat4};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},
@@ -13,59 +13,23 @@ use splines::{Curve, Surface};
 use viewer::run_viewer;
 
 fn main() {
-    /*
-    let profile = Curve::new(
-        vec![
-            Pt4::new(0.0, 0.0, -1.0, 1.0),
-            Pt4::new(1.0, 0.0, 0.0, 1.0),
-            Pt4::new(0.0, 0.0, 2.0, 1.0),
-        ],
-        KnotVec::uniform(3, 2),
-    );
-    let trajectory = Curve::new(
-        vec![
-            Pt4::new(0.5, -2.0, 0.0, 1.0),
-            Pt4::new(1.5, 1.5, 0.0, 1.0),
-            Pt4::new(0.5, 2.0, 0.0, 1.0),
-            Pt4::new(-2.0, 1.5, 0.0, 1.0),
-        ],
-        KnotVec::uniform(4, 3),
-    );
-    */
     let profile = Curve::arc(Angle::deg(360.0))
-        //Curve::line(Vec3::new(-1.0, 0.0, 0.0), Vec3::new(1.0,0.0,0.0))
         .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))))
-        //.transform(&Mat4::from_translation(Vec3::new(-1.0, 0.0, 0.0)));
         .transform(&Mat4::from_scale(1.0));
-    /*
-    let trajectory = Curve::unweighted(
-        vec![
-            Pt4::new(0.5, -2.0, 0.0, 1.0),
-            Pt4::new(1.5, 1.5, 0.0, 1.0),
-            Pt4::new(0.5, 2.0, 0.0, 1.0),
-            Pt4::new(-2.0, 1.5, 0.0, 1.0),
-        ],
-        KnotVec::uniform(4, 3),
-    );
-    */
+
     let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
 
-    //println!("trajectory {:#?}", trajectory);
-
-    //let trajectory = Curve::arc(Angle::deg(180.0));
     let num_sections = 3;
     let (_, _, sections) =
         Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections);
     let surface = Surface::sweep_curve(&profile, &trajectory, num_sections);
-
-    println!("surface {:#?}", surface);
 
     let edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
 
     let mut points = Vec::new();
 
     let start = Instant::now();
-    let num_pts = 200;
+    let num_pts = 100;
     for i in 0..=num_pts {
         for j in 0..=num_pts {
             let u = i as f64 / num_pts as f64;
