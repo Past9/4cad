@@ -346,6 +346,30 @@ impl Model {
             points,
         }
     }
+
+    pub fn add_point(&mut self, point: ModelPoint) {
+        self.points.push(point);
+    }
+
+    pub fn add_points(&mut self, points: Vec<ModelPoint>) {
+        self.points.extend(points);
+    }
+
+    pub fn add_edge(&mut self, edge: ModelEdge) {
+        self.edges.push(edge);
+    }
+
+    pub fn add_edges(&mut self, edges: Vec<ModelEdge>) {
+        self.edges.extend(edges);
+    }
+
+    pub fn add_surface(&mut self, surface: ModelSurface) {
+        self.surfaces.push(surface);
+    }
+
+    pub fn add_surfaces(&mut self, surfaces: Vec<ModelSurface>) {
+        self.surfaces.extend(surfaces);
+    }
 }
 
 #[derive(Clone, Debug)]

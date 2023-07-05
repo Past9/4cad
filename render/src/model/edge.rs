@@ -1,5 +1,7 @@
 use bytemuck::{Pod, Zeroable};
-use cgmath::{Point3, Vector3};
+use cgmath::{Point3, Vector3, Zero};
+use primitives::{HVec, Vec3};
+use splines::Curve;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use crate::Rgba;
@@ -27,6 +29,34 @@ impl ModelEdge {
 
     pub fn color(&self) -> Rgba {
         self.color
+    }
+
+    pub fn from_vec3s(points: Vec<Vec3>, color: Rgba) -> Self {
+        Self::new(
+            0.into(),
+            points
+                .into_iter()
+                .map(|p| EdgeVertex {
+                    position: [p.x as f32, p.y as f32, p.z as f32],
+                    expand: [0.0, 0.0, 0.0],
+                })
+                .collect(),
+            color,
+        )
+    }
+
+    pub fn from_curve(curve: &Curve, color: Rgba, segments: u32) -> Self {
+        let mut vertices = Vec::new();
+        for i in 0..=segments {
+            let t = i as f64 / segments as f64;
+            let point = curve.eval_pos(t).project();
+            vertices.push(EdgeVertex {
+                position: [point.x as f32, point.y as f32, point.z as f32],
+                expand: [0.0, 0.0, 0.0],
+            })
+        }
+
+        Self::new(0.into(), vertices, color)
     }
 }
 

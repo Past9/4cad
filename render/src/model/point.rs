@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use cgmath::Zero;
 use primitives::Vec3;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
@@ -21,6 +22,10 @@ impl ModelPoint {
             expand: [expand.x as f32, expand.y as f32, expand.z as f32],
             color,
         }
+    }
+
+    pub fn from_vec3(point: Vec3, color: Rgba) -> Self {
+        Self::new(0.into(), point, Vec3::zero(), color)
     }
 }
 

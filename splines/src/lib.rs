@@ -75,6 +75,60 @@ fn curve_derivatives(
     derivatives
 }
 
+fn surface_derivatives(
+    u: f64,
+    v: f64,
+    weighted: &[Vec<Vec4>],
+    degree_u: usize,
+    degree_v: usize,
+    knots_u: &KnotVec,
+    knots_v: &KnotVec,
+    num_derivatives: usize,
+) -> Vec<Vec<Vec4>> {
+    let num_derivatives_u = usize::min(num_derivatives, degree_u);
+    let num_derivatives_v = usize::min(num_derivatives, degree_v);
+    let mut derivatives = vec![vec![Vec4::zero(); num_derivatives_v + 1]; num_derivatives_u + 1];
+
+    for k in (degree_u + 1)..=num_derivatives {
+        for l in 0..=(num_derivatives - k) {
+            derivatives[k][l] = Vec4::zero();
+        }
+    }
+
+    for l in (degree_v + 1)..=num_derivatives {
+        for k in 0..=(num_derivatives - l) {
+            derivatives[k][l] = Vec4::zero();
+        }
+    }
+
+    let span_u = knots_u.find_span(degree_u, u);
+    let basis_derivatives_u = basis_derivatives(span_u, u, degree_u, knots_u, num_derivatives_u);
+
+    let span_v = knots_v.find_span(degree_v, v);
+    let basis_derivatives_v = basis_derivatives(span_v, v, degree_v, knots_v, num_derivatives_v);
+
+    let mut temp = vec![Vec4::zero(); degree_v + 1];
+
+    for k in 0..=num_derivatives_u {
+        for s in 0..=degree_v {
+            temp[s] = Vec4::zero();
+            for r in 0..=degree_u {
+                temp[s] += basis_derivatives_u[k][r]
+                    * weighted[span_u - degree_u - r][span_v - degree_v - s]
+            }
+        }
+        let dd = usize::min(num_derivatives - k, num_derivatives_v);
+        for l in 0..=dd {
+            derivatives[k][l] = Vec4::zero();
+            for s in 0..=degree_v {
+                derivatives[k][l] += basis_derivatives_v[l][s] * temp[s];
+            }
+        }
+    }
+
+    derivatives
+}
+
 /// Evaluates the point at `u` plus the specified number of derivaties an returns a
 /// `(num_derivatives + 1) x (degree)`-dimensional `Vec<Vec<f64>>`. When referencing
 /// this vector, the first index is the i-th derivative (with `0` being the 0-th

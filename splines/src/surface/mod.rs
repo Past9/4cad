@@ -1,10 +1,17 @@
 mod builders;
 
-use crate::{basis, knots::KnotVec, Vec4};
-use cgmath::{Matrix4, Zero};
+use core::num;
+
+use crate::{basis, bin, knots::KnotVec, surface_derivatives, Vec4};
+use cgmath::{InnerSpace, Matrix4, Zero};
 
 pub use builders::*;
-use primitives::HVec;
+use primitives::{EVec, HVec, Vec3};
+
+pub struct SurfacePoint {
+    pub position: Vec3,
+    pub normal: Vec3,
+}
 
 #[derive(Debug)]
 pub struct Surface {
@@ -86,7 +93,8 @@ impl Surface {
         }
     }
 
-    pub fn eval(&self, u: f64, v: f64) -> Vec4 {
+    /// Returns the homogeneous point on the surface at the parameter values `u` and `v`.
+    pub fn eval_pos(&self, u: f64, v: f64) -> Vec4 {
         // Alg A4.3
 
         let span_u = self.knots_u.find_span(self.degree_u, u);
@@ -109,6 +117,56 @@ impl Surface {
         }
 
         point
+    }
+
+    /// Returns the Euclidean point on the surface at the parameter values `u` and `v`, as well as
+    /// the normal vector at that point.
+    pub fn eval_full(&self, u: f64, v: f64) -> SurfacePoint {
+        let ders = self.eval_derivatives(u, v, 1);
+        let position = ders[0][0].project();
+        let normal = ders[0][1].project().cross(ders[1][0].project()).normalize();
+
+        SurfacePoint { position, normal }
+    }
+
+    pub fn eval_derivatives(&self, u: f64, v: f64, num_derivatives: usize) -> Vec<Vec<Vec4>> {
+        let weighted_derivatives = surface_derivatives(
+            u,
+            v,
+            &self.weighted,
+            self.degree_u,
+            self.degree_v,
+            &self.knots_u,
+            &self.knots_v,
+            num_derivatives,
+        );
+
+        let mut derivatives = vec![vec![Vec4::zero(); num_derivatives + 1]; num_derivatives + 1];
+
+        for k in 0..=num_derivatives {
+            for l in 0..=num_derivatives - k {
+                let mut pt3 = weighted_derivatives[k][l].truncate();
+                for j in 1..=l {
+                    pt3 -=
+                        bin(l, j) * weighted_derivatives[0][j].w * derivatives[k][l - j].truncate();
+                }
+
+                for i in 1..=k {
+                    pt3 -=
+                        bin(k, i) * weighted_derivatives[i][0].w * derivatives[k - i][l].truncate();
+                    let mut v2 = Vec3::zero();
+                    for j in 1..=l {
+                        v2 += bin(l, j)
+                            * weighted_derivatives[i][j].w
+                            * derivatives[k - i][l - j].truncate();
+                    }
+                }
+
+                derivatives[k][k] = pt3.to_hpoint(weighted_derivatives[0][0].w);
+            }
+        }
+
+        derivatives
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {

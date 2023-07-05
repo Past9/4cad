@@ -49,6 +49,14 @@ impl Curve {
         }
     }
 
+    pub fn ref_weighted(&self) -> &[Vec4] {
+        &self.weighted
+    }
+
+    pub fn ref_unweighted(&self) -> &[Vec4] {
+        &self.unweighted
+    }
+
     pub fn take_weighted(self) -> Vec<Vec4> {
         self.weighted
     }
@@ -73,7 +81,8 @@ impl Curve {
         &self.knots
     }
 
-    pub fn eval(&self, u: f64) -> Vec4 {
+    /// Returns the homogeneous point on the curve at the parameter value `u`.
+    pub fn eval_pos(&self, u: f64) -> Vec4 {
         // Alg A4.1
         let span = self.knots.find_span(self.degree, u);
         let basis = basis(span, u, self.degree, &self.knots);
@@ -85,18 +94,18 @@ impl Curve {
         point
     }
 
-    pub fn eval_derivatives(&self, u: f64, num_derivatives: usize) -> Vec<Vector4<f64>> {
-        let homogeneous_derivatives =
+    pub fn eval_derivatives(&self, u: f64, num_derivatives: usize) -> Vec<Vec4> {
+        let weighted_derivatives =
             curve_derivatives(u, &self.weighted, self.degree, &self.knots, num_derivatives);
 
-        let mut derivatives = vec![Vector4::zero(); num_derivatives + 1];
+        let mut derivatives = vec![Vec4::zero(); num_derivatives + 1];
 
         for k in 0..=num_derivatives {
-            let mut pt3 = homogeneous_derivatives[k].truncate();
+            let mut pt3 = weighted_derivatives[k].truncate();
             for i in 1..=k {
-                pt3 -= derivatives[k - i].truncate() * bin(k, i) * homogeneous_derivatives[i].w;
+                pt3 -= derivatives[k - i].truncate() * bin(k, i) * weighted_derivatives[i].w;
             }
-            derivatives[k] = pt3.to_hpoint(homogeneous_derivatives[0].w);
+            derivatives[k] = pt3.to_hpoint(weighted_derivatives[0].w);
         }
 
         derivatives

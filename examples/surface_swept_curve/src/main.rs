@@ -4,37 +4,44 @@ use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
 use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
-    model::{Geometry, Model, ModelPoint},
+    model::{Geometry, Model, ModelEdge, ModelPoint, ModelSurface},
     rgba,
     scene::SceneBuilder,
     Rgba,
 };
 use splines::{Curve, KnotVec, Surface};
+use tessellate::{curve::CurveTessellation, surface::SurfaceTessellation};
 use viewer::run_viewer;
 
 fn main() {
+    let mut geometry = Geometry::new();
+    let surface_material = geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0), 0.5);
+
     let profile = Curve::arc(Angle::deg(360.0))
         .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))))
         .transform(&Mat4::from_scale(1.0));
 
     let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
 
-    let num_sections = 30;
+    let num_sections = 0;
     let (_, _, sections) =
         Surface::generate_sweep_section_curves(&profile, &trajectory, num_sections);
     let surface = Surface::sweep_curve(&profile, &trajectory, num_sections);
 
-    let edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
+    let outer_edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
 
+    let mut model = Model::empty();
+    let resolution = 100;
+
+    /*
     let mut points = Vec::new();
 
     let start = Instant::now();
-    let num_pts = 200;
-    for i in 0..=num_pts {
-        for j in 0..=num_pts {
-            let u = i as f64 / num_pts as f64;
-            let v = j as f64 / num_pts as f64;
-            let p4d = surface.eval(u, v);
+    for i in 0..=resolution {
+        for j in 0..=resolution {
+            let u = i as f64 / resolution as f64;
+            let v = j as f64 / resolution as f64;
+            let p4d = surface.eval_pos(u, v);
             let p3d = p4d.project();
 
             points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
@@ -42,61 +49,46 @@ fn main() {
     }
     let end = Instant::now();
     println!("{}us", (end - start).as_micros());
+    */
 
-    for i in 0..=num_pts {
-        let t = i as f64 / num_pts as f64;
-        let p4d = profile.eval(t);
-        let p3d = p4d.project();
+    // Swept surface
+    model.add_surface(ModelSurface::from_surface_points(
+        surface.tessellate_by_params(resolution),
+        surface_material,
+    ));
 
-        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::RED));
-    }
+    // Profile curve
+    model.add_edge(ModelEdge::from_vec3s(
+        profile.tessellate_by_param(resolution),
+        Rgba::RED,
+    ));
 
-    for i in 0..=num_pts {
-        let t = i as f64 / num_pts as f64;
-        let p4d = trajectory.eval(t);
-        let p3d = p4d.project();
+    // Trajectory curve
+    model.add_edge(ModelEdge::from_vec3s(
+        trajectory.tessellate_by_param(resolution),
+        Rgba::GREEN,
+    ));
 
-        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::GREEN));
-    }
+    // Outer edge guide curve
+    model.add_edge(ModelEdge::from_vec3s(
+        outer_edge.tessellate_by_param(resolution),
+        Rgba::BLUE,
+    ));
 
-    for i in 0..=num_pts {
-        let t = i as f64 / num_pts as f64;
-        let p4d = edge.eval(t);
-        let p3d = p4d.project();
+    // Section curves
+    sections.iter().for_each(|s| {
+        model.add_edge(ModelEdge::from_vec3s(
+            s.tessellate_by_param(resolution),
+            Rgba::YELLOW,
+        ))
+    });
 
-        points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::BLUE));
-    }
+    // Section curve control points
+    sections
+        .iter()
+        .flat_map(|s| s.ref_unweighted().iter())
+        .for_each(|pt| model.add_point(ModelPoint::from_vec3(pt.truncate(), Rgba::MAGENTA)));
 
-    for section in sections.iter() {
-        let num_pts = num_pts * 10;
-        for i in 0..=num_pts {
-            let t = i as f64 / num_pts as f64;
-            let p4d = section.eval(t);
-            let p3d = p4d.project();
-
-            points.push(ModelPoint::new(
-                0.into(),
-                p3d,
-                Vector3::zero(),
-                Rgba::YELLOW,
-            ));
-        }
-    }
-
-    for section in sections.iter() {
-        for i in 0..section.num_pts() {
-            points.push(ModelPoint::new(
-                0.into(),
-                section.clone().take_unweighted()[i].truncate(),
-                Vector3::zero(),
-                Rgba::MAGENTA,
-            ));
-        }
-    }
-
-    let model = Model::empty().points(points);
-
-    let mut geometry = Geometry::new();
     geometry.insert_model(model);
 
     let mut sb = SceneBuilder::empty();

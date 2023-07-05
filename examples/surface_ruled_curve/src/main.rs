@@ -27,7 +27,7 @@ fn main() {
         for j in 0..=num_pts {
             let u = i as f64 / num_pts as f64;
             let v = j as f64 / num_pts as f64;
-            let p4d = surface.eval(u, v);
+            let p4d = surface.eval_pos(u, v);
             let p3d = p4d.project();
 
             points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));

@@ -97,13 +97,6 @@ impl Curve {
         Self::unweighted(ctrl_pts, knots)
     }
 
-    /*
-    pub fn interpolate(points: Vec<Vec4>, degree: usize) -> Curve {
-        let params = get_interpolation_params(&points);
-        Self::interpolate_with_params(points, degree, &params)
-    }
-    */
-
     pub fn interpolate(
         points: Vec<Vec4>,
         degree: usize,

@@ -19,7 +19,7 @@ fn main() {
     let num_pts = 5;
     for i in 0..num_pts {
         let t = i as f64 / (num_pts - 1) as f64;
-        let point = ref_circle.eval(t);
+        let point = ref_circle.eval_pos(t);
         points.push(point);
     }
 
@@ -34,7 +34,7 @@ fn main() {
     let start = Instant::now();
     for i in 0..=num_pts {
         let t = i as f64 / num_pts as f64;
-        let p4d = curve.eval(t);
+        let p4d = curve.eval_pos(t);
         let p3d = p4d.project();
 
         points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
@@ -45,7 +45,7 @@ fn main() {
     let ref_pts = 400;
     for i in 0..=ref_pts {
         let t = i as f64 / ref_pts as f64;
-        let p4d = ref_circle.eval(t);
+        let p4d = ref_circle.eval_pos(t);
         //println!("Pt4::new({}, {}, {}, {}),", p4d.x, p4d.y, p4d.z, p4d.w);
         let p3d = p4d.project();
 

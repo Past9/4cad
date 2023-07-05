@@ -6,6 +6,7 @@ members = [
     "render",
     "brep",
     "viewer",
+    "tessellate",
     "components",
     "examples/curve_arc",
     "examples/curve_interpolate_half_circle",

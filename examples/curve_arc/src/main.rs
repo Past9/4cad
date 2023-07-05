@@ -21,7 +21,7 @@ fn main() {
     let start = Instant::now();
     for i in 0..=num_pts {
         let t = i as f64 / num_pts as f64;
-        let p4d = curve.eval(t);
+        let p4d = curve.eval_pos(t);
         let p3d = p4d.project();
 
         points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
