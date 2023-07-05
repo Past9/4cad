@@ -104,7 +104,7 @@ impl Renderer {
             translucent_surface_pipeline,
             compositing_pipeline,
         ) = Self::create_pipelines(
-            SurfaceMode::Wireframe,
+            SurfaceMode::Fill,
             msaa_samples,
             &scissor,
             memory_allocator,
@@ -337,7 +337,7 @@ impl Renderer {
             .rasterization_state(RasterizationState {
                 front_face: StateMode::Fixed(FrontFace::CounterClockwise),
                 cull_mode: match mode {
-                    SurfaceMode::Fill => StateMode::Fixed(CullMode::Back),
+                    SurfaceMode::Fill => StateMode::Fixed(CullMode::None),
                     SurfaceMode::Wireframe => StateMode::Fixed(CullMode::None),
                 },
                 polygon_mode: match mode {
@@ -478,7 +478,7 @@ impl Renderer {
             )
             .rasterization_state(RasterizationState {
                 front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: StateMode::Fixed(CullMode::Back),
+                cull_mode: StateMode::Fixed(CullMode::None),
                 ..RasterizationState::default()
             })
             .multisample_state(MultisampleState {
