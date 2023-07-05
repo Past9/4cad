@@ -75,6 +75,7 @@ fn curve_derivatives(
     derivatives
 }
 
+/// Implements A3.6
 fn surface_derivatives(
     u: f64,
     v: f64,
@@ -87,7 +88,7 @@ fn surface_derivatives(
 ) -> Vec<Vec<Vec4>> {
     let num_derivatives_u = usize::min(num_derivatives, degree_u);
     let num_derivatives_v = usize::min(num_derivatives, degree_v);
-    let mut derivatives = vec![vec![Vec4::zero(); num_derivatives_v + 1]; num_derivatives_u + 1];
+    let mut derivatives = vec![vec![Vec4::zero(); num_derivatives + 1]; num_derivatives + 1];
 
     for k in (degree_u + 1)..=num_derivatives {
         for l in 0..=(num_derivatives - k) {
@@ -114,7 +115,7 @@ fn surface_derivatives(
             temp[s] = Vec4::zero();
             for r in 0..=degree_u {
                 temp[s] += basis_derivatives_u[k][r]
-                    * weighted[span_u - degree_u - r][span_v - degree_v - s]
+                    * weighted[span_u + r - degree_u][span_v + s - degree_v]
             }
         }
         let dd = usize::min(num_derivatives - k, num_derivatives_v);

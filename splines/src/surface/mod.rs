@@ -126,6 +126,9 @@ impl Surface {
         let position = ders[0][0].project();
         let normal = ders[0][1].project().cross(ders[1][0].project()).normalize();
 
+        //let position = self.eval_pos(u, v).project();
+        //let normal = Vec3::zero();
+
         SurfacePoint { position, normal }
     }
 

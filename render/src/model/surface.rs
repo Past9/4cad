@@ -54,8 +54,8 @@ impl ModelSurface {
         let mut indices = Vec::new();
         let segments_u = points.len() - 1;
         let segments_v = points[0].len() - 1;
-        for u in 1..segments_u as u32 {
-            for v in 1..segments_v as u32 {
+        for u in 1..=segments_u as u32 {
+            for v in 1..=segments_v as u32 {
                 // Quad corners
                 let bl = index(u - 1, v - 1, segments_u as u32); // Bottom left
                 let br = index(u, v - 1, segments_u as u32); // Bottom right
