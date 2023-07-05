@@ -4,10 +4,11 @@ use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
 use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
+    lights::Lights,
     model::{Geometry, Model, ModelEdge, ModelPoint, ModelSurface},
-    rgba,
+    rgb, rgba,
     scene::SceneBuilder,
-    Rgba,
+    Rgb, Rgba,
 };
 use splines::{Curve, KnotVec, Surface};
 use tessellate::{curve::CurveTessellation, surface::SurfaceTessellation};
@@ -102,6 +103,12 @@ fn main() {
             0.01,
             5.0,
         ))
+        .lights(
+            Lights::empty()
+                .ambient(Rgb::WHITE, 0.2)
+                .directional(vec3(1.0, 0.0, 1.0).normalize(), rgb(0.0, 0.0, 1.0), 0.3)
+                .directional(vec3(-1.0, 0.0, 1.0).normalize(), rgb(1.0, 1.0, 0.0), 0.3),
+        )
         .geometry(geometry);
 
     run_viewer(sb.build());

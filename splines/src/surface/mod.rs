@@ -126,9 +126,6 @@ impl Surface {
         let position = ders[0][0].project();
         let normal = ders[0][1].project().cross(ders[1][0].project()).normalize();
 
-        //let position = self.eval_pos(u, v).project();
-        //let normal = Vec3::zero();
-
         SurfacePoint { position, normal }
     }
 
@@ -163,9 +160,10 @@ impl Surface {
                             * weighted_derivatives[i][j].w
                             * derivatives[k - i][l - j].truncate();
                     }
+                    pt3 -= bin(k, i) * v2;
                 }
 
-                derivatives[k][k] = pt3.to_hpoint(weighted_derivatives[0][0].w);
+                derivatives[k][l] = pt3.to_hpoint(weighted_derivatives[0][0].w);
             }
         }
 
