@@ -31,26 +31,10 @@ fn main() {
 
     let outer_edge = Curve::arc(Angle::deg(360.0)).transform(&Mat4::from_scale(3.0));
 
-    let mut model = Model::empty();
-    let resolution = 100;
-
-    /*
-    let mut points = Vec::new();
-
     let start = Instant::now();
-    for i in 0..=resolution {
-        for j in 0..=resolution {
-            let u = i as f64 / resolution as f64;
-            let v = j as f64 / resolution as f64;
-            let p4d = surface.eval_pos(u, v);
-            let p3d = p4d.project();
 
-            points.push(ModelPoint::new(0.into(), p3d, Vector3::zero(), Rgba::WHITE));
-        }
-    }
-    let end = Instant::now();
-    println!("{}us", (end - start).as_micros());
-    */
+    let mut model = Model::empty();
+    let resolution = 50;
 
     // Swept surface
     model.add_surface(ModelSurface::from_surface_points(
@@ -89,6 +73,12 @@ fn main() {
         .iter()
         .flat_map(|s| s.ref_unweighted().iter())
         .for_each(|pt| model.add_point(ModelPoint::from_vec3(pt.truncate(), Rgba::MAGENTA)));
+
+    let end = Instant::now();
+    println!(
+        "Duration: {}ms",
+        (end - start).as_nanos() as f64 / 1_000_000.0
+    );
 
     geometry.insert_model(model);
 
