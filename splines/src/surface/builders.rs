@@ -71,7 +71,7 @@ impl Surface {
                 // Eq 10.27
                 let ti = y;
 
-                //let b_i_minus_1 = last_b.unwrap_or_else(|| arbitrary_orthonormal(ti));
+                // Use a Frenet frame (Eq. 10.25) for the first b.
                 let b_i_minus_1 = last_b.unwrap_or_else(|| tder1.cross(tder2).normalize());
 
                 if k == 0 {};

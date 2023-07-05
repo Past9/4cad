@@ -110,8 +110,6 @@ impl Curve {
         params: Option<Vec<f64>>,
         knots: Option<KnotVec>,
     ) -> Curve {
-        println!("degree {}", degree);
-        println!("params {:?}", params);
         let n = points.len();
 
         let params = params.unwrap_or_else(|| parameterize_by_chord_len(&points));

@@ -15,20 +15,9 @@ use viewer::run_viewer;
 fn main() {
     let profile = Curve::arc(Angle::deg(360.0))
         .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))))
-        .transform(&Mat4::from_scale(0.5));
+        .transform(&Mat4::from_scale(1.0));
 
-    let trajectory = Curve::unweighted(
-        vec![
-            Vec4::new(-2.0, 0.0, 0.0, 1.0),
-            Vec4::new(-1.0, -1.0, 0.0, 1.0),
-            Vec4::new(0.0, 0.0, 0.0, 1.0),
-            Vec4::new(1.0, 1.0, 0.0, 1.0),
-            Vec4::new(2.0, 0.0, 0.0, 1.0),
-        ],
-        KnotVec::uniform(5, 2),
-    );
-    //.transform(&Mat4::from_translation(Vec3::new(0.0, -1.0, 0.0)));
-    //let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
+    let trajectory = Curve::arc(Angle::deg(180.0)).transform(&Mat4::from_scale(2.0));
 
     let num_sections = 30;
     let (_, _, sections) =
@@ -40,7 +29,7 @@ fn main() {
     let mut points = Vec::new();
 
     let start = Instant::now();
-    let num_pts = 100;
+    let num_pts = 200;
     for i in 0..=num_pts {
         for j in 0..=num_pts {
             let u = i as f64 / num_pts as f64;
