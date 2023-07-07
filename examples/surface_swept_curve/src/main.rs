@@ -56,7 +56,7 @@ fn main() {
 
     // Outer edge guide curve
     model.add_edge(ModelEdge::from_vec3s(
-        outer_edge.tessellate_by_param(resolution),
+        outer_edge.tessellate_by_param(resolution * 2),
         Rgba::BLUE,
     ));
 
