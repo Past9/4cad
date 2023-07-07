@@ -32,7 +32,9 @@ use vulkano::{
 pub struct Inputs<'a> {
     push_constants: PushConstants,
     pipeline: Arc<GraphicsPipeline>,
-    geometry_buffers: &'a GeometryBuffers,
+    vertices: &'a Option<Subbuffer<[BufferedSurfaceVertex]>>,
+    indices: &'a Option<Subbuffer<[u32]>>,
+    materials: &'a Option<Subbuffer<[Std140OpaqueMaterial]>>,
     light_buffers: &'a LightBuffers,
     show: bool,
 }
@@ -51,7 +53,8 @@ impl OpaqueSurfaceStage {
         mode: SurfaceMode,
         samples: SampleCount,
     ) -> Self {
-        let pipeline = Self::build_pipeline(device, render_pass, mode, samples);
+        let pipeline =
+            Self::build_pipeline(device.clone(), render_pass.clone(), mode.clone(), samples);
 
         Self {
             device,

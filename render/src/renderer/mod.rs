@@ -43,6 +43,7 @@ const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 const TRANSLUCENT_ACCUM_FORMAT: Format = Format::R16G16B16A16_SFLOAT;
 const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
 
+#[derive(Clone)]
 pub enum SurfaceMode {
     Fill,
     Wireframe,
