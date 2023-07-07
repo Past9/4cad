@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
+use cgmath::{point3, vec3, Deg, InnerSpace};
+use primitives::{Angle, Mat4};
 use render::{
     camera::Camera,
     lights::Lights,
@@ -10,7 +10,7 @@ use render::{
     scene::SceneBuilder,
     Rgb, Rgba,
 };
-use splines::{Curve, KnotVec, Surface};
+use splines::{Curve, Surface};
 use tessellate::{curve::CurveTessellation, surface::SurfaceTessellation};
 use viewer::run_viewer;
 

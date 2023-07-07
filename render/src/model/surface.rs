@@ -4,8 +4,6 @@ use primitives::Vec3;
 use splines::SurfacePoint;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
-use crate::Rgba;
-
 use super::{MaterialId, ModelObjectId};
 
 #[derive(Clone, Debug)]

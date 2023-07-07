@@ -1,7 +1,4 @@
-use super::{
-    model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex},
-    scene::Scene,
-};
+use super::scene::Scene;
 use crate::lights::LightBuffers;
 use crate::model::GeometryBuffers;
 use crate::PixelViewport;
@@ -18,7 +15,7 @@ use vulkano::{
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
     },
-    device::Queue,
+    device::{Device, Queue},
     format::Format,
     image::{
         view::ImageView, AttachmentImage, ImageDimensions, ImageLayout, ImageUsage,
@@ -27,24 +24,20 @@ use vulkano::{
     memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
     pipeline::{
         graphics::{
-            color_blend::{
-                AttachmentBlend, BlendFactor, BlendOp, ColorBlendAttachmentState, ColorBlendState,
-                ColorComponents,
-            },
-            depth_stencil::{CompareOp, DepthState, DepthStencilState},
-            input_assembly::{InputAssemblyState, PrimitiveTopology},
-            multisample::MultisampleState,
-            rasterization::{
-                CullMode, FrontFace, LineRasterizationMode, PolygonMode, RasterizationState,
-            },
             vertex_input::Vertex,
-            viewport::{Scissor, Viewport, ViewportState},
+            viewport::{Scissor, Viewport},
         },
-        GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
+        GraphicsPipeline, Pipeline, PipelineBindPoint,
     },
-    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
+    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass},
     sync::GpuFuture,
 };
+
+mod compositing;
+mod edges;
+mod opaque_surfaces;
+mod points;
+mod translucent_surfaces;
 
 const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 const TRANSLUCENT_ACCUM_FORMAT: Format = Format::R16G16B16A16_SFLOAT;
@@ -53,6 +46,16 @@ const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
 pub enum SurfaceMode {
     Fill,
     Wireframe,
+}
+
+trait GraphicsStage<TFrameInputs> {
+    fn pipeline(&self) -> Arc<GraphicsPipeline>;
+    fn add_commands(
+        &self,
+        inputs: TFrameInputs,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    );
 }
 
 pub struct Renderer {
@@ -224,7 +227,7 @@ impl Renderer {
         Arc<GraphicsPipeline>,
         Arc<GraphicsPipeline>,
     ) {
-        let device = queue.device();
+        let device = queue.device().clone();
         let render_pass = vulkano::ordered_passes_renderpass!(
             device.clone(),
             attachments: {
@@ -321,254 +324,24 @@ impl Renderer {
             queue.clone(),
         );
 
-        let opaque_surface_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BufferedSurfaceVertex::per_vertex())
-            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
-            .vertex_shader(
-                surface_vs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .input_assembly_state(
-                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
-            )
-            .rasterization_state(RasterizationState {
-                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: match mode {
-                    SurfaceMode::Fill => StateMode::Fixed(CullMode::None),
-                    SurfaceMode::Wireframe => StateMode::Fixed(CullMode::None),
-                },
-                polygon_mode: match mode {
-                    SurfaceMode::Fill => PolygonMode::Fill,
-                    SurfaceMode::Wireframe => PolygonMode::Line,
-                },
-                line_width: match mode {
-                    SurfaceMode::Fill => StateMode::Fixed(1.0),
-                    SurfaceMode::Wireframe => StateMode::Fixed(2.0),
-                },
-                ..RasterizationState::default()
-            })
-            .multisample_state(MultisampleState {
-                rasterization_samples: msaa_samples,
-                sample_shading: Some(0.5),
-                ..Default::default()
-            })
-            .depth_stencil_state(DepthStencilState {
-                depth: Some(DepthState {
-                    enable_dynamic: false,
-                    write_enable: StateMode::Fixed(true),
-                    compare_op: StateMode::Fixed(CompareOp::Less),
-                }),
-                ..DepthStencilState::default()
-            })
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-            .fragment_shader(
-                opaque_surface_fs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-            .build(device.clone())
-            .unwrap();
+        let opaque_surface_pipeline = opaque_surfaces::build_pipeline(
+            device.clone(),
+            mode,
+            render_pass.clone(),
+            msaa_samples,
+        );
 
-        let edge_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BufferedEdgeVertex::per_vertex())
-            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedEdgeVertex>())
-            .vertex_shader(
-                edge_vs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .input_assembly_state(
-                InputAssemblyState::new()
-                    .topology(PrimitiveTopology::LineStrip)
-                    .primitive_restart_enable(),
-            )
-            .rasterization_state(RasterizationState {
-                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: StateMode::Fixed(CullMode::None),
-                line_width: StateMode::Fixed(2.0),
-                line_rasterization_mode: LineRasterizationMode::Rectangular,
-                ..RasterizationState::default()
-            })
-            .multisample_state(MultisampleState {
-                rasterization_samples: msaa_samples,
-                sample_shading: Some(0.5),
-                ..Default::default()
-            })
-            .depth_stencil_state(DepthStencilState {
-                depth: Some(DepthState {
-                    enable_dynamic: false,
-                    write_enable: StateMode::Fixed(true),
-                    compare_op: StateMode::Fixed(CompareOp::Less),
-                }),
-                ..DepthStencilState::default()
-            })
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-            .fragment_shader(
-                edge_fs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .render_pass(Subpass::from(render_pass.clone(), 1).unwrap())
-            .build(device.clone())
-            .unwrap();
+        let edge_pipeline =
+            edges::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
 
-        let point_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BufferedPointVertex::per_vertex())
-            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedPointVertex>())
-            .vertex_shader(
-                point_vs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .input_assembly_state(InputAssemblyState::new().topology(PrimitiveTopology::PointList))
-            .rasterization_state(RasterizationState {
-                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: StateMode::Fixed(CullMode::None),
-                ..RasterizationState::default()
-            })
-            .multisample_state(MultisampleState {
-                rasterization_samples: msaa_samples,
-                sample_shading: Some(0.5),
-                ..Default::default()
-            })
-            .depth_stencil_state(DepthStencilState {
-                depth: Some(DepthState {
-                    enable_dynamic: false,
-                    write_enable: StateMode::Fixed(true),
-                    compare_op: StateMode::Fixed(CompareOp::Less),
-                }),
-                ..DepthStencilState::default()
-            })
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-            .fragment_shader(
-                point_fs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .render_pass(Subpass::from(render_pass.clone(), 2).unwrap())
-            .build(device.clone())
-            .unwrap();
+        let point_pipeline =
+            points::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
 
-        let translucent_surface_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BufferedSurfaceVertex::per_vertex())
-            //.vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
-            .vertex_shader(
-                surface_vs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .input_assembly_state(
-                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
-            )
-            .rasterization_state(RasterizationState {
-                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: StateMode::Fixed(CullMode::None),
-                ..RasterizationState::default()
-            })
-            .multisample_state(MultisampleState {
-                rasterization_samples: msaa_samples,
-                sample_shading: Some(0.5),
-                ..Default::default()
-            })
-            .depth_stencil_state(DepthStencilState {
-                depth: Some(DepthState {
-                    enable_dynamic: false,
-                    write_enable: StateMode::Fixed(true),
-                    compare_op: StateMode::Fixed(CompareOp::Always),
-                }),
-                ..DepthStencilState::default()
-            })
-            .color_blend_state(ColorBlendState {
-                attachments: vec![
-                    ColorBlendAttachmentState {
-                        blend: Some(AttachmentBlend {
-                            color_op: BlendOp::Add,
-                            color_source: BlendFactor::One,
-                            color_destination: BlendFactor::One,
-                            alpha_op: BlendOp::Add,
-                            alpha_source: BlendFactor::One,
-                            alpha_destination: BlendFactor::One,
-                        }),
-                        color_write_mask: ColorComponents::all(),
-                        color_write_enable: StateMode::Fixed(true),
-                    },
-                    ColorBlendAttachmentState {
-                        blend: Some(AttachmentBlend {
-                            color_op: BlendOp::Add,
-                            color_source: BlendFactor::Zero,
-                            color_destination: BlendFactor::OneMinusSrcColor,
-                            alpha_op: BlendOp::Add,
-                            alpha_source: BlendFactor::One,
-                            alpha_destination: BlendFactor::One,
-                        }),
-                        color_write_mask: ColorComponents::all(),
-                        color_write_enable: StateMode::Fixed(true),
-                    },
-                ],
-                ..ColorBlendState::default()
-            })
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-            .fragment_shader(
-                translucent_surface_fs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .render_pass(Subpass::from(render_pass.clone(), 3).unwrap())
-            .build(device.clone())
-            .unwrap();
+        let translucent_surface_pipeline =
+            translucent_surfaces::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
 
-        let compositing_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(ScreenSpaceVertex::per_vertex())
-            //.vertex_input_state(BuffersDefinition::new().vertex::<ScreenSpaceVertex>())
-            .vertex_shader(
-                compositing_vs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .input_assembly_state(
-                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
-            )
-            .rasterization_state(RasterizationState {
-                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: StateMode::Fixed(CullMode::None),
-                ..RasterizationState::default()
-            })
-            .multisample_state(MultisampleState {
-                rasterization_samples: msaa_samples,
-                sample_shading: Some(0.5),
-                ..Default::default()
-            })
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-            .fragment_shader(
-                compositing_fs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .render_pass(Subpass::from(render_pass.clone(), 4).unwrap())
-            .build(device.clone())
-            .unwrap();
+        let compositing_pipeline =
+            compositing::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
 
         (
             render_pass,
@@ -667,7 +440,22 @@ impl Renderer {
                 }],
             );
 
-        self.add_opaque_surface_commands(&mut command_buffer_builder, descriptor_set_allocator);
+        opaque_surfaces::add_commands(
+            surface_vs::PushConstants {
+                model_matrix: self.scene.orientation().matrix().into(),
+                projection_matrix: self.scene.camera().projection_matrix().into(),
+            },
+            self.opaque_surface_pipeline.clone(),
+            &self.geometry_buffers.opaque_surface_vertices,
+            &self.geometry_buffers.opaque_surface_indices,
+            &self.geometry_buffers.opaque_materials,
+            &self.light_buffers,
+            &mut command_buffer_builder,
+            descriptor_set_allocator,
+            self.show_surfaces,
+        );
+
+        //self.add_opaque_surface_commands(&mut command_buffer_builder, descriptor_set_allocator);
         self.add_edge_commands(&mut command_buffer_builder);
         self.add_point_commands(&mut command_buffer_builder);
         self.add_translucent_surface_commands(
@@ -1087,14 +875,6 @@ mod surface_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         path: "src/shaders/surface.vert",
-    }
-}
-
-mod opaque_surface_fs {
-    vulkano_shaders::shader! {
-        include: ["src/shaders/includes"],
-        ty: "fragment",
-        path: "src/shaders/opaque_surface.frag",
     }
 }
 
