@@ -8,8 +8,8 @@ use vulkano::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttachmentWithId {
-    id: u32,
-    attachment: Attachment,
+    pub(crate) id: u32,
+    pub(crate) attachment: Attachment,
 }
 impl AttachmentWithId {
     pub fn new(id: u32, attachment: Attachment) -> Self {
