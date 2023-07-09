@@ -16,7 +16,7 @@ use viewer::run_viewer;
 
 fn main() {
     let mut geometry = Geometry::new();
-    let surface_material = geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0), 0.5);
+    let surface_material = geometry.insert_material(rgba(0.8, 0.8, 0.8, 0.5), 0.5);
 
     let profile = Curve::arc(Angle::deg(360.0))
         .transform(&(Mat4::from_angle_z(Deg(-90.0)) * Mat4::from_angle_y(Deg(90.0))))

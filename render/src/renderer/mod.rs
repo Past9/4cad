@@ -1,3 +1,7 @@
+use self::{
+    compositing::CompositingStage, edges::EdgeStage, opaque_surfaces::OpaqueSurfaceStage,
+    points::PointStage, translucent_surfaces::TranslucentSurfaceStage,
+};
 use super::scene::Scene;
 use crate::lights::LightBuffers;
 use crate::model::GeometryBuffers;
@@ -12,10 +16,8 @@ use vulkano::{
         PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
         SubpassContents,
     },
-    descriptor_set::{
-        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
-    },
-    device::{Device, Queue},
+    descriptor_set::allocator::StandardDescriptorSetAllocator,
+    device::Queue,
     format::Format,
     image::{
         view::ImageView, AttachmentImage, ImageDimensions, ImageLayout, ImageUsage,
@@ -27,16 +29,22 @@ use vulkano::{
             vertex_input::Vertex,
             viewport::{Scissor, Viewport},
         },
-        GraphicsPipeline, Pipeline, PipelineBindPoint,
+        GraphicsPipeline, PipelineLayout,
     },
-    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass},
+    render_pass::{
+        AttachmentDescription, Framebuffer, FramebufferCreateInfo, LoadOp, RenderPass,
+        RenderPassCreateInfo, StoreOp, SubpassDescription,
+    },
     sync::GpuFuture,
 };
 
+mod attachment;
 mod compositing;
 mod edges;
 mod opaque_surfaces;
+mod pass;
 mod points;
+mod subpass;
 mod translucent_surfaces;
 
 const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
@@ -51,6 +59,7 @@ pub enum SurfaceMode {
 
 trait GraphicsStage<TFrameInputs> {
     fn pipeline(&self) -> Arc<GraphicsPipeline>;
+    fn layout(&self) -> Arc<PipelineLayout>;
     fn add_commands(
         &self,
         inputs: TFrameInputs,
@@ -64,11 +73,11 @@ pub struct Renderer {
     render_pass: Arc<RenderPass>,
 
     // Pipelines
-    opaque_surface_pipeline: Arc<GraphicsPipeline>,
-    edge_pipeline: Arc<GraphicsPipeline>,
-    point_pipeline: Arc<GraphicsPipeline>,
-    translucent_surface_pipeline: Arc<GraphicsPipeline>,
-    compositing_pipeline: Arc<GraphicsPipeline>,
+    opaque_surface_stage: OpaqueSurfaceStage,
+    edge_stage: EdgeStage,
+    point_stage: PointStage,
+    translucent_surface_stage: TranslucentSurfaceStage,
+    compositing_stage: CompositingStage,
 
     images: RendererImages,
     msaa_samples: SampleCount,
@@ -102,11 +111,11 @@ impl Renderer {
         let (
             render_pass,
             images,
-            opaque_surface_pipeline,
-            edge_pipeline,
-            point_pipeline,
-            translucent_surface_pipeline,
-            compositing_pipeline,
+            opaque_surface_stage,
+            edge_stage,
+            point_stage,
+            translucent_surface_stage,
+            compositing_stage,
         ) = Self::create_pipelines(
             SurfaceMode::Fill,
             msaa_samples,
@@ -164,11 +173,11 @@ impl Renderer {
             render_pass,
 
             // Pipelines
-            opaque_surface_pipeline,
-            edge_pipeline,
-            point_pipeline,
-            translucent_surface_pipeline,
-            compositing_pipeline,
+            opaque_surface_stage,
+            edge_stage,
+            point_stage,
+            translucent_surface_stage,
+            compositing_stage,
 
             images,
             msaa_samples,
@@ -222,13 +231,99 @@ impl Renderer {
     ) -> (
         Arc<RenderPass>,
         RendererImages,
-        Arc<GraphicsPipeline>,
-        Arc<GraphicsPipeline>,
-        Arc<GraphicsPipeline>,
-        Arc<GraphicsPipeline>,
-        Arc<GraphicsPipeline>,
+        OpaqueSurfaceStage,
+        EdgeStage,
+        PointStage,
+        TranslucentSurfaceStage,
+        CompositingStage,
     ) {
         let device = queue.device().clone();
+
+        let attachment = AttachmentDescription {
+            load_op: LoadOp::Clear,
+            store_op: StoreOp::Store,
+            format: Some(FINAL_IMAGE_FORMAT),
+            samples: msaa_samples,
+            initial_layout: ImageLayout::ColorAttachmentOptimal,
+            final_layout: ImageLayout::ColorAttachmentOptimal,
+            ..Default::default()
+        };
+
+        /*
+            RenderPass::new(
+                device,
+                RenderPassCreateInfo {
+                    attachments: vec![
+                        // 0 Opaque
+                        AttachmentDescription {
+                            load_op: LoadOp::Clear,
+                            store_op: StoreOp::Store,
+                            format: Some(FINAL_IMAGE_FORMAT),
+                            samples: msaa_samples,
+                            initial_layout: ImageLayout::ColorAttachmentOptimal,
+                            final_layout: ImageLayout::ColorAttachmentOptimal,
+                            ..Default::default()
+                        },
+                        // 1 Translucent accum
+                        AttachmentDescription {
+                            load_op: LoadOp::Clear,
+                            store_op: StoreOp::DontCare,
+                            format: Some(TRANSLUCENT_ACCUM_FORMAT),
+                            samples: msaa_samples,
+                            ..Default::default()
+                        },
+                        // 2 Translucent transmission
+                        AttachmentDescription {
+                            load_op: LoadOp::Clear,
+                            store_op: StoreOp::DontCare,
+                            format: Some(TRANSLUCENT_TRANSMISSION_FORMAT),
+                            samples: msaa_samples,
+                            ..Default::default()
+                        },
+                        // 3 Composite
+                        AttachmentDescription {
+                            load_op: LoadOp::Clear,
+                            store_op: StoreOp::DontCare,
+                            format: Some(FINAL_IMAGE_FORMAT),
+                            samples: msaa_samples,
+                            initial_layout: ImageLayout::ColorAttachmentOptimal,
+                            final_layout: ImageLayout::ColorAttachmentOptimal,
+                            ..Default::default()
+                        },
+                        // 4 View
+                        AttachmentDescription {
+                            load_op: LoadOp::Clear,
+                            store_op: StoreOp::DontCare,
+                            format: Some(FINAL_IMAGE_FORMAT),
+                            samples: SampleCount::Sample1,
+                            initial_layout: ImageLayout::ColorAttachmentOptimal,
+                            final_layout: ImageLayout::ColorAttachmentOptimal,
+                            ..Default::default()
+                        },
+                        // 5 Depth
+                        AttachmentDescription {
+                            load_op: LoadOp::Clear,
+                            store_op: StoreOp::DontCare,
+                            format: Some(Format::D32_SFLOAT),
+                            samples: msaa_samples,
+                            initial_layout: ImageLayout::DepthStencilAttachmentOptimal,
+                            final_layout: ImageLayout::DepthStencilAttachmentOptimal,
+                            ..Default::default()
+                        },
+                    ],
+                    subpasses: vec![SubpassDescription {
+                        color_attachments: vec![Some(0)],
+                        depth_stencil_attachment: Some(5),
+                        ..Default::default()
+                    }],
+                    dependencies: todo!(),
+                    correlated_view_masks: todo!(),
+                    _ne: todo!(),
+                },
+            )
+            .unwrap();
+        */
+
         let render_pass = vulkano::ordered_passes_renderpass!(
             device.clone(),
             attachments: {
@@ -242,7 +337,7 @@ impl Renderer {
                 },
                 translucent_accum: {
                     load: Clear,
-                    store: DontCare,
+                    store: Store, // dontcare
                     format: TRANSLUCENT_ACCUM_FORMAT,
                     samples: msaa_samples,
                 },
@@ -254,7 +349,7 @@ impl Renderer {
                 },
                 composite: {
                     load: Clear,
-                    store: DontCare,
+                    store: Store, // dontcare
                     format: FINAL_IMAGE_FORMAT,
                     samples: msaa_samples,
                     initial_layout: ImageLayout::ColorAttachmentOptimal,
@@ -262,7 +357,7 @@ impl Renderer {
                 },
                 view: {
                     load: Clear,
-                    store: DontCare,
+                    store: Store, // dontcare
                     format: FINAL_IMAGE_FORMAT,
                     samples: 1,
                     initial_layout: ImageLayout::ColorAttachmentOptimal,
@@ -270,7 +365,7 @@ impl Renderer {
                 },
                 depth: {
                     load: Clear,
-                    store: DontCare,
+                    store: Store, // dontcare
                     format: Format::D32_SFLOAT,
                     samples: msaa_samples,
                     initial_layout: ImageLayout::DepthStencilAttachmentOptimal,
@@ -325,33 +420,35 @@ impl Renderer {
             queue.clone(),
         );
 
-        let opaque_surface_pipeline = opaque_surfaces::build_pipeline(
+        let opaque_surface_stage = opaque_surfaces::OpaqueSurfaceStage::new(
             device.clone(),
+            render_pass.clone(),
             mode,
+            msaa_samples,
+        );
+
+        let edge_stage = edges::EdgeStage::new(device.clone(), render_pass.clone(), msaa_samples);
+
+        let point_stage =
+            points::PointStage::new(device.clone(), render_pass.clone(), msaa_samples);
+
+        let translucent_surface_stage = translucent_surfaces::TranslucentSurfaceStage::new(
+            device.clone(),
             render_pass.clone(),
             msaa_samples,
         );
 
-        let edge_pipeline =
-            edges::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
-
-        let point_pipeline =
-            points::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
-
-        let translucent_surface_pipeline =
-            translucent_surfaces::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
-
-        let compositing_pipeline =
-            compositing::build_pipeline(device.clone(), render_pass.clone(), msaa_samples);
+        let compositing_stage =
+            compositing::CompositingStage::new(device.clone(), render_pass.clone(), msaa_samples);
 
         (
             render_pass,
             images,
-            opaque_surface_pipeline,
-            edge_pipeline,
-            point_pipeline,
-            translucent_surface_pipeline,
-            compositing_pipeline,
+            opaque_surface_stage,
+            edge_stage,
+            point_stage,
+            translucent_surface_stage,
+            compositing_stage,
         )
     }
 
@@ -441,29 +538,69 @@ impl Renderer {
                 }],
             );
 
-        opaque_surfaces::add_commands(
-            surface_vs::PushConstants {
-                model_matrix: self.scene.orientation().matrix().into(),
-                projection_matrix: self.scene.camera().projection_matrix().into(),
+        self.opaque_surface_stage.add_commands(
+            opaque_surfaces::Inputs {
+                push_constants: surface_vs::PushConstants {
+                    model_matrix: self.scene.orientation().matrix().into(),
+                    projection_matrix: self.scene.camera().projection_matrix().into(),
+                },
+                vertices: &self.geometry_buffers.opaque_surface_vertices,
+                indices: &self.geometry_buffers.opaque_surface_indices,
+                materials: &self.geometry_buffers.opaque_materials,
+                light_buffers: &self.light_buffers,
+                show: self.show_surfaces,
             },
-            self.opaque_surface_pipeline.clone(),
-            &self.geometry_buffers.opaque_surface_vertices,
-            &self.geometry_buffers.opaque_surface_indices,
-            &self.geometry_buffers.opaque_materials,
-            &self.light_buffers,
             &mut command_buffer_builder,
             descriptor_set_allocator,
-            self.show_surfaces,
         );
 
-        //self.add_opaque_surface_commands(&mut command_buffer_builder, descriptor_set_allocator);
-        self.add_edge_commands(&mut command_buffer_builder);
-        self.add_point_commands(&mut command_buffer_builder);
-        self.add_translucent_surface_commands(
+        self.edge_stage.add_commands(
+            edges::Inputs {
+                vertices: &self.geometry_buffers.edge_vertices,
+                indices: &self.geometry_buffers.edge_indices,
+                show: self.show_edges,
+            },
             &mut command_buffer_builder,
             descriptor_set_allocator,
         );
-        self.add_compositing_commands(&mut command_buffer_builder, descriptor_set_allocator);
+
+        self.point_stage.add_commands(
+            points::Inputs {
+                vertices: &self.geometry_buffers.point_vertices,
+                show: self.show_points,
+            },
+            &mut command_buffer_builder,
+            descriptor_set_allocator,
+        );
+
+        self.translucent_surface_stage.add_commands(
+            translucent_surfaces::Inputs {
+                push_constants: surface_vs::PushConstants {
+                    model_matrix: self.scene.orientation().matrix().into(),
+                    projection_matrix: self.scene.camera().projection_matrix().into(),
+                },
+                vertices: &self.geometry_buffers.translucent_surface_vertices,
+                indices: &self.geometry_buffers.translucent_surface_indices,
+                materials: &self.geometry_buffers.translucent_materials,
+                light_buffers: &self.light_buffers,
+                show: self.show_surfaces,
+                depth_image: self.images.depth.clone(),
+            },
+            &mut command_buffer_builder,
+            descriptor_set_allocator,
+        );
+
+        self.compositing_stage.add_commands(
+            compositing::Inputs {
+                opaque_image: self.images.opaque.clone(),
+                translucent_accum_image: self.images.translucent_accum.clone(),
+                translucent_transmit_image: self.images.translucent_transmit.clone(),
+                quad_vertices: self.full_quad_vertex_buffer.clone(),
+                quad_indices: self.full_quad_index_buffer.clone(),
+            },
+            &mut command_buffer_builder,
+            descriptor_set_allocator,
+        );
 
         command_buffer_builder.end_render_pass().unwrap();
 
@@ -474,216 +611,6 @@ impl Renderer {
             .then_signal_fence_and_flush()
             .unwrap()
             .wait(None)
-            .unwrap();
-    }
-
-    fn add_opaque_surface_commands(
-        &self,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-        descriptor_set_allocator: &StandardDescriptorSetAllocator,
-    ) {
-        let push_constants = surface_vs::PushConstants {
-            model_matrix: self.scene.orientation().matrix().into(),
-            projection_matrix: self.scene.camera().projection_matrix().into(),
-        };
-
-        builder
-            .bind_pipeline_graphics(self.opaque_surface_pipeline.clone())
-            .push_constants(
-                self.opaque_surface_pipeline.layout().clone(),
-                0,
-                push_constants,
-            );
-
-        if self.show_surfaces {
-            if let (
-                Some(ref surface_vertex_buffer),
-                Some(ref surface_index_buffer),
-                Some(ref material_buffer),
-            ) = (
-                &self.geometry_buffers.opaque_surface_vertices,
-                &self.geometry_buffers.opaque_surface_indices,
-                &self.geometry_buffers.opaque_materials,
-            ) {
-                let (ambient_light_buffer, directional_light_buffer, point_light_buffer) = (
-                    &self.light_buffers.ambient,
-                    &self.light_buffers.directional,
-                    &self.light_buffers.point,
-                );
-
-                let opaque_surface_descriptor_set = PersistentDescriptorSet::new(
-                    descriptor_set_allocator,
-                    self.opaque_surface_pipeline
-                        .layout()
-                        .set_layouts()
-                        .get(0)
-                        .unwrap()
-                        .clone(),
-                    [
-                        WriteDescriptorSet::buffer(0, point_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(1, ambient_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(2, directional_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(3, material_buffer.clone()),
-                    ],
-                )
-                .unwrap();
-
-                builder
-                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
-                    .bind_index_buffer(surface_index_buffer.clone())
-                    .bind_descriptor_sets(
-                        PipelineBindPoint::Graphics,
-                        self.opaque_surface_pipeline.layout().clone(),
-                        0,
-                        opaque_surface_descriptor_set.clone(),
-                    )
-                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
-                    .unwrap();
-            }
-        }
-    }
-
-    fn add_edge_commands(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>) {
-        builder
-            .next_subpass(SubpassContents::Inline)
-            .unwrap()
-            .bind_pipeline_graphics(self.edge_pipeline.clone());
-
-        if self.show_edges {
-            if let (Some(ref edge_vertex_buffer), Some(ref edge_index_buffer)) = (
-                &self.geometry_buffers.edge_vertices,
-                &self.geometry_buffers.edge_indices,
-            ) {
-                builder
-                    .bind_vertex_buffers(0, edge_vertex_buffer.clone())
-                    .bind_index_buffer(edge_index_buffer.clone())
-                    .draw_indexed(edge_index_buffer.len() as u32, 1, 0, 0, 0)
-                    .unwrap();
-            }
-        }
-    }
-
-    fn add_point_commands(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>) {
-        builder
-            .next_subpass(SubpassContents::Inline)
-            .unwrap()
-            .bind_pipeline_graphics(self.point_pipeline.clone());
-
-        if self.show_points {
-            if let Some(ref point_vertex_buffer) = &self.geometry_buffers.point_vertices {
-                builder
-                    .bind_vertex_buffers(0, point_vertex_buffer.clone())
-                    .draw(point_vertex_buffer.len() as u32, 1, 0, 0)
-                    .unwrap();
-            }
-        }
-    }
-
-    fn add_translucent_surface_commands(
-        &self,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-        descriptor_set_allocator: &StandardDescriptorSetAllocator,
-    ) {
-        let push_constants = surface_vs::PushConstants {
-            model_matrix: self.scene.orientation().matrix().into(),
-            projection_matrix: self.scene.camera().projection_matrix().into(),
-        };
-
-        builder
-            .next_subpass(SubpassContents::Inline)
-            .unwrap()
-            .bind_pipeline_graphics(self.translucent_surface_pipeline.clone())
-            .push_constants(
-                self.translucent_surface_pipeline.layout().clone(),
-                0,
-                push_constants,
-            );
-
-        if self.show_surfaces {
-            if let (
-                Some(ref surface_vertex_buffer),
-                Some(ref surface_index_buffer),
-                Some(ref material_buffer),
-            ) = (
-                &self.geometry_buffers.translucent_surface_vertices,
-                &self.geometry_buffers.translucent_surface_indices,
-                &self.geometry_buffers.translucent_materials,
-            ) {
-                let (ambient_light_buffer, directional_light_buffer, point_light_buffer) = (
-                    &self.light_buffers.ambient,
-                    &self.light_buffers.directional,
-                    &self.light_buffers.point,
-                );
-
-                let translucent_surface_descriptor_set = PersistentDescriptorSet::new(
-                    descriptor_set_allocator,
-                    self.translucent_surface_pipeline
-                        .layout()
-                        .set_layouts()
-                        .get(0)
-                        .unwrap()
-                        .clone(),
-                    [
-                        WriteDescriptorSet::buffer(0, point_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(1, ambient_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(2, directional_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(3, material_buffer.clone()),
-                        WriteDescriptorSet::image_view(4, self.images.depth.clone()),
-                    ],
-                )
-                .unwrap();
-
-                builder
-                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
-                    .bind_index_buffer(surface_index_buffer.clone())
-                    .bind_descriptor_sets(
-                        PipelineBindPoint::Graphics,
-                        self.translucent_surface_pipeline.layout().clone(),
-                        0,
-                        translucent_surface_descriptor_set.clone(),
-                    )
-                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
-                    .unwrap();
-            }
-        }
-    }
-
-    fn add_compositing_commands(
-        &self,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-        descriptor_set_allocator: &StandardDescriptorSetAllocator,
-    ) {
-        builder
-            .next_subpass(SubpassContents::Inline)
-            .unwrap()
-            .bind_pipeline_graphics(self.compositing_pipeline.clone());
-
-        let compositing_descriptor_set = PersistentDescriptorSet::new(
-            descriptor_set_allocator,
-            self.compositing_pipeline
-                .layout()
-                .set_layouts()
-                .get(0)
-                .unwrap()
-                .clone(),
-            [
-                WriteDescriptorSet::image_view(0, self.images.opaque.clone()),
-                WriteDescriptorSet::image_view(1, self.images.translucent_accum.clone()),
-                WriteDescriptorSet::image_view(2, self.images.translucent_transmit.clone()),
-            ],
-        )
-        .unwrap();
-
-        builder
-            .bind_vertex_buffers(0, self.full_quad_vertex_buffer.clone())
-            .bind_index_buffer(self.full_quad_index_buffer.clone())
-            .bind_descriptor_sets(
-                PipelineBindPoint::Graphics,
-                self.compositing_pipeline.layout().clone(),
-                0,
-                compositing_descriptor_set.clone(),
-            )
-            .draw_indexed(self.full_quad_index_buffer.len() as u32, 1, 0, 0, 0)
             .unwrap();
     }
 
@@ -876,62 +803,5 @@ mod surface_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         path: "src/shaders/surface.vert",
-    }
-}
-
-mod translucent_surface_fs {
-    vulkano_shaders::shader! {
-        include: ["src/shaders/includes"],
-        ty: "fragment",
-        path: "src/shaders/translucent_surface.frag",
-    }
-}
-
-mod edge_vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        path: "src/shaders/edge.vert",
-    }
-}
-
-mod edge_fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        path: "src/shaders/edge.frag",
-    }
-}
-
-mod point_vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        path: "src/shaders/point.vert",
-    }
-}
-
-mod point_fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        path: "src/shaders/point.frag",
-    }
-}
-
-mod compositing_vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
-#version 450
-
-layout(location = 0) in vec2 position;
-
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-}"
-    }
-}
-
-mod compositing_fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        path: "src/shaders/compositing.frag",
     }
 }

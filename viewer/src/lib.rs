@@ -35,7 +35,7 @@ pub fn run_viewer(scene: Scene) -> ! {
             khr_push_descriptor: true,
             khr_swapchain: true,
             ext_line_rasterization: true,
-            ext_blend_operation_advanced: true,
+            ext_blend_operation_advanced: false,
             ..Default::default()
         },
         ..Default::default()
