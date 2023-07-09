@@ -5,18 +5,21 @@ use self::{
 };
 use super::scene::Scene;
 use crate::model::{
-    BufferedEdgeVertex, BufferedSurfaceVertex, GeometryBuffers, Std140OpaqueMaterial,
+    BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex, GeometryBuffers,
+    Std140OpaqueMaterial, Std140TranslucentMaterial,
 };
 use crate::renderer::attachment::Attachment;
 use crate::renderer::edges::EdgeSubpass;
 use crate::renderer::opaque_surfaces::OpaqueSurfaceSubpass;
 use crate::renderer::pass::Pass;
+use crate::renderer::points::PointSubpass;
 use crate::renderer::subpass::Subpass;
 use crate::PixelViewport;
 use crate::{lights::LightBuffers, renderer::attachment::AttachmentKind};
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector2, Vector3};
 use std::sync::Arc;
+use vulkano::format::ClearValue;
 use vulkano::{
     buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
@@ -69,12 +72,23 @@ pub struct SubpassRunParams<'a> {
     pub opaque_surface_indices: &'a Option<Subbuffer<[u32]>>,
     pub opaque_surface_materials: &'a Option<Subbuffer<[Std140OpaqueMaterial]>>,
 
+    pub translucent_surface_push_constants: PushConstants,
+    pub translucent_surface_vertices: &'a Option<Subbuffer<[BufferedSurfaceVertex]>>,
+    pub translucent_surface_indices: &'a Option<Subbuffer<[u32]>>,
+    pub translucent_surface_materials: &'a Option<Subbuffer<[Std140TranslucentMaterial]>>,
+
     pub edge_vertices: &'a Option<Subbuffer<[BufferedEdgeVertex]>>,
     pub edge_indices: &'a Option<Subbuffer<[u32]>>,
 
+    pub point_vertices: &'a Option<Subbuffer<[BufferedPointVertex]>>,
+
     pub light_buffers: &'a LightBuffers,
+
     pub show_surfaces: bool,
     pub show_edges: bool,
+    pub show_points: bool,
+
+    pub depth_image: Arc<ImageView<AttachmentImage>>,
 }
 
 #[derive(Clone)]
@@ -649,7 +663,7 @@ impl Renderer {
     }
 }
 
-struct RendererImages {
+pub struct RendererImages {
     framebuffer: Arc<Framebuffer>,
     opaque: Arc<ImageView<AttachmentImage>>,
     translucent_accum: Arc<ImageView<AttachmentImage>>,
@@ -824,29 +838,45 @@ fn foo() {
     const TRANSLUCENT_TRANSMISSION_FORMAT: AttachmentKind = AttachmentKind::ColorUNormRgba8;
     const DEPTH_FORMAT: AttachmentKind = AttachmentKind::DepthSFloat32;
 
+    let bg_color: ClearValue = [0.1, 0.2, 0.3, 1.0].into();
+
     let mut pass = Pass::new();
 
-    let opaque_image =
-        pass.add_attachment(Attachment::new(FINAL_IMAGE_FORMAT).load_cleared().store());
+    let opaque_image = pass.add_attachment(
+        Attachment::new(FINAL_IMAGE_FORMAT)
+            .load_cleared(bg_color)
+            .store(),
+    );
 
     let translucent_accum_image = pass.add_attachment(
         Attachment::new(TRANSLUCENT_ACCUM_FORMAT)
-            .load_cleared()
+            .load_cleared([0.0, 0.0, 0.0, 0.0].into())
             .store(),
     );
 
     let translucent_transmit_image = pass.add_attachment(
         Attachment::new(TRANSLUCENT_TRANSMISSION_FORMAT)
-            .load_cleared()
+            .load_cleared([1.0, 1.0, 1.0, 0.0].into())
             .store(),
     );
 
-    let composite_image =
-        pass.add_attachment(Attachment::new(FINAL_IMAGE_FORMAT).load_cleared().store());
+    let composite_image = pass.add_attachment(
+        Attachment::new(FINAL_IMAGE_FORMAT)
+            .load_cleared([0.0, 0.0, 0.0, 0.0].into())
+            .store(),
+    );
 
-    let depth_stencil = pass.add_attachment(Attachment::new(DEPTH_FORMAT).load_cleared().store());
+    let depth_stencil = pass.add_attachment(
+        Attachment::new(DEPTH_FORMAT)
+            .load_cleared(1.0.into())
+            .store(),
+    );
 
-    let view = pass.add_attachment(Attachment::new(FINAL_IMAGE_FORMAT).load_cleared().store());
+    let view = pass.add_attachment(
+        Attachment::new(FINAL_IMAGE_FORMAT)
+            .load_cleared(bg_color)
+            .store(),
+    );
 
     // Opaque surfaces
     pass.add_subpass(
@@ -862,7 +892,7 @@ fn foo() {
     )
     // Opaque points
     .add_subpass(
-        Subpass::new(OpaqueSurfaceSubpass::new())
+        Subpass::new(PointSubpass::new())
             .color(&opaque_image)
             .depth(&depth_stencil),
     )

@@ -1,10 +1,11 @@
 use super::{
+    subpass::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions},
     surface_vs::{self, PushConstants},
-    GraphicsStage,
+    GraphicsStage, SubpassBuildParams, SubpassRunParams,
 };
 use crate::{
     lights::LightBuffers,
-    model::{BufferedSurfaceVertex, Std140TranslucentMaterial},
+    model::{BufferedPointVertex, BufferedSurfaceVertex, Std140TranslucentMaterial},
 };
 use std::sync::Arc;
 use vulkano::{
@@ -25,7 +26,7 @@ use vulkano::{
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
             rasterization::{CullMode, FrontFace, RasterizationState},
-            vertex_input::Vertex,
+            vertex_input::{Vertex, VertexBufferDescription},
             viewport::ViewportState,
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout, StateMode,
@@ -198,5 +199,170 @@ mod translucent_surface_fs {
         include: ["src/shaders/includes"],
         ty: "fragment",
         path: "src/shaders/translucent_surface.frag",
+    }
+}
+
+pub(crate) struct TranslucentSurfaceSubpass {}
+impl TranslucentSurfaceSubpass {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+impl SubpassInstructions<SubpassBuildParams, SubpassRunParams<'_>> for TranslucentSurfaceSubpass {}
+impl SubpassBuildInstructions<SubpassBuildParams> for TranslucentSurfaceSubpass {
+    fn vertex_buffer_description(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> VertexBufferDescription {
+        BufferedSurfaceVertex::per_vertex()
+    }
+
+    fn vertex_shader(&self, device: Arc<Device>, _params: &SubpassBuildParams) -> Option<Shader> {
+        Some(Shader {
+            module: surface_vs::load(device.clone()).unwrap(),
+            entry_point: "main".into(),
+        })
+    }
+
+    fn fragment_shader(&self, device: Arc<Device>, _params: &SubpassBuildParams) -> Option<Shader> {
+        Some(Shader {
+            module: translucent_surface_fs::load(device.clone()).unwrap(),
+            entry_point: "main".into(),
+        })
+    }
+
+    fn input_assembly_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> InputAssemblyState {
+        InputAssemblyState::new().topology(PrimitiveTopology::TriangleList)
+    }
+
+    fn rasterization_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> RasterizationState {
+        RasterizationState {
+            front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+            cull_mode: StateMode::Fixed(CullMode::None),
+            ..RasterizationState::default()
+        }
+    }
+
+    fn depth_stencil_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> DepthStencilState {
+        DepthStencilState {
+            depth: Some(DepthState {
+                enable_dynamic: false,
+                write_enable: StateMode::Fixed(true),
+                compare_op: StateMode::Fixed(CompareOp::Always),
+            }),
+            ..DepthStencilState::default()
+        }
+    }
+
+    fn color_blend_state(
+        &self,
+        device: Arc<Device>,
+        params: &SubpassBuildParams,
+    ) -> ColorBlendState {
+        ColorBlendState {
+            attachments: vec![
+                ColorBlendAttachmentState {
+                    blend: Some(AttachmentBlend {
+                        color_op: BlendOp::Add,
+                        color_source: BlendFactor::One,
+                        color_destination: BlendFactor::One,
+                        alpha_op: BlendOp::Add,
+                        alpha_source: BlendFactor::One,
+                        alpha_destination: BlendFactor::One,
+                    }),
+                    color_write_mask: ColorComponents::all(),
+                    color_write_enable: StateMode::Fixed(true),
+                },
+                ColorBlendAttachmentState {
+                    blend: Some(AttachmentBlend {
+                        color_op: BlendOp::Add,
+                        color_source: BlendFactor::Zero,
+                        color_destination: BlendFactor::OneMinusSrcColor,
+                        alpha_op: BlendOp::Add,
+                        alpha_source: BlendFactor::One,
+                        alpha_destination: BlendFactor::One,
+                    }),
+                    color_write_mask: ColorComponents::all(),
+                    color_write_enable: StateMode::Fixed(true),
+                },
+            ],
+            ..ColorBlendState::default()
+        }
+    }
+}
+
+impl<'a> SubpassRunInstructions<SubpassRunParams<'a>> for TranslucentSurfaceSubpass {
+    fn add_commands(
+        &self,
+        inputs: &SubpassRunParams,
+        pipeline: Arc<GraphicsPipeline>,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    ) {
+        builder
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(pipeline.clone())
+            .push_constants(
+                pipeline.layout().clone(),
+                0,
+                inputs.translucent_surface_push_constants,
+            );
+
+        if inputs.show_surfaces {
+            if let (
+                Some(ref surface_vertex_buffer),
+                Some(ref surface_index_buffer),
+                Some(ref material_buffer),
+            ) = (
+                &inputs.translucent_surface_vertices,
+                &inputs.translucent_surface_indices,
+                &inputs.translucent_surface_materials,
+            ) {
+                let (ambient_light_buffer, directional_light_buffer, point_light_buffer) = (
+                    &inputs.light_buffers.ambient,
+                    &inputs.light_buffers.directional,
+                    &inputs.light_buffers.point,
+                );
+
+                let translucent_surface_descriptor_set = PersistentDescriptorSet::new(
+                    descriptor_set_allocator,
+                    pipeline.layout().set_layouts().get(0).unwrap().clone(),
+                    [
+                        WriteDescriptorSet::buffer(0, point_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(1, ambient_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(2, directional_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(3, material_buffer.clone()),
+                        WriteDescriptorSet::image_view(4, inputs.depth_image.clone()),
+                    ],
+                )
+                .unwrap();
+
+                builder
+                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
+                    .bind_index_buffer(surface_index_buffer.clone())
+                    .bind_descriptor_sets(
+                        PipelineBindPoint::Graphics,
+                        pipeline.layout().clone(),
+                        0,
+                        translucent_surface_descriptor_set.clone(),
+                    )
+                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
+                    .unwrap();
+            }
+        }
     }
 }

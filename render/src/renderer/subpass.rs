@@ -5,6 +5,7 @@ use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer},
     descriptor_set::allocator::StandardDescriptorSetAllocator,
     device::Device,
+    format::ClearValue,
     pipeline::{
         graphics::{
             color_blend::ColorBlendState, depth_stencil::DepthStencilState,
@@ -78,6 +79,7 @@ pub trait SubpassRunInstructions<TRunParams> {
 }
 
 pub struct Subpass<TBuildParams, TRunParams> {
+    pub(crate) clear_value: Option<ClearValue>,
     pub(crate) input_attachments: Vec<u32>,
     pub(crate) color_attachments: Vec<u32>,
     pub(crate) depth_attachment: Option<u32>,
@@ -87,12 +89,18 @@ pub struct Subpass<TBuildParams, TRunParams> {
 impl<TParams, TRunParams> Subpass<TParams, TRunParams> {
     pub fn new(instructions: Box<dyn SubpassInstructions<TParams, TRunParams>>) -> Self {
         Self {
+            clear_value: None,
             input_attachments: Vec::new(),
             color_attachments: Vec::new(),
             depth_attachment: None,
             resolve_attachments: Vec::new(),
             instructions,
         }
+    }
+
+    pub fn clear_value(mut self, clear_value: Option<ClearValue>) -> Self {
+        self.clear_value = clear_value;
+        self
     }
 
     pub fn input(mut self, attachment: &AttachmentWithId) -> Self {

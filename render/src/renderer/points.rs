@@ -1,5 +1,8 @@
-use super::GraphicsStage;
-use crate::model::BufferedPointVertex;
+use super::{
+    subpass::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions},
+    GraphicsStage, SubpassBuildParams, SubpassRunParams,
+};
+use crate::model::{BufferedEdgeVertex, BufferedPointVertex};
 use std::sync::Arc;
 use vulkano::{
     buffer::Subbuffer,
@@ -13,7 +16,7 @@ use vulkano::{
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
             rasterization::{CullMode, FrontFace, RasterizationState},
-            vertex_input::Vertex,
+            vertex_input::{Vertex, VertexBufferDescription},
             viewport::ViewportState,
         },
         GraphicsPipeline, Pipeline, PipelineLayout, StateMode,
@@ -125,5 +128,95 @@ mod point_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         path: "src/shaders/point.frag",
+    }
+}
+
+pub(crate) struct PointSubpass {}
+impl PointSubpass {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+impl SubpassInstructions<SubpassBuildParams, SubpassRunParams<'_>> for PointSubpass {}
+impl SubpassBuildInstructions<SubpassBuildParams> for PointSubpass {
+    fn vertex_buffer_description(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> VertexBufferDescription {
+        BufferedPointVertex::per_vertex()
+    }
+
+    fn vertex_shader(&self, device: Arc<Device>, _params: &SubpassBuildParams) -> Option<Shader> {
+        Some(Shader {
+            module: point_vs::load(device.clone()).unwrap(),
+            entry_point: "main".into(),
+        })
+    }
+
+    fn fragment_shader(&self, device: Arc<Device>, _params: &SubpassBuildParams) -> Option<Shader> {
+        Some(Shader {
+            module: point_fs::load(device.clone()).unwrap(),
+            entry_point: "main".into(),
+        })
+    }
+
+    fn input_assembly_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> InputAssemblyState {
+        InputAssemblyState::new().topology(PrimitiveTopology::PointList)
+    }
+
+    fn rasterization_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> RasterizationState {
+        RasterizationState {
+            front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+            cull_mode: StateMode::Fixed(CullMode::None),
+            ..RasterizationState::default()
+        }
+    }
+
+    fn depth_stencil_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> DepthStencilState {
+        DepthStencilState {
+            depth: Some(DepthState {
+                enable_dynamic: false,
+                write_enable: StateMode::Fixed(true),
+                compare_op: StateMode::Fixed(CompareOp::Less),
+            }),
+            ..DepthStencilState::default()
+        }
+    }
+}
+
+impl<'a> SubpassRunInstructions<SubpassRunParams<'a>> for PointSubpass {
+    fn add_commands(
+        &self,
+        inputs: &SubpassRunParams,
+        pipeline: Arc<GraphicsPipeline>,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        _descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    ) {
+        builder
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(pipeline.clone());
+
+        if inputs.show_points {
+            if let Some(ref point_vertex_buffer) = &inputs.point_vertices {
+                builder
+                    .bind_vertex_buffers(0, point_vertex_buffer.clone())
+                    .draw(point_vertex_buffer.len() as u32, 1, 0, 0)
+                    .unwrap();
+            }
+        }
     }
 }

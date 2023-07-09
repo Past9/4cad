@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use vulkano::{
-    format::Format,
+    format::{ClearValue, Format},
     image::{ImageLayout, SampleCount},
     render_pass::{AttachmentDescription, LoadOp, StoreOp},
 };
@@ -68,13 +68,14 @@ impl From<AttachmentKind> for AttachmentFormatDetails {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Attachment {
-    kind: AttachmentKind,
-    load_op: LoadOp,
-    store_op: StoreOp,
-    stencil_load_op: LoadOp,
-    stencil_store_op: StoreOp,
-    initial_layout: ImageLayout,
-    final_layout: ImageLayout,
+    pub(crate) kind: AttachmentKind,
+    pub(crate) load_op: LoadOp,
+    pub(crate) store_op: StoreOp,
+    pub(crate) stencil_load_op: LoadOp,
+    pub(crate) stencil_store_op: StoreOp,
+    pub(crate) initial_layout: ImageLayout,
+    pub(crate) final_layout: ImageLayout,
+    pub(crate) clear_value: Option<ClearValue>,
 }
 impl Attachment {
     pub(crate) fn new(kind: AttachmentKind) -> Self {
@@ -86,6 +87,7 @@ impl Attachment {
             stencil_store_op: StoreOp::DontCare,
             initial_layout: ImageLayout::Undefined,
             final_layout: ImageLayout::Undefined,
+            clear_value: None,
         }
     }
 
@@ -112,6 +114,7 @@ impl Attachment {
     pub fn load_undefined(self) -> Self {
         Self {
             load_op: LoadOp::DontCare,
+            clear_value: None,
             ..self
         }
     }
@@ -123,9 +126,10 @@ impl Attachment {
         }
     }
 
-    pub fn load_cleared(self) -> Self {
+    pub fn load_cleared(self, clear_value: ClearValue) -> Self {
         Self {
             load_op: LoadOp::Clear,
+            clear_value: Some(clear_value),
             ..self
         }
     }

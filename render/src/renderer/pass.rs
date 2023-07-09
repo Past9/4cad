@@ -2,8 +2,15 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use splines::Surface;
 use vulkano::{
-    device::{Device, DeviceOwned},
+    command_buffer::{
+        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
+        PrimaryCommandBufferAbstract, RenderPassBeginInfo, SubpassContents,
+    },
+    descriptor_set::allocator::StandardDescriptorSetAllocator,
+    device::{Device, DeviceOwned, Queue},
+    format::ClearValue,
     image::{ImageLayout, SampleCount},
+    memory::allocator::StandardMemoryAllocator,
     pipeline::{
         graphics::{
             color_blend::ColorBlendState,
@@ -13,7 +20,7 @@ use vulkano::{
             rasterization::{CullMode, FrontFace, PolygonMode, RasterizationState},
             render_pass::PipelineRenderPassType,
             vertex_input::{Vertex, VertexBufferDescription},
-            viewport::ViewportState,
+            viewport::{Scissor, Viewport, ViewportState},
             GraphicsPipelineBuilder,
         },
         GraphicsPipeline, StateMode,
@@ -23,15 +30,15 @@ use vulkano::{
         SubpassDependency, SubpassDescription,
     },
     shader::ShaderModule,
-    sync::{AccessFlags, DependencyFlags, PipelineStages},
+    sync::{AccessFlags, DependencyFlags, GpuFuture, PipelineStages},
 };
 
 use super::{
     attachment::{Attachment, AttachmentKind, AttachmentWithId},
     subpass::{Shader, SubpassBuildInstructions},
-    surface_vs, SurfaceMode,
+    surface_vs, RendererImages, SurfaceMode,
 };
-use crate::{model::BufferedSurfaceVertex, renderer::subpass::Subpass};
+use crate::{model::BufferedSurfaceVertex, renderer::subpass::Subpass, PixelViewport};
 
 struct IdGenerator {
     last_id: u32,
@@ -95,6 +102,8 @@ pub struct PassRuntime<TBuildParams, TRunParams> {
     render_pass: Arc<RenderPass>,
     samples: SampleCount,
     subpasses: Vec<Box<SubpassWithId<TBuildParams, TRunParams>>>,
+    subpass_pipelines: Vec<Arc<GraphicsPipeline>>,
+    clear_values: Vec<Option<ClearValue>>,
     phantom: PhantomData<TBuildParams>,
 }
 impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
@@ -103,10 +112,12 @@ impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
         samples: SampleCount,
         device: Arc<Device>,
     ) -> Self {
+        let mut clear_values: Vec<Option<ClearValue>> = Vec::new();
         let mut attachment_descriptions: Vec<AttachmentDescription> = Vec::new();
         let mut attachment_ids_to_indices: HashMap<u32, usize> = HashMap::new();
         for (index, AttachmentWithId { id, attachment }) in pass.attachments.into_iter().enumerate()
         {
+            clear_values.push(attachment.clear_value.clone());
             attachment_ids_to_indices.insert(id, index);
             attachment_descriptions.push(attachment.to_description(samples));
         }
@@ -200,11 +211,72 @@ impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
             .unwrap(),
             samples,
             subpasses: pass.subpasses,
+            subpass_pipelines: Vec::new(),
+            clear_values,
             phantom: PhantomData,
         }
     }
 
-    fn build_pipeline(&self, params: &TBuildParams) {
+    pub fn render(
+        &self,
+        params: &TRunParams,
+        pixel_viewport: &PixelViewport,
+        scissor: Scissor,
+        images: RendererImages,
+        memory_allocator: &StandardMemoryAllocator,
+        command_buffer_allocator: &StandardCommandBufferAllocator,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+        queue: Arc<Queue>,
+    ) {
+        let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+            command_buffer_allocator,
+            queue.queue_family_index(),
+            CommandBufferUsage::MultipleSubmit,
+        )
+        .unwrap();
+
+        command_buffer_builder
+            .begin_render_pass(
+                RenderPassBeginInfo {
+                    clear_values: self.clear_values.clone(),
+                    render_area_offset: scissor.origin,
+                    render_area_extent: scissor.dimensions,
+                    ..RenderPassBeginInfo::framebuffer(images.framebuffer.clone())
+                },
+                SubpassContents::Inline,
+            )
+            .unwrap()
+            .set_viewport(
+                0,
+                [Viewport {
+                    origin: [scissor.origin[0] as f32, scissor.origin[1] as f32],
+                    dimensions: [scissor.dimensions[0] as f32, scissor.dimensions[1] as f32],
+                    depth_range: 0.0..1.0,
+                }],
+            );
+
+        for (index, subpass) in self.subpasses.iter().enumerate() {
+            subpass.subpass.instructions.add_commands(
+                params,
+                self.subpass_pipelines[index].clone(),
+                &mut command_buffer_builder,
+                descriptor_set_allocator,
+            );
+        }
+
+        command_buffer_builder.end_render_pass().unwrap();
+
+        let command_buffer = command_buffer_builder.build().unwrap();
+
+        let finished = command_buffer.execute(queue).unwrap();
+        finished
+            .then_signal_fence_and_flush()
+            .unwrap()
+            .wait(None)
+            .unwrap();
+    }
+
+    pub fn build_pipeline(&self, params: &TBuildParams) {
         for subpass in self.subpasses.iter() {
             self.build_subpass(subpass, params);
         }
