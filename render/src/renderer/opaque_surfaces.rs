@@ -1,7 +1,7 @@
 use super::{
-    subpass::{Shader, SubpassInstructions},
+    subpass::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions},
     surface_vs::{self, PushConstants},
-    GraphicsStage, SubpassBuildParams, SurfaceMode,
+    GraphicsStage, SubpassBuildParams, SubpassRunParams, SurfaceMode,
 };
 use crate::{
     lights::LightBuffers,
@@ -188,7 +188,8 @@ impl OpaqueSurfaceSubpass {
         Box::new(Self {})
     }
 }
-impl SubpassInstructions<SubpassBuildParams> for OpaqueSurfaceSubpass {
+impl SubpassInstructions<SubpassBuildParams, SubpassRunParams<'_>> for OpaqueSurfaceSubpass {}
+impl SubpassBuildInstructions<SubpassBuildParams> for OpaqueSurfaceSubpass {
     fn vertex_buffer_description(
         &self,
         _device: Arc<Device>,
@@ -254,6 +255,66 @@ impl SubpassInstructions<SubpassBuildParams> for OpaqueSurfaceSubpass {
                 compare_op: StateMode::Fixed(CompareOp::Less),
             }),
             ..DepthStencilState::default()
+        }
+    }
+}
+
+impl<'a> SubpassRunInstructions<SubpassRunParams<'a>> for OpaqueSurfaceSubpass {
+    fn add_commands(
+        &self,
+        inputs: &SubpassRunParams,
+        pipeline: Arc<GraphicsPipeline>,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    ) {
+        builder
+            .bind_pipeline_graphics(pipeline.clone())
+            .push_constants(
+                pipeline.layout().clone(),
+                0,
+                inputs.opaque_surface_push_constants,
+            );
+
+        if inputs.show_surfaces {
+            if let (
+                Some(ref surface_vertex_buffer),
+                Some(ref surface_index_buffer),
+                Some(ref material_buffer),
+            ) = (
+                &inputs.opaque_surface_vertices,
+                &inputs.opaque_surface_indices,
+                &inputs.opaque_surface_materials,
+            ) {
+                let (ambient_light_buffer, directional_light_buffer, point_light_buffer) = (
+                    &inputs.light_buffers.ambient,
+                    &inputs.light_buffers.directional,
+                    &inputs.light_buffers.point,
+                );
+
+                let opaque_surface_descriptor_set = PersistentDescriptorSet::new(
+                    descriptor_set_allocator,
+                    pipeline.layout().set_layouts().get(0).unwrap().clone(),
+                    [
+                        WriteDescriptorSet::buffer(0, point_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(1, ambient_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(2, directional_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(3, material_buffer.clone()),
+                    ],
+                )
+                .unwrap();
+
+                builder
+                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
+                    .bind_index_buffer(surface_index_buffer.clone())
+                    .bind_descriptor_sets(
+                        PipelineBindPoint::Graphics,
+                        pipeline.layout().clone(),
+                        0,
+                        opaque_surface_descriptor_set.clone(),
+                    )
+                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
+                    .unwrap();
+            }
         }
     }
 }

@@ -28,7 +28,7 @@ use vulkano::{
 
 use super::{
     attachment::{Attachment, AttachmentKind, AttachmentWithId},
-    subpass::{Shader, SubpassInstructions},
+    subpass::{Shader, SubpassBuildInstructions},
     surface_vs, SurfaceMode,
 };
 use crate::{model::BufferedSurfaceVertex, renderer::subpass::Subpass};
@@ -47,17 +47,17 @@ impl IdGenerator {
     }
 }
 
-struct SubpassWithId<TBuildParams> {
+struct SubpassWithId<TBuildParams, TRunParams> {
     id: u32,
-    subpass: Subpass<TBuildParams>,
+    subpass: Subpass<TBuildParams, TRunParams>,
 }
 
-pub struct Pass<TSubpassParams> {
+pub struct Pass<TBuildParams, TRunParams> {
     attachments: Vec<AttachmentWithId>,
-    subpasses: Vec<Box<SubpassWithId<TSubpassParams>>>,
-    phantom: PhantomData<TSubpassParams>,
+    subpasses: Vec<Box<SubpassWithId<TBuildParams, TRunParams>>>,
+    phantom: PhantomData<TBuildParams>,
 }
-impl<TSubpassParams> Pass<TSubpassParams> {
+impl<TBuildParams, TRunParams> Pass<TBuildParams, TRunParams> {
     pub fn new() -> Self {
         Self {
             attachments: Vec::new(),
@@ -73,7 +73,7 @@ impl<TSubpassParams> Pass<TSubpassParams> {
         with_id
     }
 
-    pub fn add_subpass(mut self, subpass: Subpass<TSubpassParams>) -> Self {
+    pub fn add_subpass(mut self, subpass: Subpass<TBuildParams, TRunParams>) -> Self {
         self.subpasses.push(Box::new(SubpassWithId {
             id: self.subpasses.len() as u32,
             subpass,
@@ -86,19 +86,23 @@ impl<TSubpassParams> Pass<TSubpassParams> {
         self,
         samples: SampleCount,
         device: Arc<Device>,
-    ) -> PassRuntime<TSubpassParams> {
+    ) -> PassRuntime<TBuildParams, TRunParams> {
         PassRuntime::new(self, samples, device)
     }
 }
 
-pub struct PassRuntime<TSubpassParams> {
+pub struct PassRuntime<TBuildParams, TRunParams> {
     render_pass: Arc<RenderPass>,
     samples: SampleCount,
-    subpasses: Vec<Box<SubpassWithId<TSubpassParams>>>,
-    phantom: PhantomData<TSubpassParams>,
+    subpasses: Vec<Box<SubpassWithId<TBuildParams, TRunParams>>>,
+    phantom: PhantomData<TBuildParams>,
 }
-impl<TSubpassParams> PassRuntime<TSubpassParams> {
-    pub fn new(pass: Pass<TSubpassParams>, samples: SampleCount, device: Arc<Device>) -> Self {
+impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
+    pub fn new(
+        pass: Pass<TBuildParams, TRunParams>,
+        samples: SampleCount,
+        device: Arc<Device>,
+    ) -> Self {
         let mut attachment_descriptions: Vec<AttachmentDescription> = Vec::new();
         let mut attachment_ids_to_indices: HashMap<u32, usize> = HashMap::new();
         for (index, AttachmentWithId { id, attachment }) in pass.attachments.into_iter().enumerate()
@@ -200,7 +204,7 @@ impl<TSubpassParams> PassRuntime<TSubpassParams> {
         }
     }
 
-    fn build_pipeline(&self, params: &TSubpassParams) {
+    fn build_pipeline(&self, params: &TBuildParams) {
         for subpass in self.subpasses.iter() {
             self.build_subpass(subpass, params);
         }
@@ -208,8 +212,8 @@ impl<TSubpassParams> PassRuntime<TSubpassParams> {
 
     fn build_subpass(
         &self,
-        subpass: &SubpassWithId<TSubpassParams>,
-        params: &TSubpassParams,
+        subpass: &SubpassWithId<TBuildParams, TRunParams>,
+        params: &TBuildParams,
     ) -> Arc<GraphicsPipeline> {
         let pipeline_builder = GraphicsPipeline::start().vertex_input_state(
             subpass

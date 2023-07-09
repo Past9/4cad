@@ -1,10 +1,14 @@
+use self::surface_vs::PushConstants;
 use self::{
     compositing::CompositingStage, edges::EdgeStage, opaque_surfaces::OpaqueSurfaceStage,
     points::PointStage, translucent_surfaces::TranslucentSurfaceStage,
 };
 use super::scene::Scene;
-use crate::model::GeometryBuffers;
+use crate::model::{
+    BufferedEdgeVertex, BufferedSurfaceVertex, GeometryBuffers, Std140OpaqueMaterial,
+};
 use crate::renderer::attachment::Attachment;
+use crate::renderer::edges::EdgeSubpass;
 use crate::renderer::opaque_surfaces::OpaqueSurfaceSubpass;
 use crate::renderer::pass::Pass;
 use crate::renderer::subpass::Subpass;
@@ -57,6 +61,20 @@ const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
 
 pub struct SubpassBuildParams {
     surface_mode: SurfaceMode,
+}
+
+pub struct SubpassRunParams<'a> {
+    pub opaque_surface_push_constants: PushConstants,
+    pub opaque_surface_vertices: &'a Option<Subbuffer<[BufferedSurfaceVertex]>>,
+    pub opaque_surface_indices: &'a Option<Subbuffer<[u32]>>,
+    pub opaque_surface_materials: &'a Option<Subbuffer<[Std140OpaqueMaterial]>>,
+
+    pub edge_vertices: &'a Option<Subbuffer<[BufferedEdgeVertex]>>,
+    pub edge_indices: &'a Option<Subbuffer<[u32]>>,
+
+    pub light_buffers: &'a LightBuffers,
+    pub show_surfaces: bool,
+    pub show_edges: bool,
 }
 
 #[derive(Clone)]
@@ -830,26 +848,31 @@ fn foo() {
 
     let view = pass.add_attachment(Attachment::new(FINAL_IMAGE_FORMAT).load_cleared().store());
 
+    // Opaque surfaces
     pass.add_subpass(
         Subpass::new(OpaqueSurfaceSubpass::new())
             .color(&opaque_image)
             .depth(&depth_stencil),
-    ) // Opaque surfaces
+    )
+    // Opaque edges
+    .add_subpass(
+        Subpass::new(EdgeSubpass::new())
+            .color(&opaque_image)
+            .depth(&depth_stencil),
+    )
+    // Opaque points
     .add_subpass(
         Subpass::new(OpaqueSurfaceSubpass::new())
             .color(&opaque_image)
             .depth(&depth_stencil),
-    ) // Opaque edges
-    .add_subpass(
-        Subpass::new(OpaqueSurfaceSubpass::new())
-            .color(&opaque_image)
-            .depth(&depth_stencil),
-    ) // Opaque points
+    )
+    // Translucent surfaces
     .add_subpass(
         Subpass::new(OpaqueSurfaceSubpass::new())
             .inputs([&opaque_image, &depth_stencil])
             .colors([&translucent_accum_image, &translucent_transmit_image]),
-    ) // Translucent surfaces
+    )
+    // Compositing
     .add_subpass(
         Subpass::new(OpaqueSurfaceSubpass::new())
             .inputs([
@@ -859,7 +882,7 @@ fn foo() {
             ])
             .color(&composite_image)
             .resolve(&view),
-    ); // Translucent surfaces
+    );
 
     todo!()
 }

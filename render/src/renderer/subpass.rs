@@ -2,11 +2,16 @@ use std::{collections::HashMap, sync::Arc};
 
 use regex::internal::Input;
 use vulkano::{
+    command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer},
+    descriptor_set::allocator::StandardDescriptorSetAllocator,
     device::Device,
-    pipeline::graphics::{
-        color_blend::ColorBlendState, depth_stencil::DepthStencilState,
-        input_assembly::InputAssemblyState, rasterization::RasterizationState,
-        vertex_input::VertexBufferDescription,
+    pipeline::{
+        graphics::{
+            color_blend::ColorBlendState, depth_stencil::DepthStencilState,
+            input_assembly::InputAssemblyState, rasterization::RasterizationState,
+            vertex_input::VertexBufferDescription,
+        },
+        GraphicsPipeline,
     },
     shader::{EntryPoint, ShaderModule},
 };
@@ -23,7 +28,12 @@ pub struct Shader {
     pub(crate) entry_point: String,
 }
 
-pub trait SubpassInstructions<TBuildParams> {
+pub trait SubpassInstructions<TBuildParams, TRunParams>:
+    SubpassBuildInstructions<TBuildParams> + SubpassRunInstructions<TRunParams>
+{
+}
+
+pub trait SubpassBuildInstructions<TBuildParams> {
     fn vertex_buffer_description(
         &self,
         device: Arc<Device>,
@@ -57,21 +67,31 @@ pub trait SubpassInstructions<TBuildParams> {
     fn fragment_shader(&self, device: Arc<Device>, params: &TBuildParams) -> Option<Shader>;
 }
 
-pub struct Subpass<TParams> {
+pub trait SubpassRunInstructions<TRunParams> {
+    fn add_commands(
+        &self,
+        inputs: &TRunParams,
+        pipeline: Arc<GraphicsPipeline>,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    );
+}
+
+pub struct Subpass<TBuildParams, TRunParams> {
     pub(crate) input_attachments: Vec<u32>,
     pub(crate) color_attachments: Vec<u32>,
     pub(crate) depth_attachment: Option<u32>,
     pub(crate) resolve_attachments: Vec<u32>,
-    pub(crate) instructions: Box<dyn SubpassInstructions<TParams>>,
+    pub(crate) instructions: Box<dyn SubpassInstructions<TBuildParams, TRunParams>>,
 }
-impl<TParams> Subpass<TParams> {
-    pub fn new(instructions: Box<dyn SubpassInstructions<TParams>>) -> Self {
+impl<TParams, TRunParams> Subpass<TParams, TRunParams> {
+    pub fn new(instructions: Box<dyn SubpassInstructions<TParams, TRunParams>>) -> Self {
         Self {
             input_attachments: Vec::new(),
             color_attachments: Vec::new(),
             depth_attachment: None,
             resolve_attachments: Vec::new(),
-            instructions: instructions,
+            instructions,
         }
     }
 
