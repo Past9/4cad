@@ -3,9 +3,13 @@ use self::{
     points::PointStage, translucent_surfaces::TranslucentSurfaceStage,
 };
 use super::scene::Scene;
-use crate::lights::LightBuffers;
 use crate::model::GeometryBuffers;
+use crate::renderer::attachment::Attachment;
+use crate::renderer::opaque_surfaces::OpaqueSurfaceSubpass;
+use crate::renderer::pass::Pass;
+use crate::renderer::subpass::Subpass;
 use crate::PixelViewport;
+use crate::{lights::LightBuffers, renderer::attachment::AttachmentKind};
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector2, Vector3};
 use std::sync::Arc;
@@ -50,6 +54,10 @@ mod translucent_surfaces;
 const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 const TRANSLUCENT_ACCUM_FORMAT: Format = Format::R16G16B16A16_SFLOAT;
 const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
+
+pub struct SubpassBuildParams {
+    surface_mode: SurfaceMode,
+}
 
 #[derive(Clone)]
 pub enum SurfaceMode {
@@ -790,6 +798,70 @@ impl RendererImages {
             view,
         }
     }
+}
+
+fn foo() {
+    const FINAL_IMAGE_FORMAT: AttachmentKind = AttachmentKind::ColorUNormBgra8;
+    const TRANSLUCENT_ACCUM_FORMAT: AttachmentKind = AttachmentKind::ColorSFloatRgba16;
+    const TRANSLUCENT_TRANSMISSION_FORMAT: AttachmentKind = AttachmentKind::ColorUNormRgba8;
+    const DEPTH_FORMAT: AttachmentKind = AttachmentKind::DepthSFloat32;
+
+    let mut pass = Pass::new();
+
+    let opaque_image =
+        pass.add_attachment(Attachment::new(FINAL_IMAGE_FORMAT).load_cleared().store());
+
+    let translucent_accum_image = pass.add_attachment(
+        Attachment::new(TRANSLUCENT_ACCUM_FORMAT)
+            .load_cleared()
+            .store(),
+    );
+
+    let translucent_transmit_image = pass.add_attachment(
+        Attachment::new(TRANSLUCENT_TRANSMISSION_FORMAT)
+            .load_cleared()
+            .store(),
+    );
+
+    let composite_image =
+        pass.add_attachment(Attachment::new(FINAL_IMAGE_FORMAT).load_cleared().store());
+
+    let depth_stencil = pass.add_attachment(Attachment::new(DEPTH_FORMAT).load_cleared().store());
+
+    let view = pass.add_attachment(Attachment::new(FINAL_IMAGE_FORMAT).load_cleared().store());
+
+    pass.add_subpass(
+        Subpass::new(OpaqueSurfaceSubpass::new())
+            .color(&opaque_image)
+            .depth(&depth_stencil),
+    ) // Opaque surfaces
+    .add_subpass(
+        Subpass::new(OpaqueSurfaceSubpass::new())
+            .color(&opaque_image)
+            .depth(&depth_stencil),
+    ) // Opaque edges
+    .add_subpass(
+        Subpass::new(OpaqueSurfaceSubpass::new())
+            .color(&opaque_image)
+            .depth(&depth_stencil),
+    ) // Opaque points
+    .add_subpass(
+        Subpass::new(OpaqueSurfaceSubpass::new())
+            .inputs([&opaque_image, &depth_stencil])
+            .colors([&translucent_accum_image, &translucent_transmit_image]),
+    ) // Translucent surfaces
+    .add_subpass(
+        Subpass::new(OpaqueSurfaceSubpass::new())
+            .inputs([
+                &opaque_image,
+                &translucent_accum_image,
+                &translucent_transmit_image,
+            ])
+            .color(&composite_image)
+            .resolve(&view),
+    ); // Translucent surfaces
+
+    todo!()
 }
 
 #[repr(C)]

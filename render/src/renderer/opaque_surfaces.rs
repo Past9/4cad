@@ -1,6 +1,7 @@
 use super::{
+    subpass::{Shader, SubpassInstructions},
     surface_vs::{self, PushConstants},
-    GraphicsStage, SurfaceMode,
+    GraphicsStage, SubpassBuildParams, SurfaceMode,
 };
 use crate::{
     lights::LightBuffers,
@@ -21,7 +22,7 @@ use vulkano::{
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
             rasterization::{CullMode, FrontFace, PolygonMode, RasterizationState},
-            vertex_input::Vertex,
+            vertex_input::{Vertex, VertexBufferDescription},
             viewport::ViewportState,
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout, StateMode,
@@ -178,5 +179,81 @@ mod opaque_surface_fs {
         include: ["src/shaders/includes"],
         ty: "fragment",
         path: "src/shaders/opaque_surface.frag",
+    }
+}
+
+pub(crate) struct OpaqueSurfaceSubpass {}
+impl OpaqueSurfaceSubpass {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+impl SubpassInstructions<SubpassBuildParams> for OpaqueSurfaceSubpass {
+    fn vertex_buffer_description(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> VertexBufferDescription {
+        BufferedSurfaceVertex::per_vertex()
+    }
+
+    fn vertex_shader(&self, device: Arc<Device>, _params: &SubpassBuildParams) -> Option<Shader> {
+        Some(Shader {
+            module: surface_vs::load(device.clone()).unwrap(),
+            entry_point: "main".into(),
+        })
+    }
+
+    fn fragment_shader(&self, device: Arc<Device>, _params: &SubpassBuildParams) -> Option<Shader> {
+        Some(Shader {
+            module: opaque_surface_fs::load(device.clone()).unwrap(),
+            entry_point: "main".into(),
+        })
+    }
+
+    fn input_assembly_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> InputAssemblyState {
+        InputAssemblyState::new().topology(PrimitiveTopology::TriangleList)
+    }
+
+    fn rasterization_state(
+        &self,
+        _device: Arc<Device>,
+        params: &SubpassBuildParams,
+    ) -> RasterizationState {
+        RasterizationState {
+            front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+            cull_mode: match params.surface_mode {
+                SurfaceMode::Fill => StateMode::Fixed(CullMode::None),
+                SurfaceMode::Wireframe => StateMode::Fixed(CullMode::None),
+            },
+            polygon_mode: match params.surface_mode {
+                SurfaceMode::Fill => PolygonMode::Fill,
+                SurfaceMode::Wireframe => PolygonMode::Line,
+            },
+            line_width: match params.surface_mode {
+                SurfaceMode::Fill => StateMode::Fixed(1.0),
+                SurfaceMode::Wireframe => StateMode::Fixed(2.0),
+            },
+            ..RasterizationState::default()
+        }
+    }
+
+    fn depth_stencil_state(
+        &self,
+        _device: Arc<Device>,
+        _params: &SubpassBuildParams,
+    ) -> DepthStencilState {
+        DepthStencilState {
+            depth: Some(DepthState {
+                enable_dynamic: false,
+                write_enable: StateMode::Fixed(true),
+                compare_op: StateMode::Fixed(CompareOp::Less),
+            }),
+            ..DepthStencilState::default()
+        }
     }
 }
