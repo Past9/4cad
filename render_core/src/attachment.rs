@@ -78,7 +78,7 @@ pub struct Attachment {
     pub(crate) clear_value: Option<ClearValue>,
 }
 impl Attachment {
-    pub(crate) fn new(kind: AttachmentKind) -> Self {
+    pub fn new(kind: AttachmentKind) -> Self {
         Self {
             kind,
             load_op: LoadOp::DontCare,
@@ -91,7 +91,7 @@ impl Attachment {
         }
     }
 
-    pub fn to_description(self, samples: SampleCount) -> AttachmentDescription {
+    pub(crate) fn to_description(self, samples: SampleCount) -> AttachmentDescription {
         let AttachmentFormatDetails {
             format,
             initial_layout,

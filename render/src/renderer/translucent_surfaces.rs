@@ -1,12 +1,13 @@
 use super::{
-    subpass::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions},
+    new_renderer::{SubpassBuildParams, SubpassRunParams},
     surface_vs::{self, PushConstants},
-    GraphicsStage, SubpassBuildParams, SubpassRunParams,
+    GraphicsStage,
 };
 use crate::{
     lights::LightBuffers,
     model::{BufferedPointVertex, BufferedSurfaceVertex, Std140TranslucentMaterial},
 };
+use render_core::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions};
 use std::sync::Arc;
 use vulkano::{
     buffer::Subbuffer,

@@ -1,6 +1,5 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-use splines::Surface;
 use vulkano::{
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
@@ -26,19 +25,19 @@ use vulkano::{
         GraphicsPipeline, StateMode,
     },
     render_pass::{
-        AttachmentDescription, AttachmentReference, RenderPass, RenderPassCreateInfo,
+        AttachmentDescription, AttachmentReference, Framebuffer, RenderPass, RenderPassCreateInfo,
         SubpassDependency, SubpassDescription,
     },
     shader::ShaderModule,
     sync::{AccessFlags, DependencyFlags, GpuFuture, PipelineStages},
 };
 
+use crate::{subpass::Subpass, PixelViewport};
+
 use super::{
     attachment::{Attachment, AttachmentKind, AttachmentWithId},
-    subpass::{Shader, SubpassBuildInstructions},
-    surface_vs, RendererImages, SurfaceMode,
+    subpass::{Shader, SubpassBuildInstructions, SubpassWithId},
 };
-use crate::{model::BufferedSurfaceVertex, renderer::subpass::Subpass, PixelViewport};
 
 struct IdGenerator {
     last_id: u32,
@@ -52,11 +51,6 @@ impl IdGenerator {
         self.last_id += 1;
         self.last_id
     }
-}
-
-struct SubpassWithId<TBuildParams, TRunParams> {
-    id: u32,
-    subpass: Subpass<TBuildParams, TRunParams>,
 }
 
 pub struct Pass<TBuildParams, TRunParams> {
@@ -222,7 +216,7 @@ impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
         params: &TRunParams,
         pixel_viewport: &PixelViewport,
         scissor: Scissor,
-        images: RendererImages,
+        framebuffer: Arc<Framebuffer>,
         memory_allocator: &StandardMemoryAllocator,
         command_buffer_allocator: &StandardCommandBufferAllocator,
         descriptor_set_allocator: &StandardDescriptorSetAllocator,
@@ -241,7 +235,7 @@ impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
                     clear_values: self.clear_values.clone(),
                     render_area_offset: scissor.origin,
                     render_area_extent: scissor.dimensions,
-                    ..RenderPassBeginInfo::framebuffer(images.framebuffer.clone())
+                    ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
                 },
                 SubpassContents::Inline,
             )
@@ -360,7 +354,7 @@ impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
     }
 }
 
-pub(crate) struct PipelineBuilder {
+pub struct PipelineBuilder {
     input_assembly_state: InputAssemblyState,
     rasterization_state: RasterizationState,
     depth_stencil_state: DepthStencilState,

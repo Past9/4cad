@@ -1,8 +1,9 @@
 use super::{
-    subpass::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions},
-    GraphicsStage, SubpassBuildParams, SubpassRunParams, SurfaceMode,
+    new_renderer::{SubpassBuildParams, SubpassRunParams},
+    GraphicsStage, SurfaceMode,
 };
 use crate::model::BufferedEdgeVertex;
+use render_core::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions};
 use std::sync::Arc;
 use vulkano::{
     buffer::Subbuffer,

@@ -17,16 +17,14 @@ use vulkano::{
     shader::{EntryPoint, ShaderModule},
 };
 
-use crate::renderer::attachment::Attachment;
-
 use super::{
     attachment::{self, AttachmentWithId},
     pass::PipelineBuilder,
 };
 
 pub struct Shader {
-    pub(crate) module: Arc<ShaderModule>,
-    pub(crate) entry_point: String,
+    pub module: Arc<ShaderModule>,
+    pub entry_point: String,
 }
 
 pub trait SubpassInstructions<TBuildParams, TRunParams>:
@@ -76,6 +74,11 @@ pub trait SubpassRunInstructions<TRunParams> {
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         descriptor_set_allocator: &StandardDescriptorSetAllocator,
     );
+}
+
+pub struct SubpassWithId<TBuildParams, TRunParams> {
+    pub id: u32,
+    pub subpass: Subpass<TBuildParams, TRunParams>,
 }
 
 pub struct Subpass<TBuildParams, TRunParams> {

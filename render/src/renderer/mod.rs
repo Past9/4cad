@@ -4,20 +4,18 @@ use self::{
     points::PointStage, translucent_surfaces::TranslucentSurfaceStage,
 };
 use super::scene::Scene;
+use crate::lights::LightBuffers;
 use crate::model::{
     BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex, GeometryBuffers,
     Std140OpaqueMaterial, Std140TranslucentMaterial,
 };
-use crate::renderer::attachment::Attachment;
 use crate::renderer::edges::EdgeSubpass;
 use crate::renderer::opaque_surfaces::OpaqueSurfaceSubpass;
-use crate::renderer::pass::Pass;
 use crate::renderer::points::PointSubpass;
-use crate::renderer::subpass::Subpass;
 use crate::PixelViewport;
-use crate::{lights::LightBuffers, renderer::attachment::AttachmentKind};
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector2, Vector3};
+use render_core::{Attachment, AttachmentKind, Pass, Subpass};
 use std::sync::Arc;
 use vulkano::format::ClearValue;
 use vulkano::{
@@ -49,47 +47,19 @@ use vulkano::{
     sync::GpuFuture,
 };
 
-mod attachment;
+//mod attachment;
 mod compositing;
 mod edges;
 mod opaque_surfaces;
-mod pass;
+//mod pass;
 mod points;
-mod subpass;
+//mod subpass;
+mod new_renderer;
 mod translucent_surfaces;
 
 const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 const TRANSLUCENT_ACCUM_FORMAT: Format = Format::R16G16B16A16_SFLOAT;
 const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
-
-pub struct SubpassBuildParams {
-    surface_mode: SurfaceMode,
-}
-
-pub struct SubpassRunParams<'a> {
-    pub opaque_surface_push_constants: PushConstants,
-    pub opaque_surface_vertices: &'a Option<Subbuffer<[BufferedSurfaceVertex]>>,
-    pub opaque_surface_indices: &'a Option<Subbuffer<[u32]>>,
-    pub opaque_surface_materials: &'a Option<Subbuffer<[Std140OpaqueMaterial]>>,
-
-    pub translucent_surface_push_constants: PushConstants,
-    pub translucent_surface_vertices: &'a Option<Subbuffer<[BufferedSurfaceVertex]>>,
-    pub translucent_surface_indices: &'a Option<Subbuffer<[u32]>>,
-    pub translucent_surface_materials: &'a Option<Subbuffer<[Std140TranslucentMaterial]>>,
-
-    pub edge_vertices: &'a Option<Subbuffer<[BufferedEdgeVertex]>>,
-    pub edge_indices: &'a Option<Subbuffer<[u32]>>,
-
-    pub point_vertices: &'a Option<Subbuffer<[BufferedPointVertex]>>,
-
-    pub light_buffers: &'a LightBuffers,
-
-    pub show_surfaces: bool,
-    pub show_edges: bool,
-    pub show_points: bool,
-
-    pub depth_image: Arc<ImageView<AttachmentImage>>,
-}
 
 #[derive(Clone)]
 pub enum SurfaceMode {

@@ -1,12 +1,8 @@
-use super::{
-    subpass::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions},
-    surface_vs::{self, PushConstants},
-    GraphicsStage, SubpassBuildParams, SubpassRunParams, SurfaceMode,
-};
 use crate::{
     lights::LightBuffers,
     model::{BufferedSurfaceVertex, Std140OpaqueMaterial},
 };
+use render_core::{Shader, SubpassBuildInstructions, SubpassInstructions, SubpassRunInstructions};
 use std::sync::Arc;
 use vulkano::{
     buffer::Subbuffer,
@@ -28,6 +24,12 @@ use vulkano::{
         GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout, StateMode,
     },
     render_pass::{RenderPass, Subpass},
+};
+
+use super::{
+    new_renderer::{SubpassBuildParams, SubpassRunParams},
+    surface_vs::{self, PushConstants},
+    GraphicsStage, SurfaceMode,
 };
 
 pub(super) struct Inputs<'a> {
