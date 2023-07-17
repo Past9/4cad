@@ -6,13 +6,13 @@ use vulkano::{
     render_pass::{AttachmentDescription, LoadOp, StoreOp},
 };
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct AttachmentWithId {
+#[derive(Clone)]
+pub struct AttachmentWithId<TParams: Clone> {
     pub(crate) id: u32,
-    pub(crate) attachment: Attachment,
+    pub(crate) attachment: Attachment<TParams>,
 }
-impl AttachmentWithId {
-    pub fn new(id: u32, attachment: Attachment) -> Self {
+impl<TParams: Clone> AttachmentWithId<TParams> {
+    pub fn new(id: u32, attachment: Attachment<TParams>) -> Self {
         Self { id, attachment }
     }
 
@@ -20,7 +20,7 @@ impl AttachmentWithId {
         self.id
     }
 
-    pub fn attachment(&self) -> &Attachment {
+    pub fn attachment(&self) -> &Attachment<TParams> {
         &self.attachment
     }
 }
@@ -66,8 +66,8 @@ impl From<AttachmentKind> for AttachmentFormatDetails {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Attachment {
+#[derive(Clone)]
+pub struct Attachment<TParams: Clone> {
     pub(crate) kind: AttachmentKind,
     pub(crate) load_op: LoadOp,
     pub(crate) store_op: StoreOp,
@@ -77,7 +77,7 @@ pub struct Attachment {
     pub(crate) final_layout: ImageLayout,
     pub(crate) clear_value: Option<ClearValue>,
 }
-impl Attachment {
+impl<TParams: Clone> Attachment<TParams> {
     pub fn new(kind: AttachmentKind) -> Self {
         Self {
             kind,

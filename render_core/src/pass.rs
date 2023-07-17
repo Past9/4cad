@@ -53,12 +53,14 @@ impl IdGenerator {
     }
 }
 
-pub struct Pass<TBuildParams, TRunParams> {
-    attachments: Vec<AttachmentWithId>,
+pub struct Pass<TBuildParams, TRunParams, TAttachmentParams: Clone> {
+    attachments: Vec<AttachmentWithId<TAttachmentParams>>,
     subpasses: Vec<Box<SubpassWithId<TBuildParams, TRunParams>>>,
     phantom: PhantomData<TBuildParams>,
 }
-impl<TBuildParams, TRunParams> Pass<TBuildParams, TRunParams> {
+impl<TBuildParams, TRunParams, TAttachmentParams: Clone>
+    Pass<TBuildParams, TRunParams, TAttachmentParams>
+{
     pub fn new() -> Self {
         Self {
             attachments: Vec::new(),
@@ -67,7 +69,10 @@ impl<TBuildParams, TRunParams> Pass<TBuildParams, TRunParams> {
         }
     }
 
-    pub fn add_attachment(&mut self, attachment: Attachment) -> AttachmentWithId {
+    pub fn add_attachment(
+        &mut self,
+        attachment: Attachment<TAttachmentParams>,
+    ) -> AttachmentWithId<TAttachmentParams> {
         let with_id = AttachmentWithId::new(self.attachments.len() as u32, attachment);
         //self.attachments.insert(with_id.id(), with_id.clone());
         self.attachments.push(with_id.clone());
@@ -87,12 +92,12 @@ impl<TBuildParams, TRunParams> Pass<TBuildParams, TRunParams> {
         self,
         samples: SampleCount,
         device: Arc<Device>,
-    ) -> PassRuntime<TBuildParams, TRunParams> {
+    ) -> PassRuntime<TBuildParams, TRunParams, TAttachmentParams> {
         PassRuntime::new(self, samples, device)
     }
 }
 
-pub struct PassRuntime<TBuildParams, TRunParams> {
+pub struct PassRuntime<TBuildParams, TRunParams, TAttachmentParams: Clone> {
     render_pass: Arc<RenderPass>,
     samples: SampleCount,
     subpasses: Vec<Box<SubpassWithId<TBuildParams, TRunParams>>>,
@@ -100,9 +105,11 @@ pub struct PassRuntime<TBuildParams, TRunParams> {
     clear_values: Vec<Option<ClearValue>>,
     phantom: PhantomData<TBuildParams>,
 }
-impl<TBuildParams, TRunParams> PassRuntime<TBuildParams, TRunParams> {
+impl<TBuildParams, TRunParams, TAttachmentParams: Clone>
+    PassRuntime<TBuildParams, TRunParams, TAttachmentParams>
+{
     pub fn new(
-        pass: Pass<TBuildParams, TRunParams>,
+        pass: Pass<TBuildParams, TRunParams, TAttachmentParams>,
         samples: SampleCount,
         device: Arc<Device>,
     ) -> Self {
