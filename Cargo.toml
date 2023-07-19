@@ -8,6 +8,8 @@ members = [
     "viewer",
     "tessellate",
     "components",
+    "graphics",
+    "graphics-test",
     "examples/curve_arc",
     "examples/curve_interpolate_half_circle",
     "examples/curve_interpolate_ders_half_circle",
