@@ -10,8 +10,8 @@ pub use vulkano_shaders;
 #[macro_export]
 macro_rules! shader {
     ($content:tt) => {
-        use crate::vulkano as vulkano;
-        use crate::vulkano_shaders as vulkano_shaders;
+        use crate::vulkano;
+        use crate::vulkano_shaders;
         vulkano_shaders::shader! $content
     };
 }

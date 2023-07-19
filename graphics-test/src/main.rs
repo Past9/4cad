@@ -69,7 +69,9 @@ fn build_program(window: &Window) -> Program {
                 .color_attachment(color_attachment)
                 .depth_attachment(depth_attachment)
                 .pipeline(|pipeline| {
-                    pipeline;
+                    pipeline
+                        .vertex_shader("shaders/triangle.vert")
+                        .fragment_shader("shaders/triangle.frag");
 
                     // TODO: Add shaders and stuff
                 });
@@ -78,48 +80,3 @@ fn build_program(window: &Window) -> Program {
 
     program
 }
-
-mod triangle_vs {
-    graphics::shader! {{
-            ty: "vertex",
-            src: "
-#version 400
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-
-layout (location = 0) in vec4 pos;
-layout (location = 1) in vec4 color;
-
-
-layout (location = 0) out vec4 o_color;
-void main() {
-    o_color = color;
-    gl_Position = pos;
-}
-        "
-    }}
-}
-
-/*
-mod triangle_vs {
-    graphics::shader! {
-        ty: "vertex",
-        src: "
-#version 400
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-
-layout (location = 0) in vec4 pos;
-layout (location = 1) in vec4 color;
-
-
-layout (location = 0) out vec4 o_color;
-void main() {
-    o_color = color;
-    gl_Position = pos;
-}
-        "
-    }
-}
-
- */

@@ -17,22 +17,22 @@ impl Pipeline {
         }
     }
 
-    pub fn vertex_shader(mut self, path: &str) -> Self {
+    pub fn vertex_shader(&mut self, path: &str) -> &mut Self {
         self.vertex_shader = Some(make_spirv_path(path.into()));
         self
     }
 
-    pub fn fragment_shader(mut self, path: &str) -> Self {
+    pub fn fragment_shader(&mut self, path: &str) -> &mut Self {
         self.fragment_shader = Some(make_spirv_path(path));
         self
     }
 
-    pub fn cull_front(mut self, cull: bool) -> Self {
+    pub fn cull_front(&mut self, cull: bool) -> &mut Self {
         self.cull_front = cull;
         self
     }
 
-    pub fn cull_back(mut self, cull: bool) -> Self {
+    pub fn cull_back(&mut self, cull: bool) -> &mut Self {
         self.cull_back = cull;
         self
     }
