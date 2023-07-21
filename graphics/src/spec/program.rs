@@ -3,7 +3,6 @@ use crate::Surface;
 
 #[derive(Debug)]
 pub struct Program<'a> {
-    pub(crate) name: String,
     pub(crate) shader_clip_distance: u32,
     pub(crate) surface: Surface<'a>,
     pub(crate) render_passes: Vec<RenderPass>,
@@ -11,7 +10,6 @@ pub struct Program<'a> {
 impl<'a> Program<'a> {
     pub fn new(surface: Surface<'a>) -> Self {
         Self {
-            name: "Brimstone App".into(),
             surface,
             render_passes: vec![],
             shader_clip_distance: 1,
@@ -20,11 +18,6 @@ impl<'a> Program<'a> {
 
     pub fn on_window(window: &'a winit::window::Window) -> Self {
         Self::new(Surface::on_window(window))
-    }
-
-    pub fn name(&mut self, name: &str) -> &mut Self {
-        self.name = name.into();
-        self
     }
 
     pub fn render_pass(

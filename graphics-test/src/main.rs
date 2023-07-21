@@ -15,7 +15,8 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let program = build_program(&window);
+    let mut program = build_program(&window);
+    Vulkan::execute(&mut program);
 
     println!("program {:#?}", program);
 
@@ -48,20 +49,21 @@ fn build_program(window: &Window) -> Program {
     program.render_pass(|render_pass| {
         render_pass.msaa_samples(MsaaSamples::Samples1);
 
-        let color_attachment = render_pass.attachment(
-            Attachment::color()
-                .format(Format::reference(FormatRef::Surface))
-                .load_op(LoadOp::Clear)
-                .store_op(StoreOp::Store)
-                .final_layout(Layout::PresentationSource),
-        );
-
         let depth_attachment = render_pass.attachment(
             Attachment::depth()
                 .format(Format::absolute(AbsoluteFormat::D16_UNORM))
                 .load_op(LoadOp::Clear)
                 .initial_layout(Layout::DepthStencil)
                 .final_layout(Layout::DepthStencil),
+        );
+
+        let color_attachment = render_pass.attachment(
+            Attachment::color()
+                .format(Format::reference(FormatRef::Surface))
+                .load_op(LoadOp::Clear)
+                .store_op(StoreOp::Store)
+                .final_layout(Layout::PresentationSource)
+                .output(),
         );
 
         render_pass.subpass(|subpass| {

@@ -12,7 +12,7 @@ impl From<usize> for AttachmentId {
 pub struct Attachment {
     pub(crate) is_output: bool,
     pub(crate) usage: AttachmentUsage,
-    pub(crate) format: Format,
+    pub(crate) format: Option<Format>,
     pub(crate) load_op: LoadOp,
     pub(crate) store_op: StoreOp,
     pub(crate) initial_layout: Layout,
@@ -31,7 +31,7 @@ impl Attachment {
         Self {
             is_output: false,
             usage,
-            format: Format::absolute(AbsoluteFormat::UNDEFINED),
+            format: None,
             load_op: LoadOp::DontCare,
             store_op: StoreOp::Store,
             initial_layout: Layout::Undefined,
@@ -45,7 +45,7 @@ impl Attachment {
     }
 
     pub fn format(mut self, format: Format) -> Self {
-        self.format = format;
+        self.format = Some(format);
         self
     }
 
@@ -70,7 +70,7 @@ impl Attachment {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum AttachmentUsage {
     Color,
     Depth,

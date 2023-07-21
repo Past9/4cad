@@ -15,11 +15,19 @@ use vulkano::{
     VulkanLibrary,
 };
 
+use crate::run;
 use crate::spec;
 
-pub(super) struct Program {}
+use super::shaders::ShaderCache;
+
+pub(super) struct Program {
+    shader_cache: ShaderCache,
+    render_passes: Vec<run::RenderPass>,
+}
 impl Program {
     pub fn build(spec: &spec::Program) -> Self {
+        let mut shader_cache = ShaderCache::new();
+
         let library = VulkanLibrary::new().unwrap();
 
         let enabled_extensions = get_surface_required_extensions(&spec.surface);
@@ -84,7 +92,7 @@ impl Program {
         )
         .unwrap();
 
-        let (mut swapchain, images) = {
+        let (mut swapchain, swapchain_images) = {
             let surface_capabilities = device
                 .physical_device()
                 .surface_capabilities(&surface, Default::default())
@@ -121,7 +129,24 @@ impl Program {
 
         let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
 
-        todo!()
+        let render_passes = spec
+            .render_passes
+            .iter()
+            .map(|render_pass| {
+                run::RenderPass::build(
+                    render_pass,
+                    device.clone(),
+                    swapchain.clone(),
+                    swapchain_images.clone(),
+                    &memory_allocator,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        Self {
+            shader_cache,
+            render_passes,
+        }
     }
 }
 
