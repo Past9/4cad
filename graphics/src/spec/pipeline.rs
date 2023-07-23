@@ -6,6 +6,7 @@ pub struct Pipeline {
     pub(crate) fragment_shader: Option<String>,
     pub(crate) cull_front: bool,
     pub(crate) cull_back: bool,
+    pub(crate) active: bool,
 }
 impl Pipeline {
     pub fn new() -> Self {
@@ -14,6 +15,7 @@ impl Pipeline {
             fragment_shader: None,
             cull_front: false,
             cull_back: false,
+            active: true,
         }
     }
 
@@ -34,6 +36,11 @@ impl Pipeline {
 
     pub fn cull_back(&mut self, cull: bool) -> &mut Self {
         self.cull_back = cull;
+        self
+    }
+
+    pub fn active(&mut self, active: bool) -> &mut Self {
+        self.active = active;
         self
     }
 }

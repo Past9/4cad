@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Format {
     Absolute(AbsoluteFormat),
     Ref(FormatRef),
@@ -13,12 +13,12 @@ impl Format {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum FormatRef {
     Surface,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum AbsoluteFormat {
     R4G4_UNORM_PACK8,

@@ -20,7 +20,7 @@ impl RenderPass {
         swapchain_images: Vec<Arc<vulkano::image::SwapchainImage>>,
         memory_allocator: &vulkano::memory::allocator::StandardMemoryAllocator,
     ) -> Self {
-        let attachments = spec
+        let mut attachments = spec
             .attachments
             .iter()
             .enumerate()
@@ -40,12 +40,36 @@ impl RenderPass {
                     is_input,
                 )
             })
-            .collect();
+            .collect::<Vec<_>>();
+
+        if spec.msaa_samples.is_multisampled() {
+            attachments.push(run::Attachment::build_resolve(
+                attachments.len() as u32,
+                swapchain,
+            ));
+        }
+
+        let subpasses = spec
+            .subpasses
+            .iter()
+            .map(|subpass| {
+                run::Subpass::build(subpass, &attachments, spec.msaa_samples.is_multisampled())
+            })
+            .collect::<Vec<_>>();
 
         let render_pass = vulkano::render_pass::RenderPass::new(
             device,
             RenderPassCreateInfo {
-                // TODO: Implement this
+                attachments: attachments
+                    .iter()
+                    .map(|attachment| attachment.description.clone())
+                    .collect(),
+                subpasses: subpasses
+                    .iter()
+                    .map(|subpass| subpass.description.clone())
+                    .collect(),
+                dependencies: vec![],
+                correlated_view_masks: vec![],
                 ..Default::default()
             },
         )

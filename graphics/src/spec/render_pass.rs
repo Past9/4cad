@@ -41,3 +41,11 @@ pub enum MsaaSamples {
     Samples4,
     Samples8,
 }
+impl MsaaSamples {
+    pub fn is_multisampled(&self) -> bool {
+        match self {
+            MsaaSamples::Samples1 => false,
+            _ => true,
+        }
+    }
+}

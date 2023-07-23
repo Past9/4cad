@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::Read, sync::Arc};
+use std::{collections::HashMap, fs::File, io::Read, marker::PhantomData, sync::Arc};
 
 use vulkano::{
     device::Device,
@@ -15,11 +15,11 @@ impl ShaderCache {
         }
     }
 
-    fn get_shader(&mut self, device: Arc<Device>, path: &str) -> Arc<ShaderModule> {
+    pub fn get_shader(&mut self, device: Arc<Device>, path: &str) -> Arc<ShaderModule> {
         self.shaders
             .entry(path.into())
             .or_insert_with(|| {
-                let mut f = File::open(path).expect(&format!("Canot find file {}", path));
+                let mut f = File::open(path).expect(&format!("Cannot find file {}", path));
                 let mut v = vec![];
                 f.read_to_end(&mut v).unwrap();
                 let module = unsafe { ShaderModule::from_bytes(device.clone(), &v).unwrap() };

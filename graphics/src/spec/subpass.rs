@@ -15,6 +15,7 @@ pub struct Subpass {
     pub(crate) color_attachments: Vec<AttachmentId>,
     pub(crate) depth_attachment: Option<AttachmentId>,
     pub(crate) pipelines: Vec<Pipeline>,
+    pub(crate) is_output: bool,
 }
 impl Subpass {
     pub fn new() -> Self {
@@ -23,6 +24,7 @@ impl Subpass {
             color_attachments: vec![],
             depth_attachment: None,
             pipelines: vec![],
+            is_output: false,
         }
     }
 
@@ -55,6 +57,11 @@ impl Subpass {
         let mut pipeline = Pipeline::new();
         build_pipeline(&mut pipeline);
         self.pipelines.push(pipeline);
+        self
+    }
+
+    pub fn output(&mut self) -> &mut Self {
+        self.is_output = true;
         self
     }
 }

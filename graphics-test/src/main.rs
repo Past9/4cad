@@ -59,7 +59,6 @@ fn build_program(window: &Window) -> Program {
 
         let color_attachment = render_pass.attachment(
             Attachment::color()
-                .format(Format::reference(FormatRef::Surface))
                 .load_op(LoadOp::Clear)
                 .store_op(StoreOp::Store)
                 .final_layout(Layout::PresentationSource)
@@ -73,10 +72,12 @@ fn build_program(window: &Window) -> Program {
                 .pipeline(|pipeline| {
                     pipeline
                         .vertex_shader("shaders/triangle.vert")
-                        .fragment_shader("shaders/triangle.frag");
+                        .fragment_shader("shaders/triangle.frag")
+                        .active(true);
 
                     // TODO: Add shaders and stuff
-                });
+                })
+                .output();
         });
     });
 

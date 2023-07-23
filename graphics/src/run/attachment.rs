@@ -17,12 +17,14 @@ pub(super) enum AttachmentImage {
     Output,
 }
 
+#[derive(Debug)]
 pub(super) struct Attachment {
     id: u32,
     usage: spec::AttachmentUsage,
     format: vulkano::format::Format,
     is_input: bool,
     is_presentation: bool,
+    pub description: vulkano::render_pass::AttachmentDescription,
 }
 impl Attachment {
     pub fn build(
@@ -32,7 +34,18 @@ impl Attachment {
         swapchain: Arc<vulkano::swapchain::Swapchain>,
         is_input: bool,
     ) -> Self {
-        let format = if let Some(ref format) = spec.format {
+        let spec_format = match spec.format {
+            Some(format) => Some(format),
+            None => {
+                if spec.is_output {
+                    Some(spec::Format::Ref(spec::FormatRef::Surface))
+                } else {
+                    None
+                }
+            }
+        };
+
+        let format = if let Some(ref format) = spec_format {
             get_vk_format(format, swapchain)
         } else {
             panic!("Format not defined for attachment {}", id);
@@ -56,6 +69,42 @@ impl Attachment {
             format,
             is_input,
             is_presentation: spec.is_output,
+            description,
+        }
+    }
+
+    pub fn build_resolve(id: u32, swapchain: Arc<vulkano::swapchain::Swapchain>) -> Self {
+        let format = get_vk_format(&spec::Format::Ref(spec::FormatRef::Surface), swapchain);
+        let description = AttachmentDescription {
+            format: Some(format),
+            samples: vulkano::image::SampleCount::Sample1,
+            load_op: vulkano::render_pass::LoadOp::Clear,
+            store_op: vulkano::render_pass::StoreOp::DontCare,
+            stencil_load_op: vulkano::render_pass::LoadOp::DontCare,
+            stencil_store_op: vulkano::render_pass::StoreOp::DontCare,
+            initial_layout: vulkano::image::ImageLayout::ColorAttachmentOptimal,
+            final_layout: vulkano::image::ImageLayout::ColorAttachmentOptimal,
+            ..Default::default()
+        };
+
+        Self {
+            id,
+            usage: spec::AttachmentUsage::Color,
+            format,
+            is_input: false,
+            is_presentation: true,
+            description,
+        }
+    }
+
+    fn get_reference(
+        &self,
+        layout: vulkano::image::ImageLayout,
+    ) -> vulkano::render_pass::AttachmentReference {
+        vulkano::render_pass::AttachmentReference {
+            attachment: self.id,
+            layout,
+            ..Default::default()
         }
     }
 
