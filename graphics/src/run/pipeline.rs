@@ -97,7 +97,11 @@ impl Pipeline {
         )
         .unwrap();
 
-        TODO: Implement the logic in GraphicsPipelineBuilder::with_pipeline_layout(...)
+        // TODO: Implement the logic in GraphicsPipelineBuilder::with_pipeline_layout(...)
+
+        // OR
+
+        // use the GraphicsPipelineBuilder to do this? Will EntryPoint lifetimes be an issue?
 
         /*
         let vs = if let Some(path) = spec.vertex_shader.as_ref() {

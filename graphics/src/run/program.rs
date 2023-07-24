@@ -139,6 +139,7 @@ impl Program {
                     swapchain.clone(),
                     swapchain_images.clone(),
                     &memory_allocator,
+                    &mut shader_cache,
                 )
             })
             .collect::<Vec<_>>();

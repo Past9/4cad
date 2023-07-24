@@ -20,12 +20,12 @@ impl Pipeline {
     }
 
     pub fn vertex_shader(&mut self, path: &str) -> &mut Self {
-        self.vertex_shader = Some(make_spirv_path(path.into()));
+        self.vertex_shader = Some(make_absolute_path(path.into()));
         self
     }
 
     pub fn fragment_shader(&mut self, path: &str) -> &mut Self {
-        self.fragment_shader = Some(make_spirv_path(path));
+        self.fragment_shader = Some(make_absolute_path(path));
         self
     }
 
@@ -45,8 +45,8 @@ impl Pipeline {
     }
 }
 
-fn make_spirv_path(rel_path: &str) -> String {
+fn make_absolute_path(rel_path: &str) -> String {
     let root = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
     let root_path = Path::new(&root).to_string_lossy();
-    format!("{root_path}/{rel_path}.spv")
+    format!("{root_path}/{rel_path}")
 }

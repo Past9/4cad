@@ -1,6 +1,6 @@
 mod attachment;
 mod framebuffer;
-mod pipeline;
+mod pipeline2;
 mod program;
 mod render_pass;
 mod shaders;
@@ -8,7 +8,7 @@ mod subpass;
 
 use attachment::*;
 use framebuffer::*;
-use pipeline::*;
+use pipeline2::*;
 use program::*;
 use render_pass::*;
 use shaders::*;

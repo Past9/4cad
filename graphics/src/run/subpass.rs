@@ -1,20 +1,25 @@
 use std::sync::Arc;
 
+use vulkano::device::Device;
 use vulkano::render_pass::RenderPassCreateInfo;
 
 use crate::run;
 use crate::spec;
 
 use super::framebuffer::Framebuffer;
+use super::shaders::ShaderCache;
 
 pub(super) struct Subpass {
     pub description: vulkano::render_pass::SubpassDescription,
+    pub pipelines: Vec<run::Pipeline>,
 }
 impl Subpass {
     pub fn build(
         spec: &spec::Subpass,
         attachments: &[run::Attachment],
         is_multisampled: bool,
+        device: Arc<Device>,
+        cache: &mut ShaderCache,
     ) -> Self {
         let input_attachments = spec
             .input_attachments
@@ -58,9 +63,6 @@ impl Subpass {
             vec![]
         };
 
-        println!("subpass spec {:#?}", spec);
-        println!("subpass attachments {:#?}", attachments);
-
         let description = vulkano::render_pass::SubpassDescription {
             view_mask: 0,
             input_attachments,
@@ -71,6 +73,15 @@ impl Subpass {
             ..Default::default()
         };
 
-        Self { description }
+        let pipelines = spec
+            .pipelines
+            .iter()
+            .map(|pipeline| run::Pipeline::build(pipeline, device.clone(), cache))
+            .collect();
+
+        Self {
+            description,
+            pipelines,
+        }
     }
 }

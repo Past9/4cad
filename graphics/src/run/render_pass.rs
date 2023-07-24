@@ -6,6 +6,7 @@ use crate::run;
 use crate::spec;
 
 use super::framebuffer::Framebuffer;
+use super::shaders::ShaderCache;
 
 pub(super) struct RenderPass {
     attachments: Vec<run::Attachment>,
@@ -19,6 +20,7 @@ impl RenderPass {
         swapchain: Arc<vulkano::swapchain::Swapchain>,
         swapchain_images: Vec<Arc<vulkano::image::SwapchainImage>>,
         memory_allocator: &vulkano::memory::allocator::StandardMemoryAllocator,
+        shader_cache: &mut ShaderCache,
     ) -> Self {
         let mut attachments = spec
             .attachments
@@ -53,7 +55,13 @@ impl RenderPass {
             .subpasses
             .iter()
             .map(|subpass| {
-                run::Subpass::build(subpass, &attachments, spec.msaa_samples.is_multisampled())
+                run::Subpass::build(
+                    subpass,
+                    &attachments,
+                    spec.msaa_samples.is_multisampled(),
+                    device.clone(),
+                    shader_cache,
+                )
             })
             .collect::<Vec<_>>();
 
