@@ -1,6 +1,6 @@
 use std::{env, path::Path};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pipeline {
     pub(crate) vertex_shader: Option<String>,
     pub(crate) fragment_shader: Option<String>,

@@ -9,7 +9,7 @@ impl From<usize> for SubpassId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Subpass {
     pub(crate) input_attachments: Vec<AttachmentId>,
     pub(crate) color_attachments: Vec<AttachmentId>,

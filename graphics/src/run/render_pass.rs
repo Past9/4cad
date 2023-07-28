@@ -51,11 +51,13 @@ impl RenderPass {
             ));
         }
 
-        let subpasses = spec
+        let mut subpasses = spec
             .subpasses
             .iter()
-            .map(|subpass| {
+            .enumerate()
+            .map(|(index, subpass)| {
                 run::Subpass::build(
+                    index,
                     subpass,
                     &attachments,
                     spec.msaa_samples.is_multisampled(),
@@ -66,7 +68,7 @@ impl RenderPass {
             .collect::<Vec<_>>();
 
         let render_pass = vulkano::render_pass::RenderPass::new(
-            device,
+            device.clone(),
             RenderPassCreateInfo {
                 attachments: attachments
                     .iter()
@@ -82,6 +84,10 @@ impl RenderPass {
             },
         )
         .unwrap();
+
+        subpasses.iter_mut().for_each(|subpass| {
+            subpass.build_pipelines(device.clone(), shader_cache, render_pass.clone())
+        });
 
         let framebuffers = swapchain_images
             .iter()

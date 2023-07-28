@@ -28,6 +28,7 @@ impl Pipeline {
         spec: &spec::Pipeline,
         device: Arc<vulkano::device::Device>,
         cache: &mut run::ShaderCache,
+        subpass: vulkano::render_pass::Subpass,
     ) -> Self {
         let mut pipeline = GraphicsPipeline::start();
 
@@ -40,18 +41,16 @@ impl Pipeline {
             pipeline
         };
 
-        /*
         let fragment_shader: Arc<ShaderModule>;
         let pipeline = if let Some(path) = spec.fragment_shader.as_ref() {
-            fragment_shader = cache.get_shader(device.clone(), path);
+            fragment_shader = cache.get_shader(device.clone(), path, run::ShaderUsage::Fragment);
             let entry_point = fragment_shader.entry_point("main").unwrap();
             pipeline.fragment_shader(entry_point, ())
         } else {
             pipeline
         };
-         */
 
-        let pipeline = pipeline.build(device.clone()).unwrap();
+        let pipeline = pipeline.render_pass(subpass).build(device.clone()).unwrap();
 
         Self { pipeline }
     }

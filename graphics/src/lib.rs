@@ -5,7 +5,8 @@ pub use run::Vulkan;
 pub use spec::*;
 
 pub use vulkano;
-pub use vulkano_shaders;
+pub use vulkano::pipeline::graphics::vertex_input::Vertex;
+//pub use vulkano_shaders;
 
 #[macro_export]
 macro_rules! shader {

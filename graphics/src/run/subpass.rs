@@ -10,11 +10,14 @@ use super::framebuffer::Framebuffer;
 use super::shaders::ShaderCache;
 
 pub(super) struct Subpass {
+    index: usize,
+    spec: spec::Subpass,
     pub description: vulkano::render_pass::SubpassDescription,
-    pub pipelines: Vec<run::Pipeline>,
+    pub pipelines: Option<Vec<run::Pipeline>>,
 }
 impl Subpass {
     pub fn build(
+        index: usize,
         spec: &spec::Subpass,
         attachments: &[run::Attachment],
         is_multisampled: bool,
@@ -73,15 +76,42 @@ impl Subpass {
             ..Default::default()
         };
 
+        /*
         let pipelines = spec
             .pipelines
             .iter()
-            .map(|pipeline| run::Pipeline::build(pipeline, device.clone(), cache))
+            .map(|pipeline| run::Pipeline::build(pipeline, device.clone(), cache, description))
             .collect();
+        */
 
         Self {
+            index,
+            spec: spec.clone(),
             description,
-            pipelines,
+            pipelines: None,
         }
+    }
+
+    pub fn build_pipelines(
+        &mut self,
+        device: Arc<Device>,
+        cache: &mut run::ShaderCache,
+        render_pass: Arc<vulkano::render_pass::RenderPass>,
+    ) {
+        self.pipelines = Some(
+            self.spec
+                .pipelines
+                .iter()
+                .map(|pipeline| {
+                    run::Pipeline::build(
+                        pipeline,
+                        device.clone(),
+                        cache,
+                        vulkano::render_pass::Subpass::from(render_pass.clone(), self.index as u32)
+                            .unwrap(),
+                    )
+                })
+                .collect(),
+        );
     }
 }

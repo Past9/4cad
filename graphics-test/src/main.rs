@@ -1,3 +1,4 @@
+use graphics::Vertex;
 use graphics::*;
 use winit::{
     dpi::PhysicalSize,
@@ -82,4 +83,13 @@ fn build_program(window: &Window) -> Program {
     });
 
     program
+}
+
+#[repr(C)]
+#[derive(Vertex)]
+pub struct ScreenSpaceVertex {
+    #[format(R32G32_SFLOAT)]
+    position: [f32; 2],
+    #[format(R32G32B32A32_SFLOAT)]
+    color: [f32; 3],
 }
