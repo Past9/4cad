@@ -1,8 +1,16 @@
 use std::{env, path::Path};
 
+use vulkano::pipeline::graphics::vertex_input::VertexBufferDescription;
+
+#[derive(Debug, Clone)]
+pub(crate) struct VertexSpec {
+    pub shader_path: String,
+    pub buffer_description: VertexBufferDescription,
+}
+
 #[derive(Debug, Clone)]
 pub struct Pipeline {
-    pub(crate) vertex_shader: Option<String>,
+    pub(crate) vertex_spec: Option<VertexSpec>,
     pub(crate) fragment_shader: Option<String>,
     pub(crate) cull_front: bool,
     pub(crate) cull_back: bool,
@@ -11,7 +19,7 @@ pub struct Pipeline {
 impl Pipeline {
     pub fn new() -> Self {
         Self {
-            vertex_shader: None,
+            vertex_spec: None,
             fragment_shader: None,
             cull_front: false,
             cull_back: false,
@@ -19,8 +27,15 @@ impl Pipeline {
         }
     }
 
-    pub fn vertex_shader(&mut self, path: &str) -> &mut Self {
-        self.vertex_shader = Some(make_absolute_path(path.into()));
+    pub fn vertex_spec(
+        &mut self,
+        path: &str,
+        vertex_buffer_description: VertexBufferDescription,
+    ) -> &mut Self {
+        self.vertex_spec = Some(VertexSpec {
+            shader_path: make_absolute_path(path.into()),
+            buffer_description: vertex_buffer_description,
+        });
         self
     }
 

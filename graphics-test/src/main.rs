@@ -1,5 +1,7 @@
-use graphics::Vertex;
+use bytemuck::{Pod, Zeroable};
+//use graphics::vulkano::impl_vertex;
 use graphics::*;
+use graphics_macros::Vertex;
 use winit::{
     dpi::PhysicalSize,
     event::{Event, KeyboardInput, VirtualKeyCode, WindowEvent},
@@ -72,7 +74,7 @@ fn build_program(window: &Window) -> Program {
                 .depth_attachment(depth_attachment)
                 .pipeline(|pipeline| {
                     pipeline
-                        .vertex_shader("shaders/triangle.vert")
+                        .vertex_spec("shaders/triangle.vert", ScreenSpaceVertex::per_vertex())
                         .fragment_shader("shaders/triangle.frag")
                         .active(true);
 
@@ -86,7 +88,7 @@ fn build_program(window: &Window) -> Program {
 }
 
 #[repr(C)]
-#[derive(Vertex)]
+#[derive(Vertex, Pod, Zeroable, Copy, Clone)]
 pub struct ScreenSpaceVertex {
     #[format(R32G32_SFLOAT)]
     position: [f32; 2],

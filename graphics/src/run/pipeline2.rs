@@ -17,6 +17,7 @@ use vulkano::shader::ShaderModule;
 
 use crate::run;
 use crate::spec;
+use crate::VertexSpec;
 
 use super::framebuffer::Framebuffer;
 
@@ -33,12 +34,22 @@ impl Pipeline {
         let mut pipeline = GraphicsPipeline::start();
 
         let vertex_shader: Arc<ShaderModule>;
-        let pipeline = if let Some(path) = spec.vertex_shader.as_ref() {
-            vertex_shader = cache.get_shader(device.clone(), path, run::ShaderUsage::Vertex);
+        let pipeline = if let Some(VertexSpec {
+            shader_path,
+            buffer_description,
+        }) = spec.vertex_spec.as_ref()
+        {
+            vertex_shader = cache.get_shader(device.clone(), shader_path, run::ShaderUsage::Vertex);
             let entry_point = vertex_shader.entry_point("main").unwrap();
-            pipeline.vertex_shader(entry_point, ())
-        } else {
             pipeline
+                .vertex_input_state(buffer_description.clone())
+                .vertex_shader(entry_point, ())
+        } else {
+            GraphicsPipelineBuilder {
+                vertex_shader: None,
+                vertex_input_state: Default::default(),
+                ..pipeline
+            }
         };
 
         let fragment_shader: Arc<ShaderModule>;

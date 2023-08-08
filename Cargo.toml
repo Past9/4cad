@@ -9,6 +9,7 @@ members = [
     "tessellate",
     "components",
     "graphics",
+    "graphics-macros",
     "graphics-test",
     "examples/curve_arc",
     "examples/curve_interpolate_half_circle",
