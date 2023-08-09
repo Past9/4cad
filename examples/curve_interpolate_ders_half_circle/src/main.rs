@@ -1,5 +1,5 @@
 use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, EVec, HVec, Mat4, Vec3, Vec4};
+use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     model::{Geometry, Model, ModelPoint},

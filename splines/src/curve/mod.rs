@@ -1,7 +1,7 @@
 mod builders;
 
 use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
-use cgmath::{Matrix4, Vector4, Zero};
+use cgmath::{Matrix4, Zero};
 use primitives::{EVec, HVec, TOL};
 use std::cmp::{max, min};
 

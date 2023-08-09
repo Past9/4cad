@@ -1,7 +1,5 @@
 mod builders;
 
-use core::num;
-
 use crate::{basis, bin, knots::KnotVec, surface_derivatives, Vec4};
 use cgmath::{InnerSpace, Matrix4, Zero};
 

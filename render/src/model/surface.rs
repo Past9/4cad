@@ -1,10 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector3};
-use primitives::Vec3;
 use splines::SurfacePoint;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
-
-use crate::Rgba;
 
 use super::{MaterialId, ModelObjectId};
 

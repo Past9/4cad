@@ -1,4 +1,3 @@
-use primitives::{HVec, Vec3};
 use splines::{Surface, SurfacePoint};
 
 pub trait SurfaceTessellation {

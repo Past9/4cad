@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use cgmath::{Point3, Vector3, Zero};
+use cgmath::{Point3, Vector3};
 use primitives::{HVec, Vec3};
 use splines::Curve;
 use vulkano::pipeline::graphics::vertex_input::Vertex;

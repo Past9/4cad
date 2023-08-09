@@ -1,4 +1,4 @@
-use crate::{arbitrary_orthonormal, knots::KnotVec, Curve, Surface, Vec4};
+use crate::{knots::KnotVec, Curve, Surface, Vec4};
 use cgmath::{InnerSpace, Vector4, Zero};
 use primitives::{HVec, Mat4, Vec3};
 
