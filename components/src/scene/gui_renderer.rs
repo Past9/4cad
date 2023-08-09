@@ -19,6 +19,12 @@ impl GuiRenderer {
         }
     }
 
+    pub fn set_show_vectors(&mut self, show: bool) {
+        if let Some(ref mut internal) = self.internal {
+            internal.set_show_vectors(show);
+        }
+    }
+
     pub fn set_show_points(&mut self, show: bool) {
         if let Some(ref mut internal) = self.internal {
             internal.set_show_points(show);
@@ -143,6 +149,10 @@ impl InternalGuiRenderer {
             scene_renderer: renderer,
             transfer,
         }
+    }
+
+    pub fn set_show_vectors(&mut self, show: bool) {
+        self.scene_renderer.set_show_vectors(show);
     }
 
     pub fn set_show_points(&mut self, show: bool) {

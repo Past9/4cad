@@ -66,6 +66,23 @@ impl Rgba {
         vec4(self.0[0], self.0[1], self.0[2], self.0[3])
     }
 
+    pub fn lighten(self, amount: f32) -> Self {
+        self.interpolate(Self::WHITE, amount)
+    }
+
+    pub fn darken(self, amount: f32) -> Self {
+        self.interpolate(Self::BLACK, amount)
+    }
+
+    pub fn interpolate(self, to: Rgba, amount: f32) -> Self {
+        Self([
+            Self::interpolate_value(self.r(), to.r(), amount),
+            Self::interpolate_value(self.g(), to.g(), amount),
+            Self::interpolate_value(self.b(), to.b(), amount),
+            Self::interpolate_value(self.a(), to.a(), amount),
+        ])
+    }
+
     pub fn to_floats(&self) -> [f32; 4] {
         self.0
     }
@@ -84,6 +101,10 @@ impl Rgba {
 
     pub fn set_a(&mut self, a: f32) {
         self.0[3] = a;
+    }
+
+    fn interpolate_value(from: f32, to: f32, amount: f32) -> f32 {
+        from + ((to - from) * amount)
     }
 }
 impl AsStd140 for Rgba {

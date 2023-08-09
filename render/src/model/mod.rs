@@ -6,11 +6,13 @@ mod edge;
 mod material;
 mod point;
 mod surface;
+mod vector;
 
 pub use edge::*;
 pub use material::*;
 pub use point::*;
 pub use surface::*;
+pub use vector::*;
 
 pub struct GeometryBuffers {
     pub opaque_materials: Option<Subbuffer<[Std140OpaqueMaterial]>>,
@@ -25,6 +27,8 @@ pub struct GeometryBuffers {
     pub edge_indices: Option<Subbuffer<[u32]>>,
 
     pub point_vertices: Option<Subbuffer<[BufferedPointVertex]>>,
+
+    pub vector_vertices: Option<Subbuffer<[BufferedVectorVertex]>>,
 }
 
 #[derive(Debug)]
@@ -69,6 +73,8 @@ impl Geometry {
 
         let point_vertices = self.buffer_points(allocator);
 
+        let vector_vertices = self.buffer_vectors(allocator);
+
         GeometryBuffers {
             opaque_materials: self.materials.buffer_opaque(allocator),
             opaque_surface_vertices,
@@ -82,6 +88,8 @@ impl Geometry {
             edge_indices,
 
             point_vertices,
+
+            vector_vertices,
         }
     }
 
@@ -234,6 +242,41 @@ impl Geometry {
             None
         }
     }
+
+    pub fn buffer_vectors(
+        &self,
+        allocator: &(impl MemoryAllocator + ?Sized),
+    ) -> Option<Subbuffer<[BufferedVectorVertex]>> {
+        let mut vertices: Vec<BufferedVectorVertex> = Vec::new();
+
+        for model in self.models.iter() {
+            for vector in model.vectors.iter() {
+                let (start, end) = BufferedVectorVertex::create_vertices(vector);
+                vertices.push(start);
+                vertices.push(end);
+            }
+        }
+
+        if vertices.len() > 0 {
+            let vertex_buffer = Buffer::from_iter(
+                allocator,
+                BufferCreateInfo {
+                    usage: BufferUsage::VERTEX_BUFFER,
+                    ..Default::default()
+                },
+                AllocationCreateInfo {
+                    usage: MemoryUsage::Upload,
+                    ..Default::default()
+                },
+                vertices,
+            )
+            .unwrap();
+
+            Some(vertex_buffer)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -241,6 +284,7 @@ pub struct Model {
     surfaces: Vec<ModelSurface>,
     edges: Vec<ModelEdge>,
     points: Vec<ModelPoint>,
+    vectors: Vec<ModelVector>,
 }
 impl Model {
     pub fn empty() -> Self {
@@ -248,6 +292,7 @@ impl Model {
             surfaces: vec![],
             edges: vec![],
             points: vec![],
+            vectors: vec![],
         }
     }
 
@@ -256,6 +301,7 @@ impl Model {
             mut surfaces,
             edges,
             points,
+            vectors,
         } = self;
 
         surfaces.push(surface);
@@ -264,6 +310,7 @@ impl Model {
             surfaces,
             edges,
             points,
+            vectors,
         }
     }
 
@@ -272,6 +319,7 @@ impl Model {
             mut surfaces,
             edges,
             points,
+            vectors,
         } = self;
 
         surfaces.extend(new_surfaces);
@@ -280,6 +328,7 @@ impl Model {
             surfaces,
             edges,
             points,
+            vectors,
         }
     }
 
@@ -288,6 +337,7 @@ impl Model {
             surfaces,
             mut edges,
             points,
+            vectors,
         } = self;
 
         edges.push(edge);
@@ -296,6 +346,7 @@ impl Model {
             surfaces,
             edges,
             points,
+            vectors,
         }
     }
 
@@ -304,6 +355,7 @@ impl Model {
             surfaces,
             mut edges,
             points,
+            vectors,
         } = self;
 
         edges.extend(new_edges);
@@ -312,6 +364,7 @@ impl Model {
             surfaces,
             edges,
             points,
+            vectors,
         }
     }
 
@@ -320,6 +373,7 @@ impl Model {
             surfaces,
             edges,
             mut points,
+            vectors,
         } = self;
 
         points.push(point);
@@ -328,6 +382,7 @@ impl Model {
             surfaces,
             edges,
             points,
+            vectors,
         }
     }
 
@@ -336,6 +391,7 @@ impl Model {
             surfaces,
             edges,
             mut points,
+            vectors,
         } = self;
 
         points.extend(new_points);
@@ -344,6 +400,7 @@ impl Model {
             surfaces,
             edges,
             points,
+            vectors,
         }
     }
 
@@ -369,6 +426,14 @@ impl Model {
 
     pub fn add_surfaces(&mut self, surfaces: Vec<ModelSurface>) {
         self.surfaces.extend(surfaces);
+    }
+
+    pub fn add_vector(&mut self, vector: ModelVector) {
+        self.vectors.push(vector);
+    }
+
+    pub fn add_vectors(&mut self, vectors: Vec<ModelVector>) {
+        self.vectors.extend(vectors);
     }
 }
 

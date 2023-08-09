@@ -1,11 +1,11 @@
 use std::time::Instant;
 
-use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Zero};
-use primitives::{Angle, HVec, Mat4, Vec3, Vec4};
+use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Vector3, Zero};
+use primitives::{Angle, EVec, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     lights::Lights,
-    model::{Geometry, Model, ModelEdge, ModelPoint, ModelSurface},
+    model::{Geometry, Model, ModelEdge, ModelPoint, ModelSurface, ModelVector},
     rgb, rgba,
     scene::SceneBuilder,
     Rgb, Rgba,
@@ -34,13 +34,55 @@ fn main() {
     let start = Instant::now();
 
     let mut model = Model::empty();
-    let resolution = 50;
+    let resolution = 64;
 
     // Swept surface
-    model.add_surface(ModelSurface::from_surface_points(
-        surface.tessellate_by_params(resolution),
-        surface_material,
-    ));
+    {
+        let surface_points = surface.tessellate_by_params(resolution);
+        // Normal vectors
+        model.add_vectors(
+            surface_points
+                .iter()
+                .flat_map(|row| row.iter())
+                .map(|pt| {
+                    ModelVector::new(
+                        Point3::new(
+                            pt.position.x as f32,
+                            pt.position.y as f32,
+                            pt.position.z as f32,
+                        ),
+                        pt.normal.as_f32(),
+                        Rgba::RED,
+                    )
+                })
+                .collect(),
+        );
+
+        // Reverse normal vectors
+        model.add_vectors(
+            surface_points
+                .iter()
+                .flat_map(|row| row.iter())
+                .map(|pt| {
+                    ModelVector::new(
+                        Point3::new(
+                            pt.position.x as f32,
+                            pt.position.y as f32,
+                            pt.position.z as f32,
+                        ),
+                        -pt.normal.as_f32(),
+                        Rgba::MAGENTA,
+                    )
+                })
+                .collect(),
+        );
+
+        // Surface geometry
+        model.add_surface(ModelSurface::from_surface_points(
+            surface_points,
+            surface_material,
+        ));
+    }
 
     // Profile curve
     model.add_edge(ModelEdge::from_vec3s(
@@ -86,7 +128,7 @@ fn main() {
     sb.background(rgba(0.05, 0.1, 0.15, 1.0))
         .camera(Camera::create_perspective(
             [0, 0],
-            point3(0.0, 0.0, -3.0),
+            point3(0.0, 0.0, -5.0),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
             Deg(70.0).into(),

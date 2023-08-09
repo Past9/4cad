@@ -26,6 +26,7 @@ pub trait Window {
 
 pub struct Ui {
     scene_viewer: SceneViewer,
+    show_vectors: bool,
     show_points: bool,
     show_edges: bool,
     show_surfaces: bool,
@@ -41,6 +42,7 @@ impl Ui {
                 true,
                 scene,
             ),
+            show_vectors: true,
             show_points: true,
             show_edges: true,
             show_surfaces: true,
@@ -57,19 +59,26 @@ impl Window for Ui {
                 ui.vertical_centered(|ui| ui.heading("View options"));
                 ui.separator();
 
-                if ui.checkbox(&mut self.show_points, "Show points").changed() {
-                    self.scene_viewer.set_show_points(self.show_points);
+                if ui
+                    .checkbox(&mut self.show_surfaces, "Show surfaces")
+                    .changed()
+                {
+                    self.scene_viewer.set_show_surfaces(self.show_surfaces);
                 };
 
                 if ui.checkbox(&mut self.show_edges, "Show edges").changed() {
                     self.scene_viewer.set_show_edges(self.show_edges);
                 };
 
+                if ui.checkbox(&mut self.show_points, "Show points").changed() {
+                    self.scene_viewer.set_show_points(self.show_points);
+                };
+
                 if ui
-                    .checkbox(&mut self.show_surfaces, "Show surfaces")
+                    .checkbox(&mut self.show_vectors, "Show vectors")
                     .changed()
                 {
-                    self.scene_viewer.set_show_surfaces(self.show_surfaces);
+                    self.scene_viewer.set_show_vectors(self.show_vectors);
                 };
 
                 ui.separator();

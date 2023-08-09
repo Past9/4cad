@@ -148,12 +148,12 @@ impl Surface {
                 let mut pt3 = weighted_derivatives[k][l].truncate();
                 for j in 1..=l {
                     pt3 -=
-                        bin(l, j) * weighted_derivatives[0][j].w * derivatives[k][l - j].truncate();
+                        bin(l, j) * weighted_derivatives[0][j].w * derivatives[k][l - j].project();
                 }
 
                 for i in 1..=k {
                     pt3 -=
-                        bin(k, i) * weighted_derivatives[i][0].w * derivatives[k - i][l].truncate();
+                        bin(k, i) * weighted_derivatives[i][0].w * derivatives[k - i][l].project();
                     let mut v2 = Vec3::zero();
                     for j in 1..=l {
                         v2 += bin(l, j)

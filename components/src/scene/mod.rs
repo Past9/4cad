@@ -89,6 +89,7 @@ pub struct SceneViewer {
     mouse_pos: Pos2,
 
     // Renderer options
+    show_vectors: bool,
     show_points: bool,
     show_edges: bool,
     show_surfaces: bool,
@@ -121,10 +122,15 @@ impl SceneViewer {
             mouse_pos: Pos2 { x: 0.0, y: 0.0 },
 
             // Renderer options
+            show_vectors: true,
             show_points: true,
             show_edges: true,
             show_surfaces: true,
         }
+    }
+
+    pub fn set_show_vectors(&mut self, show: bool) {
+        self.show_vectors = show;
     }
 
     pub fn set_show_points(&mut self, show: bool) {
@@ -360,6 +366,7 @@ impl SceneViewer {
                 let scene = self.renderer.clone();
                 let rotation = self.rotation;
                 let position = self.position;
+                let show_vectors = self.show_vectors;
                 let show_points = self.show_points;
                 let show_edges = self.show_edges;
                 let show_surfaces = self.show_surfaces;
@@ -371,6 +378,7 @@ impl SceneViewer {
                         let mut scene = scene.lock();
                         scene.set_rotation(rotation);
                         scene.set_position(position);
+                        scene.set_show_vectors(show_vectors);
                         scene.set_show_points(show_points);
                         scene.set_show_edges(show_edges);
                         scene.set_show_surfaces(show_surfaces);
