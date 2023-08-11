@@ -34,7 +34,7 @@ impl BufferedVectorVertex {
             // Start vertex
             Self {
                 position: vector.origin,
-                color: vector.color.to_floats(),
+                color: vector.color.darken(1.0).to_floats(),
             },
             // End vertex
             Self {
@@ -43,7 +43,7 @@ impl BufferedVectorVertex {
                     vector.origin[1] + vector.direction[1],
                     vector.origin[2] + vector.direction[2],
                 ],
-                color: vector.color.lighten(0.2).to_floats(),
+                color: vector.color.to_floats(),
             },
         )
     }
