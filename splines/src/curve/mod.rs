@@ -2,7 +2,7 @@ mod builders;
 
 use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
 use cgmath::{Matrix4, Zero};
-use primitives::{EVec, HVec, TOL};
+use primitives::{EVec, HVec, Vec3, TOL};
 use std::cmp::{max, min};
 
 pub use builders::*;
@@ -138,6 +138,10 @@ impl Curve {
         let final_knots_not_in_self = final_knots.without(&self.knots);
 
         self.refine_knots(final_knots_not_in_self)
+    }
+
+    pub fn project_point(&self, point: Vec3) -> Vec<f64> {
+        vec![0.5]
     }
 
     /// Adds the given knots to the knot vector, adding and moving control
