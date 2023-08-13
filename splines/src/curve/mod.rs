@@ -1,11 +1,24 @@
 mod builders;
 
 use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
-use cgmath::{Matrix4, Zero};
-use primitives::{EVec, HVec, Vec3, TOL};
+use cgmath::{InnerSpace, Matrix4, Zero};
+use primitives::{EVec, HVec, TolEq, Vec3, TOL};
 use std::cmp::{max, min};
 
 pub use builders::*;
+
+const MAX_NEWTON_ITER: usize = 100;
+const ZERO_COS_TOL: f64 = TOL;
+
+enum ProjectionKind {
+    Projection,
+    Inversion,
+}
+
+pub struct CurveProjectionResult {
+    pub u: f64,
+    pub distance: f64,
+}
 
 #[derive(Debug, Clone)]
 pub struct Curve {
@@ -140,8 +153,121 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
-    pub fn project_point(&self, point: Vec3) -> Vec<f64> {
-        vec![0.5]
+    pub fn project_point(&self, point: Vec3) -> CurveProjectionResult {
+        let mut nearest_projected: Option<CurveProjectionResult> = None;
+
+        let mut try_params = vec![0.0];
+        let unique_knots = self.knots.unique();
+        for i in 1..unique_knots.len() {
+            try_params.push((unique_knots[i - 1] + unique_knots[i]) / 2.0);
+        }
+        try_params.push(1.0);
+
+        println!("knots {:?}", self.knots);
+        println!("unique_knots {:?}", unique_knots);
+        println!("try_params {:?}", try_params);
+
+        for i in 0..try_params.len() {
+            let param = try_params[i];
+            let lower_bound = if i == 0 { 0.0 } else { try_params[i - 1] };
+            let upper_bound = if i == try_params.len() - 1 {
+                1.0
+            } else {
+                try_params[i + 1]
+            };
+
+            if let Some(projected) = self.project_point_from_starting_param(
+                point,
+                param,
+                ProjectionKind::Projection,
+                (lower_bound, upper_bound),
+            ) {
+                if let Some(ref nearest) = nearest_projected {
+                    if nearest.distance > projected.distance {
+                        nearest_projected = Some(projected);
+                    }
+                } else {
+                    nearest_projected = Some(projected);
+                }
+            }
+        }
+
+        nearest_projected.expect("Failed to project point")
+    }
+
+    /// Attempts to project or invert a point onto the curve using Newton's method,
+    /// starting the iterations at the parameter value `u`.
+    fn project_point_from_starting_param(
+        &self,
+        point: Vec3,
+        u: f64,
+        projection_kind: ProjectionKind,
+        bounds: (f64, f64),
+    ) -> Option<CurveProjectionResult> {
+        println!("try from u = {}", u);
+        let mut u = u;
+
+        for _ in 0..MAX_NEWTON_ITER {
+            // If parameter is outside of the knot vector bounds, we can't
+            // project.
+            if u < bounds.0 || u > bounds.1 {
+                return None;
+            }
+
+            // Get position and derivatives at u
+            let ders = self.eval_derivatives(u, 2);
+            let point_to_pos = ders[0].project() - point;
+
+            // Check for convergence
+            {
+                // Check for point coincidence if doing inversion (does not apply to projection)
+                let point_coincidence = match projection_kind {
+                    // If doing inversion, check if the projected point is within tolerance of the
+                    // point being inverted.
+                    ProjectionKind::Inversion => point_to_pos.magnitude() < TOL,
+                    // If doing projection, we just mark this `true` so it has no effect
+                    ProjectionKind::Projection => true,
+                };
+
+                // Check for zero cosine (within tolerance)
+                let zero_cosine = {
+                    let num = ders[1].project().dot(point_to_pos);
+                    let den = ders[1].magnitude() * point_to_pos.magnitude();
+                    (num / den) < ZERO_COS_TOL
+                };
+
+                // If points are coicident (for inversion) and the cosine is zero,
+                // we've converged at u.
+                if point_coincidence && zero_cosine {
+                    return Some(CurveProjectionResult {
+                        u,
+                        distance: point_to_pos.magnitude(),
+                    });
+                }
+            }
+
+            // Newton iteration
+            let num = ders[1].project().dot(point_to_pos);
+            let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
+            let new_u = u - (num / den);
+
+            // Additional checks for convergence
+            {
+                // Parameter value has not changed significantly
+                if ((new_u - u) * ders[1]).magnitude() < TOL {
+                    return Some(CurveProjectionResult {
+                        u: new_u,
+                        distance: point_to_pos.magnitude(),
+                    });
+                }
+            }
+
+            u = new_u;
+
+            println!("u {:.64}", u);
+        }
+
+        None
     }
 
     /// Adds the given knots to the knot vector, adding and moving control

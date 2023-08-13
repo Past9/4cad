@@ -17,6 +17,9 @@ fn main() {
     let mut model = Model::empty();
     let resolution = 1000;
 
+    /*
+    // HOMOGNEOUS
+
     let curve = Curve::unweighted(
         vec![
             Vec4::new(-4.1, -4.0, -4.0, 0.25),
@@ -52,6 +55,69 @@ fn main() {
         Vec3::new(-2.0, 1.0, 0.0),
         Vec3::new(-6.0, 0.0, -2.0),
     ];
+     */
+
+    /*
+    // EUCLIDEAN
+
+    let curve = Curve::unweighted(
+        vec![
+            Vec4::new(-4.1, -4.0, -4.0, 1.0),
+            Vec4::new(-7.0, 3.0, -12.0, 1.0),
+            Vec4::new(-3.0, 5.0, -8.0, 1.0),
+            Vec4::new(2.0, 5.0, 4.0, 1.0),
+            Vec4::new(6.0, 1.0, 12.0, 1.0),
+            Vec4::new(5.0, -5.0, 8.0, 1.0),
+            Vec4::new(-1.0, -8.0, -4.0, 1.0),
+            Vec4::new(-5.0, -7.0, -9.0, 1.0),
+            Vec4::new(-6.0, -2.0, -7.0, 1.0),
+            Vec4::new(-3.0, 3.0, -8.0, 1.0),
+            Vec4::new(1.0, 3.0, 10.0, 1.0),
+            Vec4::new(0.1, 0.0, 0.1, 1.0),
+        ],
+        KnotVec::from([
+            // knots
+            0.0, 0.0, 0.0, 0.0, 0.1, 0.15, 0.2, 0.35, 0.6, 0.6, 0.6, 0.85, 1.0, 1.0, 1.0, 1.0,
+        ]),
+    );
+
+    let points = vec![
+        Vec3::new(1.0, 3.0, 4.0),
+        Vec3::new(8.0, 1.0, 3.0),
+        Vec3::new(4.0, 3.0, -1.0),
+        Vec3::new(-3.0, -5.0, 0.0),
+        Vec3::new(-4.0, 6.0, 4.0),
+        Vec3::new(10.0, 9.0, -7.0),
+        Vec3::new(10.0, -6.0, 5.0),
+        Vec3::new(0.0, 5.0, 0.0),
+        Vec3::new(4.0, -2.0, 1.0),
+        Vec3::new(0.0, 5.0, -6.0),
+        Vec3::new(-2.0, 1.0, 0.0),
+        Vec3::new(-6.0, 0.0, -2.0),
+    ];
+     */
+
+    // FLAT EUCLIDEAN
+
+    let curve = Curve::unweighted(
+        vec![
+            Vec4::new(-2.0, 0.0, 0.0, 1.0),
+            Vec4::new(-1.0, 1.0, 0.0, 1.0),
+            Vec4::new(0.0, 0.0, 0.0, 1.0),
+            Vec4::new(1.0, -1.0, 0.0, 1.0),
+            Vec4::new(2.0, 0.0, 0.0, 1.0),
+        ],
+        KnotVec::from([
+            // knots
+            0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0,
+        ]),
+    );
+
+    let points = vec![
+        //Vec3::new(-1.0, -2.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        //Vec3::new(1.0, 2.0, 0.0),
+    ];
 
     struct Projection {
         start: Vec3,
@@ -62,13 +128,11 @@ fn main() {
         .iter()
         .flat_map(|pt| {
             let mut points = vec![];
-            let params = curve.project_point(*pt);
-            for param in params.iter() {
-                points.push(Projection {
-                    start: *pt,
-                    end: curve.eval_pos(*param).project(),
-                });
-            }
+            let projected = curve.project_point(*pt);
+            points.push(Projection {
+                start: *pt,
+                end: curve.eval_pos(projected.u).project(),
+            });
             points
         })
         .collect::<Vec<_>>();

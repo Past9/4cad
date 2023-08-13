@@ -201,6 +201,18 @@ impl KnotVec {
         out_knots
     }
 
+    pub fn unique(&self) -> Vec<f64> {
+        let mut unique = vec![self.knots[0]];
+
+        for knot in self.knots.iter().skip(1) {
+            if !knot.toleq(unique[unique.len() - 1]) {
+                unique.push(*knot);
+            }
+        }
+
+        unique
+    }
+
     fn normalize_knots(knots: Vec<f64>) -> Vec<f64> {
         if knots.len() == 0 {
             return knots;
@@ -232,9 +244,18 @@ impl TolEq for KnotVec {
 
 #[cfg(test)]
 mod tests {
-    use primitives::TolEq;
+    use std::f32::EPSILON;
+
+    use primitives::{TolEq, TOL};
 
     use crate::knots::KnotVec;
+
+    #[test]
+    fn unique_knots() {
+        let knot_vec = KnotVec::from([0.0, 0.0, 0.2, 0.4, 0.6, 0.8, 0.8 + TOL / 2.0, 1.0, 1.0]);
+
+        assert_eq!(vec![0.0, 0.2, 0.4, 0.6, 0.8, 1.0], knot_vec.unique());
+    }
 
     #[test]
     fn merges_knots() {
