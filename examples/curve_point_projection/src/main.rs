@@ -113,11 +113,21 @@ fn main() {
         ]),
     );
 
+    let res = 100;
+
     let points: Vec<Vec3> = curve
         .transform(&Mat4::from_translation(Vec3::new(0.0, 0.5, 0.0)))
-        .tessellate_by_param(20)
+        .tessellate_by_param(res)
         .into_iter()
-        .take(1)
+        //.skip(65)
+        //.take(1)
+        .chain(
+            curve
+                .transform(&Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0)))
+                .tessellate_by_param(res)
+                .into_iter(), //.take(0),
+        )
+        //.take(1)
         .collect();
 
     /*
@@ -137,11 +147,12 @@ fn main() {
         .iter()
         .flat_map(|pt| {
             let mut points = vec![];
-            let projected = curve.project_point(*pt);
-            points.push(Projection {
-                start: *pt,
-                end: curve.eval_pos(projected.u).project(),
-            });
+            if let Some(projected) = curve.project_point(*pt) {
+                points.push(Projection {
+                    start: *pt,
+                    end: curve.eval_pos(projected.u).project(),
+                });
+            }
             points
         })
         .collect::<Vec<_>>();

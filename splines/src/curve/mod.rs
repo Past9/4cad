@@ -17,6 +17,7 @@ enum ProjectionKind {
 
 pub struct CurveProjectionResult {
     pub u: f64,
+    pub pos: Vec4,
     pub distance: f64,
 }
 
@@ -153,16 +154,28 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
-    pub fn project_point(&self, point: Vec3) -> CurveProjectionResult {
+    pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
         let mut try_params = vec![0.0];
         let unique_knots = self.knots.unique();
         for i in 1..unique_knots.len() {
-            try_params.push((unique_knots[i - 1] + unique_knots[i]) / 2.0);
+            /*
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.1);
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.2);
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.3);
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.4);
+            */
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.5);
+            /*
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.6);
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.7);
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.9);
+             */
             try_params.push(unique_knots[i]);
         }
 
+        println!("projecting {:?}", point);
         println!("knots {:?}", self.knots);
         println!("unique_knots {:?}", unique_knots);
         println!("try_params {:?}", try_params);
@@ -172,14 +185,14 @@ impl Curve {
             let lower_bound = if i == 0 {
                 0.0
             } else {
-                try_params[i - 1]
-                //0.0
+                //try_params[i - 1]
+                0.0
             };
             let upper_bound = if i == try_params.len() - 1 {
                 1.0
             } else {
-                try_params[i + 1]
-                //1.0
+                //try_params[i + 1]
+                1.0
             };
 
             if let Some(projected) = self.project_point_from_starting_param(
@@ -198,7 +211,7 @@ impl Curve {
             }
         }
 
-        nearest_projected.expect("Failed to project point")
+        nearest_projected
     }
 
     /// Attempts to project or invert a point onto the curve using Newton's method,
@@ -210,19 +223,59 @@ impl Curve {
         projection_kind: ProjectionKind,
         bounds: (f64, f64),
     ) -> Option<CurveProjectionResult> {
-        println!("try from u = {} in ({}, {})", u, bounds.0, bounds.1);
+        println!(
+            "try from u = {} in ({}, {}) for {:?}",
+            u, bounds.0, bounds.1, point
+        );
+
+        struct LastParams {
+            u: f64,
+            ders: Vec<Vec4>,
+        }
+
+        //let point = point.to_hpoint(1.0);
+        let mut last_params: Option<LastParams> = None;
         let mut u = u;
 
         for _ in 0..MAX_NEWTON_ITER {
+            println!("u = {}", u);
+
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
+                println!(
+                    "u = {} is outside of ({}, {}) for {:?}",
+                    u, bounds.0, bounds.1, point
+                );
                 return None;
             }
 
             // Get position and derivatives at u
             let ders = self.eval_derivatives(u, 2);
             let point_to_pos = ders[0].project() - point;
+
+            // If the parameter has not changed significantly since the last
+            // iteration, we've converged
+            if let Some(last_params) = last_params {
+                if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
+                    /*
+                    return Some(CurveProjectionResult {
+                        u: last_params.u,
+                        pos: last_params.ders[0],
+                        distance: (last_params.ders[0].project() - point).magnitude(),
+                    });
+                     */
+                    println!(
+                        "Converged at {} because param hasn't changed significantly",
+                        u
+                    );
+                    return Some(CurveProjectionResult {
+                        u,
+                        pos: ders[0],
+                        distance: point_to_pos.magnitude(),
+                    });
+                }
+            }
 
             // Check for convergence
             {
@@ -237,16 +290,25 @@ impl Curve {
 
                 // Check for zero cosine (within tolerance)
                 let zero_cosine = {
-                    let num = ders[1].project().dot(point_to_pos);
+                    let num = ders[1].project().dot(point_to_pos).abs();
                     let den = ders[1].magnitude() * point_to_pos.magnitude();
+                    println!(
+                        "zero cos test num = {}, den = {}, num/den = {}, ZERO_COS_TOL = {}",
+                        num,
+                        den,
+                        num / den,
+                        ZERO_COS_TOL
+                    );
                     (num / den) <= ZERO_COS_TOL
                 };
 
-                // If points are coicident (for inversion) and the cosine is zero,
+                // If points are coincident (for inversion) and the cosine is zero,
                 // we've converged at u.
                 if point_coincidence && zero_cosine {
+                    println!("Converged at {} because cosine is zero", u);
                     return Some(CurveProjectionResult {
                         u,
+                        pos: ders[0],
                         distance: point_to_pos.magnitude(),
                     });
                 }
@@ -255,26 +317,11 @@ impl Curve {
             // Newton iteration
             let num = ders[1].project().dot(point_to_pos);
             let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
-            let new_u = u - (num / den);
-
-            // Additional checks for convergence
-            {
-                // Parameter value has not changed significantly
-                /*
-                if ((new_u - u) * ders[1]).magnitude() < TOL {
-                    return Some(CurveProjectionResult {
-                        u: new_u,
-                        distance: point_to_pos.magnitude(),
-                    });
-                }
-                 */
-            }
-
-            u = new_u;
-
-            println!("u {:.64}", u);
+            last_params = Some(LastParams { u, ders });
+            u = u - (num / den);
         }
 
+        println!("Too many iterations");
         None
     }
 
