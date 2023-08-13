@@ -1,5 +1,5 @@
-use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Zero};
-use primitives::{EVec, HVec, Vec3, Vec4};
+use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Transform, Zero};
+use primitives::{EVec, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     lights::Lights,
@@ -113,11 +113,20 @@ fn main() {
         ]),
     );
 
+    let points: Vec<Vec3> = curve
+        .transform(&Mat4::from_translation(Vec3::new(0.0, 0.5, 0.0)))
+        .tessellate_by_param(20)
+        .into_iter()
+        .take(1)
+        .collect();
+
+    /*
     let points = vec![
-        //Vec3::new(-1.0, -2.0, 0.0),
+        Vec3::new(-1.0, -2.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
-        //Vec3::new(1.0, 2.0, 0.0),
+        Vec3::new(1.0, 2.0, 0.0),
     ];
+         */
 
     struct Projection {
         start: Vec3,

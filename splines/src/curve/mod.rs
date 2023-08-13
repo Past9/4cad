@@ -8,7 +8,7 @@ use std::cmp::{max, min};
 pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 100;
-const ZERO_COS_TOL: f64 = TOL;
+const ZERO_COS_TOL: f64 = TOL / 100.0;
 
 enum ProjectionKind {
     Projection,
@@ -160,8 +160,8 @@ impl Curve {
         let unique_knots = self.knots.unique();
         for i in 1..unique_knots.len() {
             try_params.push((unique_knots[i - 1] + unique_knots[i]) / 2.0);
+            try_params.push(unique_knots[i]);
         }
-        try_params.push(1.0);
 
         println!("knots {:?}", self.knots);
         println!("unique_knots {:?}", unique_knots);
@@ -169,11 +169,17 @@ impl Curve {
 
         for i in 0..try_params.len() {
             let param = try_params[i];
-            let lower_bound = if i == 0 { 0.0 } else { try_params[i - 1] };
+            let lower_bound = if i == 0 {
+                0.0
+            } else {
+                try_params[i - 1]
+                //0.0
+            };
             let upper_bound = if i == try_params.len() - 1 {
                 1.0
             } else {
                 try_params[i + 1]
+                //1.0
             };
 
             if let Some(projected) = self.project_point_from_starting_param(
@@ -204,7 +210,7 @@ impl Curve {
         projection_kind: ProjectionKind,
         bounds: (f64, f64),
     ) -> Option<CurveProjectionResult> {
-        println!("try from u = {}", u);
+        println!("try from u = {} in ({}, {})", u, bounds.0, bounds.1);
         let mut u = u;
 
         for _ in 0..MAX_NEWTON_ITER {
@@ -233,7 +239,7 @@ impl Curve {
                 let zero_cosine = {
                     let num = ders[1].project().dot(point_to_pos);
                     let den = ders[1].magnitude() * point_to_pos.magnitude();
-                    (num / den) < ZERO_COS_TOL
+                    (num / den) <= ZERO_COS_TOL
                 };
 
                 // If points are coicident (for inversion) and the cosine is zero,
@@ -254,12 +260,14 @@ impl Curve {
             // Additional checks for convergence
             {
                 // Parameter value has not changed significantly
+                /*
                 if ((new_u - u) * ders[1]).magnitude() < TOL {
                     return Some(CurveProjectionResult {
                         u: new_u,
                         distance: point_to_pos.magnitude(),
                     });
                 }
+                 */
             }
 
             u = new_u;
