@@ -2,12 +2,12 @@ mod builders;
 
 use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
 use cgmath::{InnerSpace, Matrix4, Zero};
-use primitives::{EVec, HVec, Vec3, TOL};
+use primitives::{EVec, HVec, TolEq, Vec3, TOL};
 use std::cmp::{max, min};
 
 pub use builders::*;
 
-const MAX_NEWTON_ITER: usize = 100;
+const MAX_NEWTON_ITER: usize = 1000;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
 
 enum ProjectionKind {
@@ -15,6 +15,7 @@ enum ProjectionKind {
     Inversion,
 }
 
+#[derive(Debug)]
 pub struct CurveProjectionResult {
     pub u: f64,
     pub pos: Vec4,
@@ -117,7 +118,7 @@ impl Curve {
         for k in 0..=num_derivatives {
             let mut pt3 = weighted_derivatives[k].truncate();
             for i in 1..=k {
-                pt3 -= derivatives[k - i].truncate() * bin(k, i) * weighted_derivatives[i].w;
+                pt3 -= derivatives[k - i].project() * bin(k, i) * weighted_derivatives[i].w;
             }
             derivatives[k] = pt3.to_hpoint(weighted_derivatives[0].w);
         }
@@ -160,7 +161,15 @@ impl Curve {
         let mut try_params = vec![0.0];
         let unique_knots = self.knots.unique();
         for i in 1..unique_knots.len() {
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.1);
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.2);
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.3);
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.4);
             try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.5);
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.6);
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.7);
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.8);
+            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.9);
             try_params.push(unique_knots[i]);
         }
 
@@ -179,6 +188,7 @@ impl Curve {
                 ProjectionKind::Projection,
                 (lower_bound, upper_bound),
             ) {
+                println!("projected {:#?}", projected);
                 if let Some(ref nearest) = nearest_projected {
                     if nearest.distance > projected.distance {
                         nearest_projected = Some(projected);
@@ -201,6 +211,7 @@ impl Curve {
         projection_kind: ProjectionKind,
         bounds: (f64, f64),
     ) -> Option<CurveProjectionResult> {
+        println!("projecting {:?} from u = {} in {:?}", point, u, bounds);
         struct LastParams {
             u: f64,
             ders: Vec<Vec4>,
@@ -209,10 +220,13 @@ impl Curve {
         let mut last_params: Option<LastParams> = None;
         let mut u = u;
 
-        for _ in 0..MAX_NEWTON_ITER {
+        //for _ in 0..MAX_NEWTON_ITER {
+        loop {
+            println!("u = {}", u);
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
+                println!("Out of bounds {} not in {:?}", u, bounds);
                 return None;
             }
 
@@ -223,7 +237,14 @@ impl Curve {
             // If the parameter has not changed significantly since the last
             // iteration, we've converged
             if let Some(last_params) = last_params {
+                /*
+                println!(
+                    "change = {:.64}",
+                    ((u - last_params.u) * last_params.ders[1]).magnitude()
+                );
+                 */
                 if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
+                    println!("Insignificant change");
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -238,7 +259,7 @@ impl Curve {
                 let point_coincidence = match projection_kind {
                     // If doing inversion, check if the projected point is within tolerance of the
                     // point being inverted.
-                    ProjectionKind::Inversion => point_to_pos.magnitude() < TOL,
+                    ProjectionKind::Inversion => point_to_pos.magnitude().toleq(0.0),
                     // If doing projection, we just mark this `true` so it has no effect
                     ProjectionKind::Projection => true,
                 };
@@ -253,6 +274,7 @@ impl Curve {
                 // If points are coincident (for inversion) and the cosine is zero,
                 // we've converged at u.
                 if point_coincidence && zero_cosine {
+                    println!("Zero cosine");
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -262,10 +284,12 @@ impl Curve {
             }
 
             // Newton iteration
-            let num = ders[1].project().dot(point_to_pos);
+            let num = ders[1].project().dot(point_to_pos) * ders[0].w.powi(2);
             let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
+            println!("num = {}", num);
+            println!("den = {}", den);
             last_params = Some(LastParams { u, ders });
-            u = u - (num / den);
+            u -= num / den;
         }
 
         None
