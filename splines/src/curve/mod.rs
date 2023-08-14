@@ -2,7 +2,7 @@ mod builders;
 
 use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
 use cgmath::{InnerSpace, Matrix4, Zero};
-use primitives::{EVec, HVec, TolEq, Vec3, TOL};
+use primitives::{EVec, HVec, Vec3, TOL};
 use std::cmp::{max, min};
 
 pub use builders::*;
@@ -160,39 +160,17 @@ impl Curve {
         let mut try_params = vec![0.0];
         let unique_knots = self.knots.unique();
         for i in 1..unique_knots.len() {
-            /*
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.1);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.2);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.3);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.4);
-            */
             try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.5);
-            /*
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.6);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.7);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.9);
-             */
             try_params.push(unique_knots[i]);
         }
 
-        println!("projecting {:?}", point);
-        println!("knots {:?}", self.knots);
-        println!("unique_knots {:?}", unique_knots);
-        println!("try_params {:?}", try_params);
-
         for i in 0..try_params.len() {
             let param = try_params[i];
-            let lower_bound = if i == 0 {
-                0.0
-            } else {
-                //try_params[i - 1]
-                0.0
-            };
+            let lower_bound = if i == 0 { 0.0 } else { try_params[i - 1] };
             let upper_bound = if i == try_params.len() - 1 {
                 1.0
             } else {
-                //try_params[i + 1]
-                1.0
+                try_params[i + 1]
             };
 
             if let Some(projected) = self.project_point_from_starting_param(
@@ -223,30 +201,18 @@ impl Curve {
         projection_kind: ProjectionKind,
         bounds: (f64, f64),
     ) -> Option<CurveProjectionResult> {
-        println!(
-            "try from u = {} in ({}, {}) for {:?}",
-            u, bounds.0, bounds.1, point
-        );
-
         struct LastParams {
             u: f64,
             ders: Vec<Vec4>,
         }
 
-        //let point = point.to_hpoint(1.0);
         let mut last_params: Option<LastParams> = None;
         let mut u = u;
 
         for _ in 0..MAX_NEWTON_ITER {
-            println!("u = {}", u);
-
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
-                println!(
-                    "u = {} is outside of ({}, {}) for {:?}",
-                    u, bounds.0, bounds.1, point
-                );
                 return None;
             }
 
@@ -258,17 +224,6 @@ impl Curve {
             // iteration, we've converged
             if let Some(last_params) = last_params {
                 if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
-                    /*
-                    return Some(CurveProjectionResult {
-                        u: last_params.u,
-                        pos: last_params.ders[0],
-                        distance: (last_params.ders[0].project() - point).magnitude(),
-                    });
-                     */
-                    println!(
-                        "Converged at {} because param hasn't changed significantly",
-                        u
-                    );
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -292,20 +247,12 @@ impl Curve {
                 let zero_cosine = {
                     let num = ders[1].project().dot(point_to_pos).abs();
                     let den = ders[1].magnitude() * point_to_pos.magnitude();
-                    println!(
-                        "zero cos test num = {}, den = {}, num/den = {}, ZERO_COS_TOL = {}",
-                        num,
-                        den,
-                        num / den,
-                        ZERO_COS_TOL
-                    );
                     (num / den) <= ZERO_COS_TOL
                 };
 
                 // If points are coincident (for inversion) and the cosine is zero,
                 // we've converged at u.
                 if point_coincidence && zero_cosine {
-                    println!("Converged at {} because cosine is zero", u);
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -321,7 +268,6 @@ impl Curve {
             u = u - (num / den);
         }
 
-        println!("Too many iterations");
         None
     }
 

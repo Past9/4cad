@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Transform, Zero};
 use primitives::{EVec, HVec, Mat4, Vec3, Vec4};
 use render::{
@@ -143,6 +145,7 @@ fn main() {
         end: Vec3,
     }
 
+    let start = Instant::now();
     let projections: Vec<Projection> = points
         .iter()
         .flat_map(|pt| {
@@ -156,6 +159,12 @@ fn main() {
             points
         })
         .collect::<Vec<_>>();
+    let end = Instant::now();
+    println!(
+        "Projected {} points in {}μs",
+        points.len(),
+        (end - start).as_micros()
+    );
 
     // Curve
     model.add_edge(ModelEdge::from_vec3s(
