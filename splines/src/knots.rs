@@ -13,6 +13,15 @@ impl KnotVec {
         }
     }
 
+    pub fn bezier(degree: usize) -> Self {
+        Self {
+            knots: (0..=degree)
+                .map(|_| 0.0)
+                .chain((0..=degree).map(|_| 1.0))
+                .collect(),
+        }
+    }
+
     pub fn uniform(num_points: usize, degree: usize) -> Self {
         let num_total_knots = num_points + degree + 1;
         let num_clamp_knots = degree + 1;

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 primitives = { path = "../primitives" }
 cgmath = "0.18.0"
+once_cell = "1.18.0"

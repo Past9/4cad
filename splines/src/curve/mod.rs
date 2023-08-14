@@ -1,9 +1,13 @@
 mod builders;
 
-use crate::{basis, bin, curve_derivatives, knots::KnotVec, Vec4};
+use crate::{basis, bin, curve_derivatives, knots::KnotVec, nurbs_to_beziers, Vec4};
 use cgmath::{InnerSpace, Matrix4, Zero};
+use once_cell::unsync::OnceCell;
 use primitives::{EVec, HVec, TolEq, Vec3, TOL};
-use std::cmp::{max, min};
+use std::{
+    cell::{Ref, RefCell},
+    cmp::{max, min},
+};
 
 pub use builders::*;
 
@@ -29,6 +33,7 @@ pub struct Curve {
     pub(crate) knots: KnotVec,
     pub(crate) order: usize,
     pub(crate) degree: usize,
+    beziers: OnceCell<Vec<Curve>>,
 }
 impl Curve {
     pub fn unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
@@ -39,6 +44,29 @@ impl Curve {
     pub fn weighted(weighted: Vec<Vec4>, knots: KnotVec) -> Self {
         let unweighted = weighted.iter().map(HVec::unweight).collect();
         Self::create(unweighted, weighted, knots)
+    }
+
+    pub fn unweighted_bezier(unweighted: Vec<Vec4>) -> Self {
+        let knots = KnotVec::bezier(unweighted.len() - 1);
+        let weighted = unweighted.iter().map(HVec::weight).collect();
+        Self::create(unweighted, weighted, knots)
+    }
+
+    pub fn weighted_bezier(weighted: Vec<Vec4>) -> Self {
+        let knots = KnotVec::bezier(weighted.len() - 1);
+        let unweighted = weighted.iter().map(HVec::unweight).collect();
+        Self::create(unweighted, weighted, knots)
+    }
+
+    TODO: Create an example that uses this to decompose a NURBS into beziers 
+    and display them for comparison
+    fn beziers(&self) -> &[Curve] {
+        self.beziers.get_or_init(|| {
+            nurbs_to_beziers(&self.unweighted, self.degree, &self.knots)
+                .into_iter()
+                .map(|bezier_points| Self::unweighted_bezier(bezier_points))
+                .collect()
+        })
     }
 
     fn create(unweighted: Vec<Vec4>, weighted: Vec<Vec4>, knots: KnotVec) -> Self {
@@ -61,6 +89,7 @@ impl Curve {
             knots,
             order,
             degree,
+            beziers: OnceCell::new(),
         }
     }
 
@@ -165,7 +194,9 @@ impl Curve {
             //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.2);
             //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.3);
             //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.4);
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.25);
             try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.5);
+            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.75);
             //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.6);
             //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.7);
             //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.8);

@@ -75,6 +75,72 @@ fn curve_derivatives(
     derivatives
 }
 
+fn nurbs_to_beziers(control_points: &[Vec4], degree: usize, knots: &KnotVec) -> Vec<Vec<Vec4>> {
+    let n = control_points.len() - 1;
+    let m = n + degree + 1;
+    let mut a = degree;
+    let mut b = degree + 1;
+    let mut nb = 0;
+
+    let new_bezier_points = vec![Vec4::zero(); degree + 1];
+    let mut bezier_ctrl_pts: Vec<Vec<Vec4>> = Vec::new();
+
+    bezier_ctrl_pts.push(new_bezier_points.clone());
+
+    for i in 0..=degree {
+        bezier_ctrl_pts[nb][i] = control_points[i];
+    }
+
+    while b < m {
+        let i = b;
+        while b < m && knots[b + 1] == knots[b] {
+            b += 1;
+        }
+
+        let mult = b - i + 1;
+        if mult < degree {
+            let numer = knots[b] - knots[a];
+            let mut alphas = vec![0.0; degree - mult];
+            for j in ((mult + 1)..=degree).rev() {
+                alphas[j - mult - 1] = numer / (knots[a + j] - knots[a]);
+            }
+
+            let r = degree - mult;
+            for j in 1..=r {
+                let save = r - j;
+                let s = mult + j;
+                for k in (s..=degree).rev() {
+                    let alpha = alphas[k - s];
+                    bezier_ctrl_pts[nb][k] =
+                        bezier_ctrl_pts[nb][k] * alpha + bezier_ctrl_pts[nb][k - 1] * (1.0 - alpha);
+                }
+
+                if b < m {
+                    if bezier_ctrl_pts.len() - 1 < nb + 1 {
+                        bezier_ctrl_pts.push(new_bezier_points.clone());
+                    }
+                    bezier_ctrl_pts[nb + 1][save] = bezier_ctrl_pts[nb][degree];
+                }
+            }
+        }
+
+        nb += 1;
+
+        if b < m {
+            for i in (degree - mult)..=degree {
+                if bezier_ctrl_pts.len() - 1 < nb {
+                    bezier_ctrl_pts.push(new_bezier_points.clone());
+                }
+                bezier_ctrl_pts[nb][i] = control_points[b - degree + i];
+            }
+            a = b;
+            b += 1;
+        }
+    }
+
+    bezier_ctrl_pts
+}
+
 /// Implements A3.6
 fn surface_derivatives(
     u: f64,

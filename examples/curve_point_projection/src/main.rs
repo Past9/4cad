@@ -106,7 +106,7 @@ fn main() {
             Vec4::new(-2.0, 0.0, 0.0, 1.0),
             Vec4::new(-1.0, 1.0, 0.0, 2.0),
             Vec4::new(0.0, 0.0, 0.0, 1.0),
-            Vec4::new(1.0, -1.0, 0.0, 0.5),
+            Vec4::new(1.0, -1.0, 0.0, 0.25),
             Vec4::new(2.0, 0.0, 0.0, 1.0),
         ],
         KnotVec::from([
@@ -121,7 +121,7 @@ fn main() {
         .transform(&Mat4::from_translation(Vec3::new(0.0, 0.25, 0.0)))
         .tessellate_by_param(res)
         .into_iter()
-        //.skip(170)
+        //.skip(165)
         //.take(1)
         .chain(
             curve
@@ -174,12 +174,14 @@ fn main() {
     ));
 
     // Origin
+    /*
     model.add_point(ModelPoint::new(
         0.into(),
         Vec3::zero(),
         Vec3::zero(),
         Rgba::WHITE,
     ));
+     */
 
     // Points
     model.add_points(
@@ -188,6 +190,27 @@ fn main() {
             .map(|pt| ModelPoint::new(0.into(), *pt, Vec3::zero(), Rgba::GREEN))
             .collect(),
     );
+
+    model.add_points(vec![
+        ModelPoint::new(
+            0.into(),
+            curve.eval_pos(0.25).project(),
+            Vec3::zero(),
+            Rgba::YELLOW,
+        ),
+        ModelPoint::new(
+            0.into(),
+            curve.eval_pos(0.5).project(),
+            Vec3::zero(),
+            Rgba::YELLOW,
+        ),
+        ModelPoint::new(
+            0.into(),
+            curve.eval_pos(0.75).project(),
+            Vec3::zero(),
+            Rgba::YELLOW,
+        ),
+    ]);
 
     // Projected points
     model.add_points(
