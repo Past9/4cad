@@ -104,9 +104,9 @@ fn main() {
     let curve = Curve::unweighted(
         vec![
             Vec4::new(-2.0, 0.0, 0.0, 1.0),
-            Vec4::new(-1.0, 1.0, 0.0, 5.0),
+            Vec4::new(-1.0, 1.0, 0.0, 2.0),
             Vec4::new(0.0, 0.0, 0.0, 1.0),
-            Vec4::new(1.0, -1.0, 0.0, 0.02),
+            Vec4::new(1.0, -1.0, 0.0, 0.5),
             Vec4::new(2.0, 0.0, 0.0, 1.0),
         ],
         KnotVec::from([
