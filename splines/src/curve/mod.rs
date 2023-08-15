@@ -58,13 +58,11 @@ impl Curve {
         Self::create(unweighted, weighted, knots)
     }
 
-    TODO: Create an example that uses this to decompose a NURBS into beziers 
-    and display them for comparison
-    fn beziers(&self) -> &[Curve] {
+    pub fn beziers(&self) -> &[Curve] {
         self.beziers.get_or_init(|| {
-            nurbs_to_beziers(&self.unweighted, self.degree, &self.knots)
+            nurbs_to_beziers(&self.weighted, self.degree, &self.knots)
                 .into_iter()
-                .map(|bezier_points| Self::unweighted_bezier(bezier_points))
+                .map(|bezier_points| Self::weighted_bezier(bezier_points))
                 .collect()
         })
     }

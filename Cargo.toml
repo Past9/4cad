@@ -9,6 +9,7 @@ members = [
     "tessellate",
     "components",
     "examples/curve_arc",
+    "examples/curve_bezier_decomposition",
     "examples/curve_interpolate_half_circle",
     "examples/curve_point_projection",
     "examples/curve_interpolate_ders_half_circle",
