@@ -1,18 +1,34 @@
 mod builders;
 
-use crate::{basis, bin, curve_derivatives, knots::KnotVec, nurbs_to_beziers, Vec4};
+use crate::{
+    basis, bin, curve_derivatives, knots::KnotVec, line_to_point_perpendicular, nurbs_to_beziers,
+    Vec4,
+};
 use cgmath::{InnerSpace, Matrix4, Zero};
 use once_cell::unsync::OnceCell;
 use primitives::{EVec, HVec, TolEq, Vec3, TOL};
 use std::{
     cell::{Ref, RefCell},
     cmp::{max, min},
+    iter::Once,
 };
 
 pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 1000;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
+
+#[derive(Debug, Clone, Copy)]
+pub enum PolygonKind {
+    /// Polygon has no crossing edges and is convex
+    SimpleConvex,
+
+    /// Polygon has no crossing edges and is concave
+    SimpleConcave,
+
+    /// Polygon has crossing edges
+    Complex,
+}
 
 enum ProjectionKind {
     Projection,
@@ -33,7 +49,9 @@ pub struct Curve {
     pub(crate) knots: KnotVec,
     pub(crate) order: usize,
     pub(crate) degree: usize,
+    is_convex: OnceCell<bool>,
     beziers: OnceCell<Vec<Curve>>,
+    convex_beziers: OnceCell<Vec<Curve>>,
 }
 impl Curve {
     pub fn unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
@@ -58,12 +76,93 @@ impl Curve {
         Self::create(unweighted, weighted, knots)
     }
 
-    pub fn beziers(&self) -> &[Curve] {
+    /// Returns the piecewise bezier decomposition of this curve.
+    pub fn beziers(&self) -> &[Self] {
         self.beziers.get_or_init(|| {
             nurbs_to_beziers(&self.weighted, self.degree, &self.knots)
                 .into_iter()
                 .map(|bezier_points| Self::weighted_bezier(bezier_points))
                 .collect()
+        })
+    }
+
+    /// Returns the piecewise bezier decomposition of this curve, subdivided
+    /// until each bezier curve has a convex control polygon.
+    pub fn convex_beziers(&self) -> &[Self] {
+        self.convex_beziers.get_or_init(|| {
+            let mut convex_beziers = vec![];
+
+            for bezier in self.beziers().iter() {
+                convex_beziers.extend(bezier.split_until_convex());
+            }
+
+            convex_beziers
+        })
+    }
+
+    fn split_until_convex(&self) -> Vec<Self> {
+        if self.is_convex() {
+            vec![self.clone()]
+        } else {
+            let refined = self.refine_knots((0..=self.degree).map(|_| 0.5).collect());
+
+            let bez1 = Self::unweighted_bezier(
+                refined
+                    .unweighted
+                    .iter()
+                    .take(refined.unweighted.len() / 2)
+                    .cloned()
+                    .collect(),
+            );
+            let bez2 = Self::unweighted_bezier(
+                refined
+                    .unweighted
+                    .iter()
+                    .skip(refined.unweighted.len() / 2)
+                    .cloned()
+                    .collect(),
+            );
+
+            bez1.split_until_convex()
+                .into_iter()
+                .chain(bez2.split_until_convex().into_iter())
+                .collect()
+        }
+    }
+
+    /// Returns whether the curve has a convex control polygon
+    pub fn is_convex(&self) -> bool {
+        // Implements is_valid_polygon (algorithm 1) from "Point inversion
+        // and projection for NURBS curve: Control polygon approach"
+
+        *self.is_convex.get_or_init(|| {
+            let poly = self
+                .unweighted
+                .iter()
+                .map(|pt| pt.project())
+                .collect::<Vec<_>>();
+
+            let n = poly.len() - 1;
+            for i in 1..n {
+                let pt_prev = poly[i - 1];
+                let pt = poly[i];
+                let pt_next = poly[i + 1];
+
+                // Compute the projection vector V1Pi
+                let v1pi = line_to_point_perpendicular(pt_prev, pt_next, pt);
+
+                let r = if i < n / 2 {
+                    v1pi.dot(line_to_point_perpendicular(pt_prev, pt_next, poly[n]))
+                } else {
+                    v1pi.dot(line_to_point_perpendicular(pt_prev, pt_next, poly[0]))
+                };
+
+                if r > 0.0 {
+                    return false;
+                }
+            }
+
+            true
         })
     }
 
@@ -87,7 +186,9 @@ impl Curve {
             knots,
             order,
             degree,
+            is_convex: OnceCell::new(),
             beziers: OnceCell::new(),
+            convex_beziers: OnceCell::new(),
         }
     }
 
@@ -575,5 +676,42 @@ impl Curve {
         }
 
         Self::weighted(qw, KnotVec::new(uh))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cgmath::vec4;
+
+    use crate::Curve;
+
+    #[test]
+    fn identifies_convex_control_polygons() {
+        let convex = Curve::unweighted_bezier(vec![
+            vec4(-2.0, 1.0, 0.0, 1.0),
+            vec4(-1.0, -1.0, 0.0, 1.0),
+            vec4(1.0, -1.0, 0.0, 1.0),
+            vec4(2.0, 1.0, 0.0, 1.0),
+        ]);
+
+        assert!(convex.is_convex());
+
+        let concave = Curve::unweighted_bezier(vec![
+            vec4(-2.0, 1.0, 0.0, 1.0),
+            vec4(-1.0, -1.0, 0.0, 1.0),
+            vec4(1.0, 0.9, 0.0, 1.0),
+            vec4(2.0, 1.0, 0.0, 1.0),
+        ]);
+
+        assert!(!concave.is_convex());
+
+        let complex = Curve::unweighted_bezier(vec![
+            vec4(-2.0, 1.0, 0.0, 1.0),
+            vec4(-1.0, -1.0, 0.0, 1.0),
+            vec4(1.0, 1.5, 0.0, 1.0),
+            vec4(2.0, 1.0, 0.0, 1.0),
+        ]);
+
+        assert!(!complex.is_convex());
     }
 }

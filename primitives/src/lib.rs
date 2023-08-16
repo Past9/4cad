@@ -28,6 +28,38 @@ impl TolEq for f64 {
         }
     }
 }
+impl TolEq for Vec3 {
+    fn toleq(self, rhs: Self) -> bool {
+        self.x.toleq(rhs.x) && self.y.toleq(rhs.y) && self.z.toleq(rhs.z)
+    }
+
+    fn toleq_avg(self, rhs: Self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        if self.toleq(rhs) {
+            Some((self + rhs) / 2.0)
+        } else {
+            None
+        }
+    }
+}
+impl TolEq for Vec4 {
+    fn toleq(self, rhs: Self) -> bool {
+        self.x.toleq(rhs.x) && self.y.toleq(rhs.y) && self.z.toleq(rhs.z) && self.w.toleq(rhs.w)
+    }
+
+    fn toleq_avg(self, rhs: Self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        if self.toleq(rhs) {
+            Some((self + rhs) / 2.0)
+        } else {
+            None
+        }
+    }
+}
 impl TolEq for Vec<f64> {
     fn toleq(self, rhs: Self) -> bool {
         if self.len() == rhs.len() {

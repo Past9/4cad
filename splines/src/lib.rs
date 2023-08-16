@@ -29,6 +29,37 @@ fn bin(k: usize, i: usize) -> f64 {
     BINOMIAL_COEFFICIENTS[k][i]
 }
 
+/// Given a line segment from `line_start` to `line_end` and `point`, finds a vector
+/// from the line segment to `point` that is perpendicular to the line segment.
+fn line_to_point_perpendicular(line_start: Vec3, line_end: Vec3, point: Vec3) -> Vec3 {
+    // Algorithm from https://stackoverflow.com/a/5227626
+    //
+    //
+    // P - point
+    // D - direction of line (unit length)
+    // A - point in line
+    //
+    // X - base of the perpendicular line
+    //
+    //     P
+    //    /|
+    //   / |
+    //  /  v
+    // A---X----->D
+    //
+    // (P-A).D == |X-A|
+    //
+    // X == A + ((P-A).D)D
+    // Desired perpendicular: P-X
+
+    let p = point;
+    let d = (line_end - line_start).normalize();
+    let a = line_start;
+
+    let x = a + (p - a).dot(d) * d;
+    p - x
+}
+
 fn basis(span: usize, u: f64, degree: usize, knots: &KnotVec) -> Vec<f64> {
     // Alg A2.2
     let mut basis_vals = vec![0.0; degree + 1];
@@ -461,7 +492,10 @@ fn arbitrary_orthonormal(a: Vec3) -> Vec3 {
 
 #[cfg(test)]
 mod tests {
-    use crate::transpose;
+    use cgmath::vec3;
+    use primitives::TolEq;
+
+    use crate::{line_to_point_perpendicular, transpose};
 
     #[test]
     fn transposes_grid() {
@@ -469,5 +503,14 @@ mod tests {
             transpose(vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]]),
             vec![vec![1, 4, 7], vec![2, 5, 8], vec![3, 6, 9],]
         );
+    }
+
+    #[test]
+    fn calcs_line_to_point_perpendicular() {
+        let start = vec3(-2.0, 1.0, 0.0);
+        let end = vec3(-1.0, -1.0, 0.0);
+        let point = vec3(1.0, -1.0, 0.0);
+
+        assert!(vec3(1.6, 0.8, 0.0).toleq(line_to_point_perpendicular(start, end, point)),);
     }
 }
