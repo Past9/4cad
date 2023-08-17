@@ -3,14 +3,11 @@ use cgmath::{InnerSpace, Vector4, Zero};
 use primitives::{HVec, Mat4, Vec3};
 
 impl Surface {
-    pub fn rule_curve(curve: Curve, direction: Vec3) -> Self {
+    pub fn rule_curve(curve: &Curve, direction: Vec3) -> Self {
         let transform = Mat4::from_translation(direction);
 
-        let Curve {
-            unweighted: row1,
-            knots: knots_v,
-            ..
-        } = curve;
+        let row1 = curve.ref_unweighted().to_vec();
+        let knots_v = curve.knots().clone();
 
         let row2 = row1
             .clone()
@@ -30,13 +27,13 @@ impl Surface {
         trajectory: &Curve,
         mut num_sections: usize,
     ) -> (KnotVec, Vec<f64>, Vec<Curve>) {
-        let q = trajectory.degree;
-        let ktv = trajectory.knots.len();
+        let q = trajectory.degree();
+        let ktv = trajectory.knots().len();
 
         let knots_v = if ktv <= num_sections + q {
             // Refine trajectory's knot vector
             let m = num_sections + q - ktv + 1;
-            trajectory.knots.split_largest_span(m)
+            trajectory.knots().split_largest_span(m)
         } else {
             // Increase the number of instances of `curve`
             if ktv > num_sections + q + 1 {
@@ -44,7 +41,7 @@ impl Surface {
             }
 
             // Use trajectory's knot vector
-            trajectory.knots.clone()
+            trajectory.knots().clone()
         };
 
         // Compute parameters by averaging knots
@@ -101,7 +98,7 @@ impl Surface {
 
                 ctrl_pts[i] *= trajectory_ders[0].w; // * 200.0;
             }
-            section_curves.push(Curve::weighted(ctrl_pts, profile.knots.clone()))
+            section_curves.push(Curve::create_weighted(ctrl_pts, profile.knots().clone()))
         }
 
         (knots_v, params_v, section_curves)
@@ -114,12 +111,12 @@ impl Surface {
         let mut curves = vec![];
         for i in 0..profile.num_pts() {
             let points: Vec<Vec4> = (0..section_curves.len())
-                .map(|k| section_curves[k].weighted[i])
+                .map(|k| section_curves[k].ref_weighted()[i])
                 .collect();
 
             curves.push(Curve::interpolate(
                 points,
-                trajectory.degree,
+                trajectory.degree(),
                 Some(params_v.clone()),
                 //Some(trajectory.knots.clone()),
                 Some(knots_v.clone()),
@@ -128,7 +125,7 @@ impl Surface {
 
         let ctrl_pts = curves.into_iter().map(Curve::take_weighted).collect();
 
-        let surf = Self::weighted(ctrl_pts, profile.knots.clone(), knots_v);
+        let surf = Self::weighted(ctrl_pts, profile.knots().clone(), knots_v);
 
         surf
     }
@@ -177,7 +174,7 @@ impl Surface {
 
         // We now interpolate points along the V-direction to generate control points for the surface.
         let v_curves = {
-            let n = curves[0].weighted.len();
+            let n = curves[0].ref_weighted().len();
 
             // Calculate the total chord lengh along each new V-direction curve
             let total_chord_len = {
@@ -186,7 +183,8 @@ impl Surface {
                     d.push(
                         (1..curves.len())
                             .map(|k| {
-                                (curves[k].weighted[i] - curves[k - 1].weighted[i]).magnitude()
+                                (curves[k].ref_weighted()[i] - curves[k - 1].ref_weighted()[i])
+                                    .magnitude()
                             })
                             .sum::<f64>(),
                     );
@@ -203,7 +201,8 @@ impl Surface {
                         params[k - 1]
                             + (0..n)
                                 .map(|i| {
-                                    (curves[k].weighted[i] - curves[k - 1].weighted[i]).magnitude()
+                                    (curves[k].ref_weighted()[i] - curves[k - 1].ref_weighted()[i])
+                                        .magnitude()
                                         / total_chord_len[i]
                                 })
                                 .sum::<f64>()
@@ -219,7 +218,7 @@ impl Surface {
             (0..n)
                 .map(|i| {
                     Curve::interpolate(
-                        curves.iter().map(|curve| curve.weighted[i]).collect(),
+                        curves.iter().map(|curve| curve.ref_weighted()[i]).collect(),
                         degree,
                         Some(params.clone()),
                         None,
@@ -229,7 +228,7 @@ impl Surface {
         };
 
         // We can get the U-direction knots from the original curves
-        let knots_u = curves[0].knots.clone();
+        let knots_u = curves[0].knots().clone();
 
         // The V-direction knots come from the new interpolated curves, which are
         // oriented along the V-direction

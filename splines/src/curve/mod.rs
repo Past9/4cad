@@ -7,11 +7,7 @@ use crate::{
 use cgmath::{InnerSpace, Matrix4, Zero};
 use once_cell::unsync::OnceCell;
 use primitives::{EVec, HVec, TolEq, Vec3, TOL};
-use std::{
-    cell::{Ref, RefCell},
-    cmp::{max, min},
-    iter::Once,
-};
+use std::cmp::{max, min};
 
 pub use builders::*;
 
@@ -44,36 +40,62 @@ pub struct CurveProjectionResult {
 
 #[derive(Debug, Clone)]
 pub struct Curve {
-    pub(crate) weighted: Vec<Vec4>,
+    weighted: Vec<Vec4>,
     pub(crate) unweighted: Vec<Vec4>,
-    pub(crate) knots: KnotVec,
-    pub(crate) order: usize,
-    pub(crate) degree: usize,
+    knots: KnotVec,
+    order: usize,
+    degree: usize,
     is_convex: OnceCell<bool>,
     beziers: OnceCell<Vec<Curve>>,
     convex_beziers: OnceCell<Vec<Curve>>,
 }
 impl Curve {
-    pub fn unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
+    pub fn create_unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
         let weighted = unweighted.iter().map(HVec::weight).collect();
         Self::create(unweighted, weighted, knots)
     }
 
-    pub fn weighted(weighted: Vec<Vec4>, knots: KnotVec) -> Self {
+    pub fn create_weighted(weighted: Vec<Vec4>, knots: KnotVec) -> Self {
         let unweighted = weighted.iter().map(HVec::unweight).collect();
         Self::create(unweighted, weighted, knots)
     }
 
-    pub fn unweighted_bezier(unweighted: Vec<Vec4>) -> Self {
+    pub fn create_unweighted_bezier(unweighted: Vec<Vec4>) -> Self {
         let knots = KnotVec::bezier(unweighted.len() - 1);
         let weighted = unweighted.iter().map(HVec::weight).collect();
         Self::create(unweighted, weighted, knots)
     }
 
-    pub fn weighted_bezier(weighted: Vec<Vec4>) -> Self {
+    pub fn create_weighted_bezier(weighted: Vec<Vec4>) -> Self {
         let knots = KnotVec::bezier(weighted.len() - 1);
         let unweighted = weighted.iter().map(HVec::unweight).collect();
         Self::create(unweighted, weighted, knots)
+    }
+
+    fn create(unweighted: Vec<Vec4>, weighted: Vec<Vec4>, knots: KnotVec) -> Self {
+        let num_knots = knots.len();
+        let num_points = unweighted.len();
+        let order = num_knots - num_points;
+        let degree = order - 1;
+        if degree < 1 {
+            panic!(
+                "Curve would have degree {} (knots.len() - points.len() - 1). Needs more knots or fewer points.",
+                degree
+            );
+        }
+
+        knots.assert_clamped(degree);
+
+        Self {
+            weighted,
+            unweighted,
+            knots,
+            order,
+            degree,
+            is_convex: OnceCell::new(),
+            beziers: OnceCell::new(),
+            convex_beziers: OnceCell::new(),
+        }
     }
 
     /// Returns the piecewise bezier decomposition of this curve.
@@ -81,7 +103,7 @@ impl Curve {
         self.beziers.get_or_init(|| {
             nurbs_to_beziers(&self.weighted, self.degree, &self.knots)
                 .into_iter()
-                .map(|bezier_points| Self::weighted_bezier(bezier_points))
+                .map(|bezier_points| Self::create_weighted_bezier(bezier_points))
                 .collect()
         })
     }
@@ -106,7 +128,7 @@ impl Curve {
         } else {
             let refined = self.refine_knots((0..=self.degree).map(|_| 0.5).collect());
 
-            let bez1 = Self::unweighted_bezier(
+            let bez1 = Self::create_unweighted_bezier(
                 refined
                     .unweighted
                     .iter()
@@ -114,7 +136,7 @@ impl Curve {
                     .cloned()
                     .collect(),
             );
-            let bez2 = Self::unweighted_bezier(
+            let bez2 = Self::create_unweighted_bezier(
                 refined
                     .unweighted
                     .iter()
@@ -164,32 +186,6 @@ impl Curve {
 
             true
         })
-    }
-
-    fn create(unweighted: Vec<Vec4>, weighted: Vec<Vec4>, knots: KnotVec) -> Self {
-        let num_knots = knots.len();
-        let num_points = unweighted.len();
-        let order = num_knots - num_points;
-        let degree = order - 1;
-        if degree < 1 {
-            panic!(
-                "Curve would have degree {} (knots.len() - points.len() - 1). Needs more knots or fewer points.",
-                degree
-            );
-        }
-
-        knots.assert_clamped(degree);
-
-        Self {
-            weighted,
-            unweighted,
-            knots,
-            order,
-            degree,
-            is_convex: OnceCell::new(),
-            beziers: OnceCell::new(),
-            convex_beziers: OnceCell::new(),
-        }
     }
 
     pub fn ref_weighted(&self) -> &[Vec4] {
@@ -255,7 +251,7 @@ impl Curve {
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
-        Self::unweighted(
+        Self::create_unweighted(
             self.unweighted
                 .iter()
                 .map(|p| p.transform(transform))
@@ -487,7 +483,7 @@ impl Curve {
             k = k - 1;
         }
 
-        Self::weighted(out_points, KnotVec::new(out_knots))
+        Self::create_weighted(out_points, KnotVec::new(out_knots))
     }
 
     pub fn elevate_degree_to(&self, degree: usize) -> Self {
@@ -675,7 +671,7 @@ impl Curve {
             }
         }
 
-        Self::weighted(qw, KnotVec::new(uh))
+        Self::create_weighted(qw, KnotVec::new(uh))
     }
 }
 
@@ -687,7 +683,7 @@ mod tests {
 
     #[test]
     fn identifies_convex_control_polygons() {
-        let convex = Curve::unweighted_bezier(vec![
+        let convex = Curve::create_unweighted_bezier(vec![
             vec4(-2.0, 1.0, 0.0, 1.0),
             vec4(-1.0, -1.0, 0.0, 1.0),
             vec4(1.0, -1.0, 0.0, 1.0),
@@ -696,7 +692,7 @@ mod tests {
 
         assert!(convex.is_convex());
 
-        let concave = Curve::unweighted_bezier(vec![
+        let concave = Curve::create_unweighted_bezier(vec![
             vec4(-2.0, 1.0, 0.0, 1.0),
             vec4(-1.0, -1.0, 0.0, 1.0),
             vec4(1.0, 0.9, 0.0, 1.0),
@@ -705,7 +701,7 @@ mod tests {
 
         assert!(!concave.is_convex());
 
-        let complex = Curve::unweighted_bezier(vec![
+        let complex = Curve::create_unweighted_bezier(vec![
             vec4(-2.0, 1.0, 0.0, 1.0),
             vec4(-1.0, -1.0, 0.0, 1.0),
             vec4(1.0, 1.5, 0.0, 1.0),

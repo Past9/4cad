@@ -101,7 +101,7 @@ fn main() {
 
     // FLAT EUCLIDEAN
 
-    let curve = Curve::unweighted(
+    let curve = Curve::create_unweighted(
         vec![
             Vec4::new(-2.0, 0.0, 0.0, 1.0),
             Vec4::new(-1.0, 1.0, 0.0, 2.0),

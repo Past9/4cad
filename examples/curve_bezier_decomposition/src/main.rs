@@ -17,7 +17,7 @@ fn main() {
     let mut model = Model::empty();
     let resolution = 1000;
 
-    let nurbs = Curve::unweighted(
+    let nurbs = Curve::create_unweighted(
         vec![
             Vec4::new(-4.1, -4.0, -4.0, 0.25),
             Vec4::new(-7.0, 3.0, -12.0, 1.0),
