@@ -90,9 +90,9 @@ impl Surface {
                     0.0, 0.0, 0.0, 1.0, //
                 );
 
-            let mut ctrl_pts = vec![Vec4::zero(); profile.unweighted.len()];
+            let mut ctrl_pts = vec![Vec4::zero(); profile.ref_unweighted().len()];
             for i in 0..profile.num_pts() {
-                let pt = profile.unweighted[i];
+                let pt = profile.ref_unweighted()[i];
                 let transformed = mat_a.clone() * Vector4::new(pt.x, pt.y, pt.z, 1.0);
                 ctrl_pts[i] = Vec4::new(transformed.x, transformed.y, transformed.z, pt.w).weight();
 

@@ -119,7 +119,7 @@ pub struct CurveProjectionResult {
 #[derive(Debug, Clone)]
 pub struct Curve {
     weighted: Vec<Vec4>,
-    pub(crate) unweighted: Vec<Vec4>,
+    unweighted: Vec<Vec4>,
     knots: KnotVec,
     order: usize,
     degree: usize,
@@ -210,38 +210,6 @@ impl Curve {
         })
     }
 
-    /*
-    fn split_bezier_until_convex(&self) -> Vec<BezierComponent> {
-        if self.is_convex() {
-            vec![self.clone()]
-        } else {
-            let refined = self.refine_knots((0..=self.degree).map(|_| 0.5).collect());
-
-            let bez1 = Self::create_unweighted_bezier(
-                refined
-                    .unweighted
-                    .iter()
-                    .take(refined.unweighted.len() / 2)
-                    .cloned()
-                    .collect(),
-            );
-            let bez2 = Self::create_unweighted_bezier(
-                refined
-                    .unweighted
-                    .iter()
-                    .skip(refined.unweighted.len() / 2)
-                    .cloned()
-                    .collect(),
-            );
-
-            bez1.split_bezier_until_convex()
-                .into_iter()
-                .chain(bez2.split_bezier_until_convex().into_iter())
-                .collect()
-        }
-    }
-    */
-
     /// Returns whether the curve has a convex control polygon
     pub fn is_convex(&self) -> bool {
         // Implements is_valid_polygon (algorithm 1) from "Point inversion
@@ -310,7 +278,7 @@ impl Curve {
         &self.knots
     }
 
-    /// Returns the homogeneous point on the curve at the parameter value `u`.
+    /// Returns the point on the curve at the parameter value `u`.
     pub fn eval_pos(&self, u: f64) -> Vec4 {
         // Alg A4.1
         let span = self.knots.find_span(self.degree, u);
@@ -323,6 +291,10 @@ impl Curve {
         point
     }
 
+    /// Evaluates the position of the curve as the first `num_derivatives` derivatives at `u`.
+    /// Returns a `Vec<Vec4>` where the first element (index 0) is the point on the curve at `u`
+    /// (the "zero-th derivative"), the second element (index 1) is the vector of the first
+    /// derivative, the third (index 2) is the vector of the second derivative, and so on.
     pub fn eval_derivatives(&self, u: f64, num_derivatives: usize) -> Vec<Vec4> {
         let weighted_derivatives =
             curve_derivatives(u, &self.weighted, self.degree, &self.knots, num_derivatives);
@@ -340,6 +312,7 @@ impl Curve {
         derivatives
     }
 
+    /// Applies a matrix transformation to the curve.
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
         Self::create_unweighted(
             self.unweighted
@@ -587,6 +560,8 @@ impl Curve {
         Self::create_weighted(out_points, KnotVec::new(out_knots))
     }
 
+    /// Increases the degree of the curve to `degree`, adding control points as needed
+    /// while maintaining the shape of the curve.
     pub fn elevate_degree_to(&self, degree: usize) -> Self {
         if degree < self.degree {
             panic!(
@@ -598,6 +573,8 @@ impl Curve {
         self.elevate_degree(degree - self.degree)
     }
 
+    /// Increases the degree of the curve by `t`, adding control points as needed
+    /// while maintaining the shape of the curve.
     pub fn elevate_degree(&self, t: usize) -> Self {
         let t: i64 = t as i64;
         let n: i64 = self.weighted.len() as i64 - 1;
