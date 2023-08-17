@@ -31,6 +31,54 @@ enum ProjectionKind {
     Inversion,
 }
 
+#[derive(Debug, Clone)]
+pub struct BezierComponent {
+    pub param_span: (f64, f64),
+    pub curve: Curve,
+}
+impl BezierComponent {
+    fn split_until_convex(&self) -> Vec<BezierComponent> {
+        if self.curve.is_convex() {
+            vec![self.clone()]
+        } else {
+            let refined = self
+                .curve
+                .refine_knots((0..=self.curve.degree).map(|_| 0.5).collect());
+
+            let middle_knot = (self.param_span.0 + self.param_span.1) / 2.0;
+
+            let bez1 = Self {
+                curve: Curve::create_unweighted_bezier(
+                    refined
+                        .unweighted
+                        .iter()
+                        .take(refined.unweighted.len() / 2)
+                        .cloned()
+                        .collect(),
+                ),
+                param_span: (self.param_span.0, middle_knot),
+            };
+
+            let bez2 = Self {
+                curve: Curve::create_unweighted_bezier(
+                    refined
+                        .unweighted
+                        .iter()
+                        .skip(refined.unweighted.len() / 2)
+                        .cloned()
+                        .collect(),
+                ),
+                param_span: (middle_knot, self.param_span.1),
+            };
+
+            bez1.split_until_convex()
+                .into_iter()
+                .chain(bez2.split_until_convex().into_iter())
+                .collect()
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct CurveProjectionResult {
     pub u: f64,
@@ -46,8 +94,8 @@ pub struct Curve {
     order: usize,
     degree: usize,
     is_convex: OnceCell<bool>,
-    beziers: OnceCell<Vec<Curve>>,
-    convex_beziers: OnceCell<Vec<Curve>>,
+    beziers: OnceCell<Vec<BezierComponent>>,
+    convex_beziers: OnceCell<Vec<BezierComponent>>,
 }
 impl Curve {
     pub fn create_unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
@@ -99,18 +147,14 @@ impl Curve {
     }
 
     /// Returns the piecewise bezier decomposition of this curve.
-    pub fn beziers(&self) -> &[Self] {
-        self.beziers.get_or_init(|| {
-            nurbs_to_beziers(&self.weighted, self.degree, &self.knots)
-                .into_iter()
-                .map(|bezier_points| Self::create_weighted_bezier(bezier_points))
-                .collect()
-        })
+    pub fn beziers(&self) -> &[BezierComponent] {
+        self.beziers
+            .get_or_init(|| nurbs_to_beziers(&self.weighted, self.degree, &self.knots))
     }
 
     /// Returns the piecewise bezier decomposition of this curve, subdivided
     /// until each bezier curve has a convex control polygon.
-    pub fn convex_beziers(&self) -> &[Self] {
+    pub fn convex_beziers(&self) -> &[BezierComponent] {
         self.convex_beziers.get_or_init(|| {
             let mut convex_beziers = vec![];
 
@@ -122,7 +166,8 @@ impl Curve {
         })
     }
 
-    fn split_until_convex(&self) -> Vec<Self> {
+    /*
+    fn split_bezier_until_convex(&self) -> Vec<BezierComponent> {
         if self.is_convex() {
             vec![self.clone()]
         } else {
@@ -145,12 +190,13 @@ impl Curve {
                     .collect(),
             );
 
-            bez1.split_until_convex()
+            bez1.split_bezier_until_convex()
                 .into_iter()
-                .chain(bez2.split_until_convex().into_iter())
+                .chain(bez2.split_bezier_until_convex().into_iter())
                 .collect()
         }
     }
+    */
 
     /// Returns whether the curve has a convex control polygon
     pub fn is_convex(&self) -> bool {
@@ -314,7 +360,6 @@ impl Curve {
                 ProjectionKind::Projection,
                 (lower_bound, upper_bound),
             ) {
-                println!("projected {:#?}", projected);
                 if let Some(ref nearest) = nearest_projected {
                     if nearest.distance > projected.distance {
                         nearest_projected = Some(projected);
@@ -337,7 +382,6 @@ impl Curve {
         projection_kind: ProjectionKind,
         bounds: (f64, f64),
     ) -> Option<CurveProjectionResult> {
-        println!("projecting {:?} from u = {} in {:?}", point, u, bounds);
         struct LastParams {
             u: f64,
             ders: Vec<Vec4>,
@@ -348,11 +392,9 @@ impl Curve {
 
         //for _ in 0..MAX_NEWTON_ITER {
         loop {
-            println!("u = {}", u);
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
-                println!("Out of bounds {} not in {:?}", u, bounds);
                 return None;
             }
 
@@ -370,7 +412,6 @@ impl Curve {
                 );
                  */
                 if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
-                    println!("Insignificant change");
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -400,7 +441,6 @@ impl Curve {
                 // If points are coincident (for inversion) and the cosine is zero,
                 // we've converged at u.
                 if point_coincidence && zero_cosine {
-                    println!("Zero cosine");
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -412,8 +452,7 @@ impl Curve {
             // Newton iteration
             let num = ders[1].project().dot(point_to_pos) * ders[0].w.powi(2);
             let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
-            println!("num = {}", num);
-            println!("den = {}", den);
+
             last_params = Some(LastParams { u, ders });
             u -= num / den;
         }

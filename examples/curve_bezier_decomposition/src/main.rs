@@ -1,9 +1,9 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
-use primitives::{Mat4, Vec4};
+use primitives::{HVec, Mat4, Vec4};
 use render::{
     camera::Camera,
     lights::Lights,
-    model::{Geometry, Model, ModelEdge},
+    model::{Geometry, Model, ModelEdge, ModelPoint},
     rgb, rgba,
     scene::SceneBuilder,
     Rgb, Rgba,
@@ -11,6 +11,9 @@ use render::{
 use splines::{Curve, KnotVec};
 use tessellate::curve::CurveTessellation;
 use viewer::run_viewer;
+
+const BEZ_OFFSET: f64 = 0.1;
+const CONVEX_BEZ_OFFSET: f64 = BEZ_OFFSET * 2.0;
 
 fn main() {
     let mut geometry = Geometry::new();
@@ -38,10 +41,11 @@ fn main() {
         ]),
     );
 
-    let beziers_nurbs = nurbs.transform(&Mat4::from_translation(vec3(0.0, 0.05, 0.0)));
+    let beziers_nurbs = nurbs.transform(&Mat4::from_translation(vec3(0.0, BEZ_OFFSET, 0.0)));
     let beziers = beziers_nurbs.beziers();
 
-    let convex_beziers_nurbs = nurbs.transform(&Mat4::from_translation(vec3(0.0, 0.1, 0.0)));
+    let convex_beziers_nurbs =
+        nurbs.transform(&Mat4::from_translation(vec3(0.0, CONVEX_BEZ_OFFSET, 0.0)));
     let convex_beziers = convex_beziers_nurbs.convex_beziers();
 
     model.add_edge(ModelEdge::from_vec3s(
@@ -51,21 +55,45 @@ fn main() {
 
     for (i, bezier) in beziers.iter().enumerate() {
         model.add_edge(ModelEdge::from_vec3s(
-            bezier.tessellate_by_param(resolution),
+            bezier.curve.tessellate_by_param(resolution),
             match i % 2 {
                 0 => Rgba::MAGENTA,
                 _ => Rgba::GREEN,
             },
         ));
+
+        let start_pt = nurbs.eval_pos(bezier.param_span.0).project();
+        model.add_point(ModelPoint::from_vec3(
+            start_pt + vec3(0.0, BEZ_OFFSET, 0.0),
+            Rgba::MAGENTA,
+        ));
+
+        let end_pt = nurbs.eval_pos(bezier.param_span.1).project();
+        model.add_point(ModelPoint::from_vec3(
+            end_pt + vec3(0.0, BEZ_OFFSET, 0.0),
+            Rgba::MAGENTA,
+        ));
     }
 
     for (i, bezier) in convex_beziers.iter().enumerate() {
         model.add_edge(ModelEdge::from_vec3s(
-            bezier.tessellate_by_param(resolution),
+            bezier.curve.tessellate_by_param(resolution),
             match i % 2 {
                 0 => Rgba::RED,
                 _ => Rgba::CYAN,
             },
+        ));
+
+        let start_pt = nurbs.eval_pos(bezier.param_span.0).project();
+        model.add_point(ModelPoint::from_vec3(
+            start_pt + vec3(0.0, CONVEX_BEZ_OFFSET, 0.0),
+            Rgba::CYAN,
+        ));
+
+        let end_pt = nurbs.eval_pos(bezier.param_span.1).project();
+        model.add_point(ModelPoint::from_vec3(
+            end_pt + vec3(0.0, CONVEX_BEZ_OFFSET, 0.0),
+            Rgba::CYAN,
         ));
     }
 

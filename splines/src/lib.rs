@@ -106,7 +106,11 @@ fn curve_derivatives(
     derivatives
 }
 
-fn nurbs_to_beziers(control_points: &[Vec4], degree: usize, knots: &KnotVec) -> Vec<Vec<Vec4>> {
+fn nurbs_to_beziers(
+    control_points: &[Vec4],
+    degree: usize,
+    knots: &KnotVec,
+) -> Vec<BezierComponent> {
     let n = control_points.len() - 1;
     let m = n + degree + 1;
     let mut a = degree;
@@ -115,6 +119,7 @@ fn nurbs_to_beziers(control_points: &[Vec4], degree: usize, knots: &KnotVec) -> 
 
     let new_bezier_points = vec![Vec4::zero(); degree + 1];
     let mut bezier_ctrl_pts: Vec<Vec<Vec4>> = Vec::new();
+    let mut param_spans: Vec<(f64, f64)> = vec![];
 
     bezier_ctrl_pts.push(new_bezier_points.clone());
 
@@ -149,6 +154,7 @@ fn nurbs_to_beziers(control_points: &[Vec4], degree: usize, knots: &KnotVec) -> 
                 if b < m {
                     if bezier_ctrl_pts.len() - 1 < nb + 1 {
                         bezier_ctrl_pts.push(new_bezier_points.clone());
+                        param_spans.push((knots[a], knots[b]));
                     }
                     bezier_ctrl_pts[nb + 1][save] = bezier_ctrl_pts[nb][degree];
                 }
@@ -161,6 +167,7 @@ fn nurbs_to_beziers(control_points: &[Vec4], degree: usize, knots: &KnotVec) -> 
             for i in (degree - mult)..=degree {
                 if bezier_ctrl_pts.len() - 1 < nb {
                     bezier_ctrl_pts.push(new_bezier_points.clone());
+                    param_spans.push((knots[a], knots[b]));
                 }
                 bezier_ctrl_pts[nb][i] = control_points[b - degree + i];
             }
@@ -169,7 +176,17 @@ fn nurbs_to_beziers(control_points: &[Vec4], degree: usize, knots: &KnotVec) -> 
         }
     }
 
-    bezier_ctrl_pts
+    param_spans.push((param_spans[param_spans.len() - 1].1, 1.0));
+
+    let mut components = vec![];
+    for (i, ctrl_pts) in bezier_ctrl_pts.into_iter().enumerate() {
+        components.push(BezierComponent {
+            param_span: param_spans[i],
+            curve: Curve::create_weighted_bezier(ctrl_pts),
+        })
+    }
+
+    components
 }
 
 /// Implements A3.6
