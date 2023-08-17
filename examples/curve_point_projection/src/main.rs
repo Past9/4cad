@@ -20,7 +20,7 @@ fn main() {
     let resolution = 1000;
 
     /*
-    // HOMOGNEOUS
+    // HOMOGENEOUS
 
     let curve = Curve::unweighted(
         vec![
