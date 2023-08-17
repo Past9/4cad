@@ -14,6 +14,7 @@ use viewer::run_viewer;
 
 const BEZ_OFFSET: f64 = 0.1;
 const CONVEX_BEZ_OFFSET: f64 = BEZ_OFFSET * 2.0;
+const STRAIGHT_BEZ_OFFSET: f64 = BEZ_OFFSET * 3.0;
 
 fn main() {
     let mut geometry = Geometry::new();
@@ -47,6 +48,10 @@ fn main() {
     let convex_beziers_nurbs =
         nurbs.transform(&Mat4::from_translation(vec3(0.0, CONVEX_BEZ_OFFSET, 0.0)));
     let convex_beziers = convex_beziers_nurbs.convex_beziers();
+
+    let straight_beziers_nurbs =
+        nurbs.transform(&Mat4::from_translation(vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0)));
+    let straight_beziers = straight_beziers_nurbs.straight_beziers();
 
     model.add_edge(ModelEdge::from_vec3s(
         nurbs.tessellate_by_param(resolution),
@@ -94,6 +99,28 @@ fn main() {
         model.add_point(ModelPoint::from_vec3(
             end_pt + vec3(0.0, CONVEX_BEZ_OFFSET, 0.0),
             Rgba::CYAN,
+        ));
+    }
+
+    for (i, bezier) in straight_beziers.iter().enumerate() {
+        model.add_edge(ModelEdge::from_vec3s(
+            bezier.curve.tessellate_by_param(resolution),
+            match i % 2 {
+                0 => Rgba::ORANGE,
+                _ => Rgba::PINK,
+            },
+        ));
+
+        let start_pt = nurbs.eval_pos(bezier.param_span.0).project();
+        model.add_point(ModelPoint::from_vec3(
+            start_pt + vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0),
+            Rgba::PINK,
+        ));
+
+        let end_pt = nurbs.eval_pos(bezier.param_span.1).project();
+        model.add_point(ModelPoint::from_vec3(
+            end_pt + vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0),
+            Rgba::PINK,
         ));
     }
 

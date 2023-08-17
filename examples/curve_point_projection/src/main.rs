@@ -15,7 +15,7 @@ use tessellate::curve::CurveTessellation;
 use viewer::run_viewer;
 
 const BEZ_OFFSET: f64 = -0.1;
-const CONVEX_BEZ_OFFSET: f64 = BEZ_OFFSET * 2.0;
+const STRAIGHT_BEZ_OFFSET: f64 = BEZ_OFFSET * 2.0;
 
 fn main() {
     let mut geometry = Geometry::new();
@@ -118,9 +118,9 @@ fn main() {
         ]),
     );
 
-    let convex_beziers_nurbs =
-        curve.transform(&Mat4::from_translation(vec3(0.0, CONVEX_BEZ_OFFSET, 0.0)));
-    let convex_beziers = convex_beziers_nurbs.convex_beziers();
+    let straight_beziers_nurbs =
+        curve.transform(&Mat4::from_translation(vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0)));
+    let straight_beziers = straight_beziers_nurbs.straight_beziers();
 
     let res = 200;
 
@@ -128,8 +128,8 @@ fn main() {
         .transform(&Mat4::from_translation(Vec3::new(0.0, 0.25, 0.0)))
         .tessellate_by_param(res)
         .into_iter()
-        .skip(165)
-        .take(1)
+        //.skip(165)
+        //.take(1)
         .chain(
             curve
                 .transform(&Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0)))
@@ -180,7 +180,7 @@ fn main() {
         Rgba::YELLOW,
     ));
 
-    for (i, bezier) in convex_beziers.iter().enumerate() {
+    for (i, bezier) in straight_beziers.iter().enumerate() {
         model.add_edge(ModelEdge::from_vec3s(
             bezier.curve.tessellate_by_param(resolution),
             match i % 2 {
@@ -191,13 +191,13 @@ fn main() {
 
         let start_pt = curve.eval_pos(bezier.param_span.0).project();
         model.add_point(ModelPoint::from_vec3(
-            start_pt + vec3(0.0, CONVEX_BEZ_OFFSET, 0.0),
+            start_pt + vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0),
             Rgba::CYAN,
         ));
 
         let end_pt = curve.eval_pos(bezier.param_span.1).project();
         model.add_point(ModelPoint::from_vec3(
-            end_pt + vec3(0.0, CONVEX_BEZ_OFFSET, 0.0),
+            end_pt + vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0),
             Rgba::CYAN,
         ));
     }

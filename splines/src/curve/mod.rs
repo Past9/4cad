@@ -13,6 +13,7 @@ pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 1000;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
+const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.9;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PolygonKind {
@@ -37,45 +38,74 @@ pub struct BezierComponent {
     pub curve: Curve,
 }
 impl BezierComponent {
+    fn straightness(&self) -> f64 {
+        let start_der = self.curve.eval_derivatives(0.0, 1)[1].project();
+        let end_der = self.curve.eval_derivatives(1.0, 1)[1].project();
+        start_der.normalize().dot(end_der.normalize())
+    }
+
+    fn is_straight(&self) -> bool {
+        self.straightness() >= STRAIGHT_BEZIER_THRESHOLD
+    }
+
     fn split_until_convex(&self) -> Vec<BezierComponent> {
         if self.curve.is_convex() {
             vec![self.clone()]
         } else {
-            let refined = self
-                .curve
-                .refine_knots((0..=self.curve.degree).map(|_| 0.5).collect());
-
-            let middle_knot = (self.param_span.0 + self.param_span.1) / 2.0;
-
-            let bez1 = Self {
-                curve: Curve::create_unweighted_bezier(
-                    refined
-                        .unweighted
-                        .iter()
-                        .take(refined.unweighted.len() / 2)
-                        .cloned()
-                        .collect(),
-                ),
-                param_span: (self.param_span.0, middle_knot),
-            };
-
-            let bez2 = Self {
-                curve: Curve::create_unweighted_bezier(
-                    refined
-                        .unweighted
-                        .iter()
-                        .skip(refined.unweighted.len() / 2)
-                        .cloned()
-                        .collect(),
-                ),
-                param_span: (middle_knot, self.param_span.1),
-            };
+            let (bez1, bez2) = self.split();
 
             bez1.split_until_convex()
                 .into_iter()
                 .chain(bez2.split_until_convex().into_iter())
                 .collect()
         }
+    }
+
+    fn split_until_straight(&self) -> Vec<BezierComponent> {
+        if self.is_straight() {
+            vec![self.clone()]
+        } else {
+            let (bez1, bez2) = self.split();
+
+            bez1.split_until_straight()
+                .into_iter()
+                .chain(bez2.split_until_straight().into_iter())
+                .collect()
+        }
+    }
+
+    fn split(&self) -> (BezierComponent, BezierComponent) {
+        let refined = self
+            .curve
+            .refine_knots((0..=self.curve.degree).map(|_| 0.5).collect());
+
+        let middle_knot = (self.param_span.0 + self.param_span.1) / 2.0;
+
+        let bez1 = Self {
+            curve: Curve::create_unweighted_bezier(
+                refined
+                    .unweighted
+                    .iter()
+                    .take(refined.unweighted.len() / 2)
+                    .cloned()
+                    .collect(),
+            ),
+            param_span: (self.param_span.0, middle_knot),
+        };
+
+        let bez2 = Self {
+            curve: Curve::create_unweighted_bezier(
+                refined
+                    .unweighted
+                    .iter()
+                    .skip(refined.unweighted.len() / 2)
+                    .cloned()
+                    .collect(),
+            ),
+            param_span: (middle_knot, self.param_span.1),
+        };
+
+        (bez1, bez2)
     }
 }
 
@@ -96,6 +126,7 @@ pub struct Curve {
     is_convex: OnceCell<bool>,
     beziers: OnceCell<Vec<BezierComponent>>,
     convex_beziers: OnceCell<Vec<BezierComponent>>,
+    straight_beziers: OnceCell<Vec<BezierComponent>>,
 }
 impl Curve {
     pub fn create_unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
@@ -143,6 +174,7 @@ impl Curve {
             is_convex: OnceCell::new(),
             beziers: OnceCell::new(),
             convex_beziers: OnceCell::new(),
+            straight_beziers: OnceCell::new(),
         }
     }
 
@@ -163,6 +195,18 @@ impl Curve {
             }
 
             convex_beziers
+        })
+    }
+
+    pub fn straight_beziers(&self) -> &[BezierComponent] {
+        self.straight_beziers.get_or_init(|| {
+            let mut straight_beziers = vec![];
+
+            for convex_bezier in self.convex_beziers().iter() {
+                straight_beziers.extend(convex_bezier.split_until_straight());
+            }
+
+            straight_beziers
         })
     }
 
@@ -402,8 +446,8 @@ impl Curve {
         // Current parameter value that we're refining
         let mut u = u;
 
-        //for _ in 0..MAX_NEWTON_ITER {
-        loop {
+        for _ in 0..MAX_NEWTON_ITER {
+            //loop {
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
@@ -464,11 +508,11 @@ impl Curve {
             // Newton iteration
             //println!("{}", ders[0].w);
             let num = ders[1].project().dot(point_to_pos) * ders[0].w.powi(2);
-            let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
+            let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2(); //.powi(2);
 
-            println!("num = {}", num);
-            println!("den = {}", den);
-            println!("num / den = {}", num / den);
+            //println!("num = {}", num);
+            //println!("den = {}", den);
+            //println!("num / den = {}", num / den);
 
             last_params = Some(LastParams { u, ders });
 
