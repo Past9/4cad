@@ -328,6 +328,7 @@ impl Curve {
     pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
+        /*
         let mut try_params = vec![0.0];
         let unique_knots = self.knots.unique();
         for i in 1..unique_knots.len() {
@@ -344,6 +345,15 @@ impl Curve {
             //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.9);
             try_params.push(unique_knots[i]);
         }
+         */
+
+        let mut try_params = vec![0.0];
+
+        for convex_bez in self.convex_beziers().iter() {
+            try_params.push((convex_bez.param_span.0 + convex_bez.param_span.1) / 2.0);
+        }
+
+        try_params.push(1.0);
 
         for i in 0..try_params.len() {
             let param = try_params[i];
@@ -388,6 +398,8 @@ impl Curve {
         }
 
         let mut last_params: Option<LastParams> = None;
+
+        // Current parameter value that we're refining
         let mut u = u;
 
         //for _ in 0..MAX_NEWTON_ITER {
@@ -450,10 +462,16 @@ impl Curve {
             }
 
             // Newton iteration
+            //println!("{}", ders[0].w);
             let num = ders[1].project().dot(point_to_pos) * ders[0].w.powi(2);
             let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
 
+            println!("num = {}", num);
+            println!("den = {}", den);
+            println!("num / den = {}", num / den);
+
             last_params = Some(LastParams { u, ders });
+
             u -= num / den;
         }
 
