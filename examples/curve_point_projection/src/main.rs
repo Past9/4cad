@@ -109,7 +109,7 @@ fn main() {
             Vec4::new(-2.0, 0.0, 0.0, 1.0),
             Vec4::new(-1.0, 1.0, 0.0, 2.0),
             Vec4::new(0.0, 0.0, 0.0, 1.0),
-            Vec4::new(1.0, -1.0, 0.0, 0.25),
+            Vec4::new(1.0, -1.0, 0.0, 0.01),
             Vec4::new(2.0, 0.0, 0.0, 1.0),
         ],
         KnotVec::from([
@@ -122,7 +122,7 @@ fn main() {
         curve.transform(&Mat4::from_translation(vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0)));
     let straight_beziers = straight_beziers_nurbs.straight_beziers();
 
-    let res = 200;
+    let res = 1000;
 
     let points: Vec<Vec3> = curve
         .transform(&Mat4::from_translation(Vec3::new(0.0, 0.25, 0.0)))
@@ -172,6 +172,10 @@ fn main() {
         "Projected {} points in {}μs",
         points.len(),
         (end - start).as_micros()
+    );
+    println!(
+        "{}μs per point",
+        ((end - start) / points.len() as u32).as_micros()
     );
 
     // Curve

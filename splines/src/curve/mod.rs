@@ -13,7 +13,8 @@ pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 1000;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
-const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.9;
+const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.9999;
+const BEZIER_SPLIT_RECURSION_LIMIT: usize = 8;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PolygonKind {
@@ -36,11 +37,64 @@ enum ProjectionKind {
 pub struct BezierComponent {
     pub param_span: (f64, f64),
     pub curve: Curve,
+    end_derivatives: OnceCell<(Vec3, Vec3)>,
 }
 impl BezierComponent {
+    pub fn new(curve: Curve, param_start: f64, param_end: f64) -> Self {
+        Self {
+            param_span: (param_start, param_end),
+            curve,
+            end_derivatives: OnceCell::new(),
+        }
+    }
+
+    fn end_derivatives(&self) -> &(Vec3, Vec3) {
+        self.end_derivatives.get_or_init(|| {
+            let start_der = self.curve.eval_derivatives(0.0, 1)[1].project();
+            let end_der = self.curve.eval_derivatives(1.0, 1)[1].project();
+            (start_der, end_der)
+        })
+    }
+
+    pub fn estimate_projection_parameter(&self, point: Vec3) -> Option<f64> {
+        let start = self.curve.weighted[0].project();
+        let end = self.curve.weighted[self.curve.weighted.len() - 1].project();
+
+        let line_to_point = line_to_point_perpendicular(start, end, point);
+        let point_on_line = point - line_to_point;
+        let fraction_of_line = (point_on_line - start).dot(end - start);
+        let param = self.param_span.0 + (self.param_span.1 - self.param_span.0) * fraction_of_line;
+
+        if param >= self.param_span.0 && param <= self.param_span.1 {
+            Some(param)
+        } else {
+            None
+        }
+    }
+
+    pub fn has_perpendicular_projection(&self, point: Vec3) -> bool {
+        let p0 = self.curve.weighted[0].project();
+        let p1 = self.curve.weighted[1].project();
+        let pn = self.curve.weighted[self.curve.weighted.len() - 1].project();
+        let pnsub1 = self.curve.weighted[self.curve.weighted.len() - 2].project();
+
+        let p0p = point - p0;
+        let p0p1 = p1 - p0;
+        let ppn = pn - point;
+        let pnsub1pn = pn - pnsub1;
+        let pnp0 = p0 - pn;
+        let pnp = point - pn;
+
+        let r1 = p0p.dot(p0p1);
+        let r2 = ppn.dot(pnsub1pn);
+        let r3 = pnp0.dot(pnp);
+        let r4 = pnp0.dot(p0p);
+
+        (r1 > 0.0 && r2 > 0.0) || (r3 * r4 < 0.0)
+    }
+
     fn straightness(&self) -> f64 {
-        let start_der = self.curve.eval_derivatives(0.0, 1)[1].project();
-        let end_der = self.curve.eval_derivatives(1.0, 1)[1].project();
+        let (start_der, end_der) = self.end_derivatives();
         start_der.normalize().dot(end_der.normalize())
     }
 
@@ -49,27 +103,35 @@ impl BezierComponent {
     }
 
     fn split_until_convex(&self) -> Vec<BezierComponent> {
-        if self.curve.is_convex() {
+        self.do_split_until_convex(BEZIER_SPLIT_RECURSION_LIMIT)
+    }
+
+    pub fn split_until_straight(&self) -> Vec<BezierComponent> {
+        self.do_split_until_straight(BEZIER_SPLIT_RECURSION_LIMIT)
+    }
+
+    fn do_split_until_convex(&self, rec_limit: usize) -> Vec<BezierComponent> {
+        if self.curve.is_convex() || rec_limit == 0 {
             vec![self.clone()]
         } else {
             let (bez1, bez2) = self.split();
 
-            bez1.split_until_convex()
+            bez1.do_split_until_convex(rec_limit - 1)
                 .into_iter()
-                .chain(bez2.split_until_convex().into_iter())
+                .chain(bez2.do_split_until_convex(rec_limit - 1).into_iter())
                 .collect()
         }
     }
 
-    fn split_until_straight(&self) -> Vec<BezierComponent> {
-        if self.is_straight() {
+    fn do_split_until_straight(&self, rec_limit: usize) -> Vec<BezierComponent> {
+        if self.is_straight() || rec_limit == 0 {
             vec![self.clone()]
         } else {
             let (bez1, bez2) = self.split();
 
-            bez1.split_until_straight()
+            bez1.do_split_until_straight(rec_limit - 1)
                 .into_iter()
-                .chain(bez2.split_until_straight().into_iter())
+                .chain(bez2.do_split_until_straight(rec_limit - 1).into_iter())
                 .collect()
         }
     }
@@ -81,8 +143,8 @@ impl BezierComponent {
 
         let middle_knot = (self.param_span.0 + self.param_span.1) / 2.0;
 
-        let bez1 = Self {
-            curve: Curve::create_unweighted_bezier(
+        let bez1 = Self::new(
+            Curve::create_unweighted_bezier(
                 refined
                     .unweighted
                     .iter()
@@ -90,11 +152,12 @@ impl BezierComponent {
                     .cloned()
                     .collect(),
             ),
-            param_span: (self.param_span.0, middle_knot),
-        };
+            self.param_span.0,
+            middle_knot,
+        );
 
-        let bez2 = Self {
-            curve: Curve::create_unweighted_bezier(
+        let bez2 = Self::new(
+            Curve::create_unweighted_bezier(
                 refined
                     .unweighted
                     .iter()
@@ -102,8 +165,9 @@ impl BezierComponent {
                     .cloned()
                     .collect(),
             ),
-            param_span: (middle_knot, self.param_span.1),
-        };
+            middle_knot,
+            self.param_span.1,
+        );
 
         (bez1, bez2)
     }
@@ -342,34 +406,19 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
+    /// Finds the closest point on the curve where a vector from it to `point`
+    /// is perpendicular to the curve.
     pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        /*
         let mut try_params = vec![0.0];
-        let unique_knots = self.knots.unique();
-        for i in 1..unique_knots.len() {
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.1);
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.2);
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.3);
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.4);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.25);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.5);
-            try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.75);
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.6);
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.7);
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.8);
-            //try_params.push(unique_knots[i - 1] + (unique_knots[i] - unique_knots[i - 1]) * 0.9);
-            try_params.push(unique_knots[i]);
+        for straight_bez in self.straight_beziers().iter() {
+            if straight_bez.has_perpendicular_projection(point) {
+                if let Some(param) = straight_bez.estimate_projection_parameter(point) {
+                    try_params.push(param);
+                }
+            }
         }
-         */
-
-        let mut try_params = vec![0.0];
-
-        for convex_bez in self.convex_beziers().iter() {
-            try_params.push((convex_bez.param_span.0 + convex_bez.param_span.1) / 2.0);
-        }
-
         try_params.push(1.0);
 
         for i in 0..try_params.len() {
@@ -419,7 +468,7 @@ impl Curve {
         // Current parameter value that we're refining
         let mut u = u;
 
-        for _ in 0..MAX_NEWTON_ITER {
+        for i in 0..MAX_NEWTON_ITER {
             //loop {
             // If parameter is outside of the knot vector bounds, we can't
             // project.
@@ -434,12 +483,6 @@ impl Curve {
             // If the parameter has not changed significantly since the last
             // iteration, we've converged
             if let Some(last_params) = last_params {
-                /*
-                println!(
-                    "change = {:.64}",
-                    ((u - last_params.u) * last_params.ders[1]).magnitude()
-                );
-                 */
                 if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
                     return Some(CurveProjectionResult {
                         u,
@@ -479,16 +522,9 @@ impl Curve {
             }
 
             // Newton iteration
-            //println!("{}", ders[0].w);
             let num = ders[1].project().dot(point_to_pos) * ders[0].w.powi(2);
-            let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2(); //.powi(2);
-
-            //println!("num = {}", num);
-            //println!("den = {}", den);
-            //println!("num / den = {}", num / den);
-
+            let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
             last_params = Some(LastParams { u, ders });
-
             u -= num / den;
         }
 

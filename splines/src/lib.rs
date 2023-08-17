@@ -42,9 +42,9 @@ fn line_to_point_perpendicular(line_start: Vec3, line_end: Vec3, point: Vec3) ->
     // X - base of the perpendicular line
     //
     //     P
-    //    /|
+    //    /^
     //   / |
-    //  /  v
+    //  /  |
     // A---X----->D
     //
     // (P-A).D == |X-A|
@@ -180,10 +180,11 @@ fn nurbs_to_beziers(
 
     let mut components = vec![];
     for (i, ctrl_pts) in bezier_ctrl_pts.into_iter().enumerate() {
-        components.push(BezierComponent {
-            param_span: param_spans[i],
-            curve: Curve::create_weighted_bezier(ctrl_pts),
-        })
+        components.push(BezierComponent::new(
+            Curve::create_weighted_bezier(ctrl_pts),
+            param_spans[i].0,
+            param_spans[i].1,
+        ))
     }
 
     components
