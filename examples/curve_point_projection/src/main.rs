@@ -128,24 +128,13 @@ fn main() {
         .transform(&Mat4::from_translation(Vec3::new(0.0, 0.5, 0.0)))
         .tessellate_by_param(res)
         .into_iter()
-        //.skip(690)
-        //.take(1)
         .chain(
             curve
                 .transform(&Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0)))
                 .tessellate_by_param(res)
-                .into_iter(), //.take(0),
+                .into_iter(),
         )
-        //.take(1)
         .collect();
-
-    /*
-    let points = vec![
-        Vec3::new(-1.0, -2.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-        Vec3::new(1.0, 2.0, 0.0),
-    ];
-         */
 
     struct Projection {
         start: Vec3,
@@ -192,16 +181,6 @@ fn main() {
             },
         ));
     }
-
-    // Origin
-    /*
-    model.add_point(ModelPoint::new(
-        0.into(),
-        Vec3::zero(),
-        Vec3::zero(),
-        Rgba::WHITE,
-    ));
-     */
 
     // Points
     model.add_points(

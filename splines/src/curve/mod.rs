@@ -13,7 +13,7 @@ pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 1000;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
-const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.99999;
+const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.99;
 const BEZIER_SPLIT_RECURSION_LIMIT: usize = 80;
 
 #[derive(Debug, Clone, Copy)]
@@ -57,8 +57,8 @@ impl BezierComponent {
     }
 
     pub fn estimate_projection_parameter(&self, point: Vec3) -> Option<f64> {
-        let start = self.curve.weighted[0].project();
-        let end = self.curve.weighted[self.curve.weighted.len() - 1].project();
+        let start = self.curve.unweighted[0].project();
+        let end = self.curve.unweighted[self.curve.unweighted.len() - 1].project();
 
         let line_to_point = line_to_point_perpendicular(start, end, point);
         let point_on_line = point - line_to_point;
@@ -73,17 +73,17 @@ impl BezierComponent {
     }
 
     pub fn has_perpendicular_projection(&self, point: Vec3) -> bool {
-        let p0 = self.curve.weighted[0].project();
-        let p1 = self.curve.weighted[1].project();
-        let pn = self.curve.weighted[self.curve.weighted.len() - 1].project();
-        let pnsub1 = self.curve.weighted[self.curve.weighted.len() - 2].project();
+        let p0 = self.curve.unweighted[0].project();
+        let p1 = self.curve.unweighted[1].project();
+        let pn = self.curve.unweighted[self.curve.unweighted.len() - 1].project();
+        let pnsub1 = self.curve.unweighted[self.curve.unweighted.len() - 2].project();
 
-        let p0p = point - p0;
-        let p0p1 = p1 - p0;
-        let ppn = pn - point;
-        let pnsub1pn = pn - pnsub1;
-        let pnp0 = p0 - pn;
-        let pnp = point - pn;
+        let p0p = (point - p0).normalize();
+        let p0p1 = (p1 - p0).normalize();
+        let ppn = (pn - point).normalize();
+        let pnsub1pn = (pn - pnsub1).normalize();
+        let pnp0 = (p0 - pn).normalize();
+        let pnp = (point - pn).normalize();
 
         let r1 = p0p.dot(p0p1);
         let r2 = ppn.dot(pnsub1pn);
@@ -446,8 +446,6 @@ impl Curve {
             }
         }
 
-        //println!("max_i = {}", max_i);
-
         nearest_projected
     }
 
@@ -470,7 +468,7 @@ impl Curve {
         // Current parameter value that we're refining
         let mut u = u;
 
-        for i in 0..MAX_NEWTON_ITER {
+        for _ in 0..MAX_NEWTON_ITER {
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
@@ -485,7 +483,6 @@ impl Curve {
             // iteration, we've converged
             if let Some(last_params) = last_params {
                 if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
-                    //println!("max_i = {}", max_i);
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -524,7 +521,8 @@ impl Curve {
             }
 
             // Newton iteration
-            let num = ders[1].project().normalize().dot(point_to_pos.normalize());
+            let num =
+                ders[1].project().normalize().dot(point_to_pos.normalize()) * ders[1].w.powi(2);
             let den =
                 ders[2].project().normalize().dot(point_to_pos.normalize()) + ders[1].magnitude2();
             last_params = Some(LastParams { u, ders });
