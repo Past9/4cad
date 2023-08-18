@@ -62,10 +62,9 @@ fn main() {
     ];
      */
 
-    /*
     // EUCLIDEAN
 
-    let curve = Curve::unweighted(
+    let curve = Curve::create_unweighted(
         vec![
             Vec4::new(-4.1, -4.0, -4.0, 1.0),
             Vec4::new(-7.0, 3.0, -12.0, 1.0),
@@ -85,6 +84,7 @@ fn main() {
             0.0, 0.0, 0.0, 0.0, 0.1, 0.15, 0.2, 0.35, 0.6, 0.6, 0.6, 0.85, 1.0, 1.0, 1.0, 1.0,
         ]),
     );
+    /*
 
     let points = vec![
         Vec3::new(1.0, 3.0, 4.0),
@@ -106,11 +106,11 @@ fn main() {
 
     let curve = Curve::create_unweighted(
         vec![
-            Vec4::new(-2.0, 0.0, 0.0, 1.0),
+            Vec4::new(-2.0, 0.0, 1.0, 1.0),
             Vec4::new(-1.0, 1.0, 0.0, 2.0),
-            Vec4::new(0.0, 0.0, 0.0, 1.0),
+            Vec4::new(0.0, 0.0, 1.0, 1.0),
             Vec4::new(1.0, -1.0, 0.0, 0.05),
-            Vec4::new(2.0, 0.0, 0.0, 1.0),
+            Vec4::new(2.0, 0.0, -1.0, 1.0),
         ],
         KnotVec::from([
             // knots
@@ -131,6 +131,18 @@ fn main() {
         .chain(
             curve
                 .transform(&Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0)))
+                .tessellate_by_param(res)
+                .into_iter(),
+        )
+        .chain(
+            curve
+                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 0.5)))
+                .tessellate_by_param(res)
+                .into_iter(),
+        )
+        .chain(
+            curve
+                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, -0.5)))
                 .tessellate_by_param(res)
                 .into_iter(),
         )
