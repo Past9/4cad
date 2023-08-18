@@ -14,7 +14,7 @@ use splines::{Curve, KnotVec};
 use tessellate::curve::CurveTessellation;
 use viewer::run_viewer;
 
-const BEZ_OFFSET: f64 = -0.1;
+const BEZ_OFFSET: f64 = -0.001;
 const STRAIGHT_BEZ_OFFSET: f64 = BEZ_OFFSET * 2.0;
 
 fn main() {
@@ -109,7 +109,7 @@ fn main() {
             Vec4::new(-2.0, 0.0, 0.0, 1.0),
             Vec4::new(-1.0, 1.0, 0.0, 2.0),
             Vec4::new(0.0, 0.0, 0.0, 1.0),
-            Vec4::new(1.0, -1.0, 0.0, 0.01),
+            Vec4::new(1.0, -1.0, 0.0, 0.05),
             Vec4::new(2.0, 0.0, 0.0, 1.0),
         ],
         KnotVec::from([
@@ -125,17 +125,16 @@ fn main() {
     let res = 1000;
 
     let points: Vec<Vec3> = curve
-        .transform(&Mat4::from_translation(Vec3::new(0.0, 0.25, 0.0)))
+        .transform(&Mat4::from_translation(Vec3::new(0.0, 0.5, 0.0)))
         .tessellate_by_param(res)
         .into_iter()
-        //.skip(165)
+        //.skip(690)
         //.take(1)
         .chain(
             curve
                 .transform(&Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0)))
                 .tessellate_by_param(res)
-                .into_iter()
-                .take(0),
+                .into_iter(), //.take(0),
         )
         //.take(1)
         .collect();
@@ -191,18 +190,6 @@ fn main() {
                 0 => Rgba::RED,
                 _ => Rgba::CYAN,
             },
-        ));
-
-        let start_pt = curve.eval_pos(bezier.param_span.0).project();
-        model.add_point(ModelPoint::from_vec3(
-            start_pt + vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0),
-            Rgba::CYAN,
-        ));
-
-        let end_pt = curve.eval_pos(bezier.param_span.1).project();
-        model.add_point(ModelPoint::from_vec3(
-            end_pt + vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0),
-            Rgba::CYAN,
         ));
     }
 

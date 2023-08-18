@@ -13,8 +13,8 @@ pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 1000;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
-const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.9999;
-const BEZIER_SPLIT_RECURSION_LIMIT: usize = 8;
+const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.99999;
+const BEZIER_SPLIT_RECURSION_LIMIT: usize = 80;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PolygonKind {
@@ -90,7 +90,7 @@ impl BezierComponent {
         let r3 = pnp0.dot(pnp);
         let r4 = pnp0.dot(p0p);
 
-        (r1 > 0.0 && r2 > 0.0) || (r3 * r4 < 0.0)
+        (r1 >= 0.0 && r2 >= 0.0) || (r3 * r4 <= 0.0)
     }
 
     fn straightness(&self) -> f64 {
@@ -446,6 +446,8 @@ impl Curve {
             }
         }
 
+        //println!("max_i = {}", max_i);
+
         nearest_projected
     }
 
@@ -469,7 +471,6 @@ impl Curve {
         let mut u = u;
 
         for i in 0..MAX_NEWTON_ITER {
-            //loop {
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
@@ -484,6 +485,7 @@ impl Curve {
             // iteration, we've converged
             if let Some(last_params) = last_params {
                 if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
+                    //println!("max_i = {}", max_i);
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -522,8 +524,9 @@ impl Curve {
             }
 
             // Newton iteration
-            let num = ders[1].project().dot(point_to_pos) * ders[0].w.powi(2);
-            let den = ders[2].project().dot(point_to_pos) + ders[1].magnitude2();
+            let num = ders[1].project().normalize().dot(point_to_pos.normalize());
+            let den =
+                ders[2].project().normalize().dot(point_to_pos.normalize()) + ders[1].magnitude2();
             last_params = Some(LastParams { u, ders });
             u -= num / den;
         }
