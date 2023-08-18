@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Transform, Zero};
-use primitives::{EVec, HVec, Mat4, Vec3, Vec4};
+use primitives::{Angle, EVec, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     lights::Lights,
@@ -22,107 +22,21 @@ fn main() {
     let mut model = Model::empty();
     let resolution = 1000;
 
-    /*
-    // HOMOGENEOUS
-
-    let curve = Curve::unweighted(
-        vec![
-            Vec4::new(-4.1, -4.0, -4.0, 0.25),
-            Vec4::new(-7.0, 3.0, -12.0, 1.0),
-            Vec4::new(-3.0, 5.0, -8.0, 0.5),
-            Vec4::new(2.0, 5.0, 4.0, 2.0),
-            Vec4::new(6.0, 1.0, 12.0, 1.0),
-            Vec4::new(5.0, -5.0, 8.0, 5.0),
-            Vec4::new(-1.0, -8.0, -4.0, 1.0),
-            Vec4::new(-5.0, -7.0, -9.0, 1.0),
-            Vec4::new(-6.0, -2.0, -7.0, 5.0),
-            Vec4::new(-3.0, 3.0, -8.0, 3.0),
-            Vec4::new(1.0, 3.0, 10.0, 10.0),
-            Vec4::new(0.1, 0.0, 0.1, 2.0),
-        ],
-        KnotVec::from([
-            // knots
-            0.0, 0.0, 0.0, 0.0, 0.1, 0.15, 0.2, 0.35, 0.6, 0.6, 0.6, 0.85, 1.0, 1.0, 1.0, 1.0,
-        ]),
-    );
-
-    let points = vec![
-        Vec3::new(1.0, 3.0, 4.0),
-        Vec3::new(8.0, 1.0, 3.0),
-        Vec3::new(4.0, 3.0, -1.0),
-        Vec3::new(-3.0, -5.0, 0.0),
-        Vec3::new(-4.0, 6.0, 4.0),
-        Vec3::new(10.0, 9.0, -7.0),
-        Vec3::new(10.0, -6.0, 5.0),
-        Vec3::new(0.0, 5.0, 0.0),
-        Vec3::new(4.0, -2.0, 1.0),
-        Vec3::new(0.0, 5.0, -6.0),
-        Vec3::new(-2.0, 1.0, 0.0),
-        Vec3::new(-6.0, 0.0, -2.0),
-    ];
-     */
-
-    // EUCLIDEAN
-
-    let curve = Curve::create_unweighted(
-        vec![
-            Vec4::new(-4.1, -4.0, -4.0, 1.0),
-            Vec4::new(-7.0, 3.0, -12.0, 1.0),
-            Vec4::new(-3.0, 5.0, -8.0, 1.0),
-            Vec4::new(2.0, 5.0, 4.0, 1.0),
-            Vec4::new(6.0, 1.0, 12.0, 1.0),
-            Vec4::new(5.0, -5.0, 8.0, 1.0),
-            Vec4::new(-1.0, -8.0, -4.0, 1.0),
-            Vec4::new(-5.0, -7.0, -9.0, 1.0),
-            Vec4::new(-6.0, -2.0, -7.0, 1.0),
-            Vec4::new(-3.0, 3.0, -8.0, 1.0),
-            Vec4::new(1.0, 3.0, 10.0, 1.0),
-            Vec4::new(0.1, 0.0, 0.1, 1.0),
-        ],
-        KnotVec::from([
-            // knots
-            0.0, 0.0, 0.0, 0.0, 0.1, 0.15, 0.2, 0.35, 0.6, 0.6, 0.6, 0.85, 1.0, 1.0, 1.0, 1.0,
-        ]),
-    );
-    /*
-
-    let points = vec![
-        Vec3::new(1.0, 3.0, 4.0),
-        Vec3::new(8.0, 1.0, 3.0),
-        Vec3::new(4.0, 3.0, -1.0),
-        Vec3::new(-3.0, -5.0, 0.0),
-        Vec3::new(-4.0, 6.0, 4.0),
-        Vec3::new(10.0, 9.0, -7.0),
-        Vec3::new(10.0, -6.0, 5.0),
-        Vec3::new(0.0, 5.0, 0.0),
-        Vec3::new(4.0, -2.0, 1.0),
-        Vec3::new(0.0, 5.0, -6.0),
-        Vec3::new(-2.0, 1.0, 0.0),
-        Vec3::new(-6.0, 0.0, -2.0),
-    ];
-     */
-
-    // FLAT EUCLIDEAN
-
     let curve = Curve::create_unweighted(
         vec![
             Vec4::new(-2.0, 0.0, 1.0, 1.0),
             Vec4::new(-1.0, 1.0, 0.0, 2.0),
             Vec4::new(0.0, 0.0, 1.0, 1.0),
-            Vec4::new(1.0, -1.0, 0.0, 0.05),
+            Vec4::new(1.0, -1.0, 0.0, 0.5),
             Vec4::new(2.0, 0.0, -1.0, 1.0),
         ],
         KnotVec::from([
             // knots
-            0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0,
+            0.0, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0, 1.0,
         ]),
     );
 
-    let straight_beziers_nurbs =
-        curve.transform(&Mat4::from_translation(vec3(0.0, STRAIGHT_BEZ_OFFSET, 0.0)));
-    let straight_beziers = straight_beziers_nurbs.straight_beziers();
-
-    let res = 1000;
+    let res = 500;
 
     let points: Vec<Vec3> = curve
         .transform(&Mat4::from_translation(Vec3::new(0.0, 0.5, 0.0)))
@@ -178,13 +92,8 @@ fn main() {
         ((end - start) / points.len() as u32).as_micros()
     );
 
-    // Curve
-    model.add_edge(ModelEdge::from_vec3s(
-        curve.tessellate_by_param(resolution),
-        Rgba::YELLOW,
-    ));
-
-    for (i, bezier) in straight_beziers.iter().enumerate() {
+    // Curve beziers
+    for (i, bezier) in curve.straight_beziers().iter().enumerate() {
         model.add_edge(ModelEdge::from_vec3s(
             bezier.curve.tessellate_by_param(resolution),
             match i % 2 {
@@ -201,27 +110,6 @@ fn main() {
             .map(|pt| ModelPoint::new(0.into(), *pt, Vec3::zero(), Rgba::GREEN))
             .collect(),
     );
-
-    model.add_points(vec![
-        ModelPoint::new(
-            0.into(),
-            curve.eval_pos(0.25).project(),
-            Vec3::zero(),
-            Rgba::YELLOW,
-        ),
-        ModelPoint::new(
-            0.into(),
-            curve.eval_pos(0.5).project(),
-            Vec3::zero(),
-            Rgba::YELLOW,
-        ),
-        ModelPoint::new(
-            0.into(),
-            curve.eval_pos(0.75).project(),
-            Vec3::zero(),
-            Rgba::YELLOW,
-        ),
-    ]);
 
     // Projected points
     model.add_points(

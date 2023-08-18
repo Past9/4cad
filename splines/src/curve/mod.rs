@@ -13,8 +13,8 @@ pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 200;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
-const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.99;
-const BEZIER_SPLIT_RECURSION_LIMIT: usize = 80;
+const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.999;
+const BEZIER_SPLIT_RECURSION_LIMIT: usize = 12;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PolygonKind {
