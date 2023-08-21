@@ -549,58 +549,23 @@ impl Curve {
                 }
             }
 
-            // Projection: requires zero_cosine
-            // Nearest: requires nothing
-            // Inversion: requires point_coincidence
+            // More stopping conditions
+            {
+                let zero_cosine = {
+                    let num = ders[1].project().dot(point_to_pos).abs();
+                    let den = ders[1].magnitude() * point_to_pos.magnitude();
+                    (num / den) <= ZERO_COS_TOL
+                };
 
-            /*
-            if projection_kind == ProjectionKind::Projection {
-                // Zero cosine
-                let num = ders[1].project().dot(point_to_pos).abs();
-                let den = ders[1].magnitude() * point_to_pos.magnitude();
-                if (num / den) <= ZERO_COS_TOL {
+                let point_coincidence = point_to_pos.magnitude().toleq(0.0);
+
+                if zero_cosine || point_coincidence {
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
                         distance: point_to_pos.magnitude(),
                     });
                 }
-            }
-             */
-
-            let zero_cosine = {
-                let num = ders[1].project().dot(point_to_pos).abs();
-                let den = ders[1].magnitude() * point_to_pos.magnitude();
-                (num / den) <= ZERO_COS_TOL
-            };
-
-            let point_coincidence = point_to_pos.magnitude().toleq(0.0);
-
-            /*
-            let stop = match projection_kind {
-                ProjectionKind::Projection => {
-                    // Zero cosine is a stopping condition for point projection
-                    let num = ders[1].project().dot(point_to_pos).abs();
-                    let den = ders[1].magnitude() * point_to_pos.magnitude();
-                    (num / den) <= ZERO_COS_TOL
-                }
-                ProjectionKind::Inversion => {
-                    // Point coincidence with the curve is a stopping condition for inversion
-                    point_to_pos.magnitude().toleq(0.0)
-                }
-                ProjectionKind::Nearest => {
-                    // Nearest-point projection does not have any stopping conditions at this point
-                    false
-                }
-            };
-             */
-
-            if zero_cosine || point_coincidence {
-                return Some(CurveProjectionResult {
-                    u,
-                    pos: ders[0],
-                    distance: point_to_pos.magnitude(),
-                });
             }
 
             // Newton iteration
