@@ -13,11 +13,13 @@ pub use builders::*;
 
 const MAX_NEWTON_ITER: usize = 200;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
-const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.999;
+const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.99;
 const BEZIER_SPLIT_RECURSION_LIMIT: usize = 12;
 
+#[derive(PartialEq)]
 enum ProjectionKind {
     Projection,
+    Nearest,
     Inversion,
 }
 
@@ -394,10 +396,16 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
-    fn try_projection_params(&self, point: Vec3) -> Vec<f64> {
+    fn try_projection_params(&self, point: Vec3, projection_kind: ProjectionKind) -> Vec<f64> {
         let mut try_params = vec![0.0];
         for straight_bez in self.straight_beziers().iter() {
-            if straight_bez.has_perpendicular_projection(point) {
+            let is_in_projection_space = match projection_kind {
+                ProjectionKind::Projection => straight_bez.has_perpendicular_projection(point),
+                ProjectionKind::Nearest => true,
+                ProjectionKind::Inversion => true,
+            };
+
+            if is_in_projection_space {
                 if let Some(param) = straight_bez.estimate_projection_parameter(point) {
                     try_params.push(param);
                 }
@@ -408,12 +416,46 @@ impl Curve {
         try_params
     }
 
+    /// Finds the closest point on the curve to `point`.
+    pub fn nearest_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
+        let mut nearest_projected: Option<CurveProjectionResult> = None;
+
+        let try_params = self.try_projection_params(point, ProjectionKind::Nearest);
+
+        for i in 0..try_params.len() {
+            let param = try_params[i];
+            let lower_bound = if i == 0 { 0.0 } else { try_params[i - 1] };
+            let upper_bound = if i == try_params.len() - 1 {
+                1.0
+            } else {
+                try_params[i + 1]
+            };
+
+            if let Some(projected) = self.project_point_from_starting_param(
+                point,
+                param,
+                ProjectionKind::Nearest,
+                (lower_bound, upper_bound),
+            ) {
+                if let Some(ref nearest) = nearest_projected {
+                    if nearest.distance > projected.distance {
+                        nearest_projected = Some(projected);
+                    }
+                } else {
+                    nearest_projected = Some(projected);
+                }
+            }
+        }
+
+        nearest_projected
+    }
+
     /// Finds the closest point on the curve where a vector from it to `point`
     /// is perpendicular to the curve.
     pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        let try_params = self.try_projection_params(point);
+        let try_params = self.try_projection_params(point, ProjectionKind::Projection);
 
         for i in 0..try_params.len() {
             let param = try_params[i];
@@ -463,6 +505,28 @@ impl Curve {
         let mut u = u;
 
         for _ in 0..MAX_NEWTON_ITER {
+            if projection_kind == ProjectionKind::Nearest {
+                if u < bounds.0 {
+                    let pos = self.eval_pos(bounds.0);
+                    return Some(CurveProjectionResult {
+                        u: bounds.0,
+                        pos,
+                        distance: (pos.project() - point).magnitude(),
+                    });
+                } else if u > bounds.1 {
+                    let pos = self.eval_pos(bounds.1);
+                    return Some(CurveProjectionResult {
+                        u: bounds.1,
+                        pos,
+                        distance: (pos.project() - point).magnitude(),
+                    });
+                }
+            } else {
+                if u < bounds.0 || u > bounds.1 {
+                    return None;
+                }
+            }
+
             // If parameter is outside of the knot vector bounds, we can't
             // project.
             if u < bounds.0 || u > bounds.1 {
@@ -485,27 +549,17 @@ impl Curve {
                 }
             }
 
-            // Check for convergence
+            // More stopping conditions
             {
-                // Check for point coincidence if doing inversion (does not apply to projection)
-                let point_coincidence = match projection_kind {
-                    // If doing inversion, check if the projected point is within tolerance of the
-                    // point being inverted.
-                    ProjectionKind::Inversion => point_to_pos.magnitude().toleq(0.0),
-                    // If doing projection, we just mark this `true` so it has no effect
-                    ProjectionKind::Projection => true,
-                };
-
-                // Check for zero cosine (within tolerance)
                 let zero_cosine = {
                     let num = ders[1].project().dot(point_to_pos).abs();
                     let den = ders[1].magnitude() * point_to_pos.magnitude();
                     (num / den) <= ZERO_COS_TOL
                 };
 
-                // If points are coincident (for inversion) and the cosine is zero,
-                // we've converged at u.
-                if point_coincidence && zero_cosine {
+                let point_coincidence = point_to_pos.magnitude().toleq(0.0);
+
+                if zero_cosine || point_coincidence {
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -515,8 +569,7 @@ impl Curve {
             }
 
             // Newton iteration
-            let num =
-                ders[1].project().normalize().dot(point_to_pos.normalize()) * ders[1].w.powi(2);
+            let num = ders[1].project().normalize().dot(point_to_pos.normalize());
             let den =
                 ders[2].project().normalize().dot(point_to_pos.normalize()) + ders[1].magnitude2();
             last_params = Some(LastParams { u, ders });
