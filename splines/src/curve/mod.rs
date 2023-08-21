@@ -16,18 +16,6 @@ const ZERO_COS_TOL: f64 = TOL / 100.0;
 const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.999;
 const BEZIER_SPLIT_RECURSION_LIMIT: usize = 12;
 
-#[derive(Debug, Clone, Copy)]
-pub enum PolygonKind {
-    /// Polygon has no crossing edges and is convex
-    SimpleConvex,
-
-    /// Polygon has no crossing edges and is concave
-    SimpleConcave,
-
-    /// Polygon has crossing edges
-    Complex,
-}
-
 enum ProjectionKind {
     Projection,
     Inversion,
@@ -406,11 +394,7 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
-    /// Finds the closest point on the curve where a vector from it to `point`
-    /// is perpendicular to the curve.
-    pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
-        let mut nearest_projected: Option<CurveProjectionResult> = None;
-
+    fn try_projection_params(&self, point: Vec3) -> Vec<f64> {
         let mut try_params = vec![0.0];
         for straight_bez in self.straight_beziers().iter() {
             if straight_bez.has_perpendicular_projection(point) {
@@ -420,6 +404,16 @@ impl Curve {
             }
         }
         try_params.push(1.0);
+
+        try_params
+    }
+
+    /// Finds the closest point on the curve where a vector from it to `point`
+    /// is perpendicular to the curve.
+    pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
+        let mut nearest_projected: Option<CurveProjectionResult> = None;
+
+        let try_params = self.try_projection_params(point);
 
         for i in 0..try_params.len() {
             let param = try_params[i];
