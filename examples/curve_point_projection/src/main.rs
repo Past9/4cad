@@ -14,6 +14,8 @@ use splines::{Curve, KnotVec};
 use tessellate::curve::CurveTessellation;
 use viewer::run_viewer;
 
+const DIST: f64 = 0.5;
+
 fn main() {
     let mut geometry = Geometry::new();
     let mut model = Model::empty();
@@ -36,24 +38,24 @@ fn main() {
     let res = 500;
 
     let points: Vec<Vec3> = curve
-        .transform(&Mat4::from_translation(Vec3::new(0.0, 0.5, 0.0)))
+        .transform(&Mat4::from_translation(Vec3::new(0.0, DIST, 0.0)))
         .tessellate_by_param(res)
         .into_iter()
         .chain(
             curve
-                .transform(&Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0)))
+                .transform(&Mat4::from_translation(Vec3::new(0.0, -DIST, 0.0)))
                 .tessellate_by_param(res)
                 .into_iter(),
         )
         .chain(
             curve
-                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, 0.5)))
+                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, DIST)))
                 .tessellate_by_param(res)
                 .into_iter(),
         )
         .chain(
             curve
-                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, -0.5)))
+                .transform(&Mat4::from_translation(Vec3::new(0.0, 0.0, -DIST)))
                 .tessellate_by_param(res)
                 .into_iter(),
         )

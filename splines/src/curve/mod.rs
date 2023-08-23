@@ -56,24 +56,14 @@ impl BezierComponent {
         let fraction_of_line = (point_on_line - start).dot(line.normalize()) / line.magnitude();
         let param = self.param_span.0 + (self.param_span.1 - self.param_span.0) * fraction_of_line;
 
-        if param >= self.param_span.0 && param <= self.param_span.1 {
-            Some(param)
-        } else {
-            None
-        }
+        return Some(param);
     }
-
-    /*
-    pub fn is_in_convex_hull(&self, point: Vec3) -> bool {
-        true
-    }
-     */
 
     pub fn has_perpendicular_projection(&self, point: Vec3) -> bool {
         let p0 = self.curve.weighted[0].project();
         let p1 = self.curve.weighted[1].project();
 
-        if p0.toleq(point) || p0.toleq(p1) {
+        if p0.toleq(point) || p1.toleq(point) {
             return true;
         }
 
@@ -408,30 +398,18 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
-    fn get_projection_try_params(
-        &self,
-        point: Vec3,
-        projection_kind: ProjectionKind,
-    ) -> Vec<(f64, f64, f64)> {
+    fn get_projection_try_params(&self, point: Vec3, projection_kind: ProjectionKind) -> Vec<f64> {
         let mut try_params = vec![];
-        //println!("straight_beziers.len() = {}", self.straight_beziers().len());
-        for (i, straight_bez) in self.straight_beziers().iter().enumerate() {
+        for straight_bez in self.straight_beziers().iter() {
             let is_in_projection_space = match projection_kind {
                 ProjectionKind::Projection => straight_bez.has_perpendicular_projection(point),
-                ProjectionKind::Inversion => {
-                    straight_bez.has_perpendicular_projection(point)
-                    //true
-                }
+                ProjectionKind::Inversion => straight_bez.has_perpendicular_projection(point),
                 ProjectionKind::Nearest => true,
-                //ProjectionKind::Inversion => true, //straight_bez.is_in_convex_hull(point),
             };
-
-            //println!("straight_bez {:?}", straight_bez.param_span);
-            //println!("{} is_in_projection_space = {}", i, is_in_projection_space);
 
             if is_in_projection_space {
                 if let Some(param) = straight_bez.estimate_projection_parameter(point) {
-                    try_params.push((straight_bez.param_span.0, param, straight_bez.param_span.1));
+                    try_params.push(param);
                 }
             }
         }
@@ -443,19 +421,14 @@ impl Curve {
     pub fn invert_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        for (lower_bound, param, upper_bound) in self
+        for param in self
             .get_projection_try_params(point, ProjectionKind::Inversion)
             .into_iter()
         {
-            println!("try_params = ({}, {}, {})", lower_bound, param, upper_bound);
-            if let Some(projected) = self.project_point_from_starting_param(
-                point,
-                param,
-                ProjectionKind::Inversion,
-                (lower_bound, upper_bound),
-            ) {
+            if let Some(projected) =
+                self.project_point_from_starting_param(point, param, ProjectionKind::Inversion)
+            {
                 if let Some(ref nearest) = nearest_projected {
-                    println!("dist = {}", nearest.distance);
                     if nearest.distance > projected.distance {
                         nearest_projected = Some(projected);
                     }
@@ -466,7 +439,6 @@ impl Curve {
         }
 
         if let Some(ref projected) = nearest_projected {
-            //println!("dist = {}", projected.distance);
             if projected.distance.toleq(0.0) {
                 nearest_projected
             } else {
@@ -481,16 +453,13 @@ impl Curve {
     pub fn nearest_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        for (lower_bound, param, upper_bound) in self
+        for param in self
             .get_projection_try_params(point, ProjectionKind::Nearest)
             .into_iter()
         {
-            if let Some(projected) = self.project_point_from_starting_param(
-                point,
-                param,
-                ProjectionKind::Nearest,
-                (lower_bound, upper_bound),
-            ) {
+            if let Some(projected) =
+                self.project_point_from_starting_param(point, param, ProjectionKind::Nearest)
+            {
                 if let Some(ref nearest) = nearest_projected {
                     if nearest.distance > projected.distance {
                         nearest_projected = Some(projected);
@@ -509,16 +478,13 @@ impl Curve {
     pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        for (lower_bound, param, upper_bound) in self
+        for param in self
             .get_projection_try_params(point, ProjectionKind::Projection)
             .into_iter()
         {
-            if let Some(projected) = self.project_point_from_starting_param(
-                point,
-                param,
-                ProjectionKind::Projection,
-                (lower_bound, upper_bound),
-            ) {
+            if let Some(projected) =
+                self.project_point_from_starting_param(point, param, ProjectionKind::Projection)
+            {
                 if let Some(ref nearest) = nearest_projected {
                     if nearest.distance > projected.distance {
                         nearest_projected = Some(projected);
@@ -539,7 +505,6 @@ impl Curve {
         point: Vec3,
         u: f64,
         projection_kind: ProjectionKind,
-        bounds: (f64, f64),
     ) -> Option<CurveProjectionResult> {
         struct LastParams {
             u: f64,
@@ -553,24 +518,23 @@ impl Curve {
 
         for _ in 0..MAX_NEWTON_ITER {
             if projection_kind == ProjectionKind::Nearest {
-                if u < bounds.0 {
-                    let pos = self.eval_pos(bounds.0);
+                if u < 0.0 {
+                    let pos = self.eval_pos(0.0);
                     return Some(CurveProjectionResult {
-                        u: bounds.0,
+                        u: 0.0,
                         pos,
                         distance: (pos.project() - point).magnitude(),
                     });
-                } else if u > bounds.1 {
-                    let pos = self.eval_pos(bounds.1);
+                } else if u > 1.0 {
+                    let pos = self.eval_pos(1.0);
                     return Some(CurveProjectionResult {
-                        u: bounds.1,
+                        u: 1.0,
                         pos,
                         distance: (pos.project() - point).magnitude(),
                     });
                 }
             } else {
-                if u < bounds.0 || u > bounds.1 {
-                    println!("out of bounds {:?}, u = {}", bounds, u);
+                if u < 0.0 || u > 1.0 {
                     return None;
                 }
             }
@@ -622,7 +586,6 @@ impl Curve {
             u -= num / den;
         }
 
-        println!("none 2");
         None
     }
 
