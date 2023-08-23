@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Transform, Zero};
-use primitives::{Angle, EVec, HVec, Mat4, Vec3, Vec4};
+use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Zero};
+use primitives::{EVec, HVec, Mat4, Vec3, Vec4};
 use render::{
     camera::Camera,
     lights::Lights,
@@ -13,9 +13,6 @@ use render::{
 use splines::{Curve, KnotVec};
 use tessellate::curve::CurveTessellation;
 use viewer::run_viewer;
-
-const BEZ_OFFSET: f64 = -0.001;
-const STRAIGHT_BEZ_OFFSET: f64 = BEZ_OFFSET * 2.0;
 
 fn main() {
     let mut geometry = Geometry::new();

@@ -13,6 +13,7 @@ members = [
     "examples/curve_nearest_point",
     "examples/curve_interpolate_half_circle",
     "examples/curve_point_projection",
+    "examples/curve_point_inversion",
     "examples/curve_interpolate_ders_half_circle",
     "examples/surface_skinned_curves",
     "examples/surface_ruled_curve",

@@ -47,12 +47,13 @@ impl BezierComponent {
     }
 
     pub fn estimate_projection_parameter(&self, point: Vec3) -> Option<f64> {
-        let start = self.curve.unweighted[0].project();
-        let end = self.curve.unweighted[self.curve.unweighted.len() - 1].project();
+        let start = self.curve.weighted[0].project();
+        let end = self.curve.weighted[self.curve.weighted.len() - 1].project();
+        let line = end - start;
 
         let line_to_point = line_to_point_perpendicular(start, end, point);
-        let point_on_line = point - line_to_point;
-        let fraction_of_line = (point_on_line - start).dot(end - start);
+        let point_on_line = point + line_to_point;
+        let fraction_of_line = (point_on_line - start).dot(line.normalize()) / line.magnitude();
         let param = self.param_span.0 + (self.param_span.1 - self.param_span.0) * fraction_of_line;
 
         if param >= self.param_span.0 && param <= self.param_span.1 {
@@ -62,11 +63,22 @@ impl BezierComponent {
         }
     }
 
+    /*
+    pub fn is_in_convex_hull(&self, point: Vec3) -> bool {
+        true
+    }
+     */
+
     pub fn has_perpendicular_projection(&self, point: Vec3) -> bool {
-        let p0 = self.curve.unweighted[0].project();
-        let p1 = self.curve.unweighted[1].project();
-        let pn = self.curve.unweighted[self.curve.unweighted.len() - 1].project();
-        let pnsub1 = self.curve.unweighted[self.curve.unweighted.len() - 2].project();
+        let p0 = self.curve.weighted[0].project();
+        let p1 = self.curve.weighted[1].project();
+
+        if p0.toleq(point) || p0.toleq(p1) {
+            return true;
+        }
+
+        let pn = self.curve.weighted[self.curve.weighted.len() - 1].project();
+        let pnsub1 = self.curve.weighted[self.curve.weighted.len() - 2].project();
 
         let p0p = (point - p0).normalize();
         let p0p1 = (p1 - p0).normalize();
@@ -396,41 +408,83 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
-    fn try_projection_params(&self, point: Vec3, projection_kind: ProjectionKind) -> Vec<f64> {
-        let mut try_params = vec![0.0];
-        for straight_bez in self.straight_beziers().iter() {
+    fn get_projection_try_params(
+        &self,
+        point: Vec3,
+        projection_kind: ProjectionKind,
+    ) -> Vec<(f64, f64, f64)> {
+        let mut try_params = vec![];
+        //println!("straight_beziers.len() = {}", self.straight_beziers().len());
+        for (i, straight_bez) in self.straight_beziers().iter().enumerate() {
             let is_in_projection_space = match projection_kind {
                 ProjectionKind::Projection => straight_bez.has_perpendicular_projection(point),
+                ProjectionKind::Inversion => {
+                    straight_bez.has_perpendicular_projection(point)
+                    //true
+                }
                 ProjectionKind::Nearest => true,
-                ProjectionKind::Inversion => true,
+                //ProjectionKind::Inversion => true, //straight_bez.is_in_convex_hull(point),
             };
+
+            //println!("straight_bez {:?}", straight_bez.param_span);
+            //println!("{} is_in_projection_space = {}", i, is_in_projection_space);
 
             if is_in_projection_space {
                 if let Some(param) = straight_bez.estimate_projection_parameter(point) {
-                    try_params.push(param);
+                    try_params.push((straight_bez.param_span.0, param, straight_bez.param_span.1));
                 }
             }
         }
-        try_params.push(1.0);
 
         try_params
+    }
+
+    /// Finds the point on the curve that is in the same position as `point` (within tolerance)
+    pub fn invert_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
+        let mut nearest_projected: Option<CurveProjectionResult> = None;
+
+        for (lower_bound, param, upper_bound) in self
+            .get_projection_try_params(point, ProjectionKind::Inversion)
+            .into_iter()
+        {
+            println!("try_params = ({}, {}, {})", lower_bound, param, upper_bound);
+            if let Some(projected) = self.project_point_from_starting_param(
+                point,
+                param,
+                ProjectionKind::Inversion,
+                (lower_bound, upper_bound),
+            ) {
+                if let Some(ref nearest) = nearest_projected {
+                    println!("dist = {}", nearest.distance);
+                    if nearest.distance > projected.distance {
+                        nearest_projected = Some(projected);
+                    }
+                } else {
+                    nearest_projected = Some(projected);
+                }
+            }
+        }
+
+        if let Some(ref projected) = nearest_projected {
+            //println!("dist = {}", projected.distance);
+            if projected.distance.toleq(0.0) {
+                nearest_projected
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     /// Finds the closest point on the curve to `point`.
     pub fn nearest_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        let try_params = self.try_projection_params(point, ProjectionKind::Nearest);
-
-        for i in 0..try_params.len() {
-            let param = try_params[i];
-            let lower_bound = if i == 0 { 0.0 } else { try_params[i - 1] };
-            let upper_bound = if i == try_params.len() - 1 {
-                1.0
-            } else {
-                try_params[i + 1]
-            };
-
+        for (lower_bound, param, upper_bound) in self
+            .get_projection_try_params(point, ProjectionKind::Nearest)
+            .into_iter()
+        {
             if let Some(projected) = self.project_point_from_starting_param(
                 point,
                 param,
@@ -455,17 +509,10 @@ impl Curve {
     pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        let try_params = self.try_projection_params(point, ProjectionKind::Projection);
-
-        for i in 0..try_params.len() {
-            let param = try_params[i];
-            let lower_bound = if i == 0 { 0.0 } else { try_params[i - 1] };
-            let upper_bound = if i == try_params.len() - 1 {
-                1.0
-            } else {
-                try_params[i + 1]
-            };
-
+        for (lower_bound, param, upper_bound) in self
+            .get_projection_try_params(point, ProjectionKind::Projection)
+            .into_iter()
+        {
             if let Some(projected) = self.project_point_from_starting_param(
                 point,
                 param,
@@ -523,14 +570,9 @@ impl Curve {
                 }
             } else {
                 if u < bounds.0 || u > bounds.1 {
+                    println!("out of bounds {:?}, u = {}", bounds, u);
                     return None;
                 }
-            }
-
-            // If parameter is outside of the knot vector bounds, we can't
-            // project.
-            if u < bounds.0 || u > bounds.1 {
-                return None;
             }
 
             // Get position and derivatives at u
@@ -552,7 +594,11 @@ impl Curve {
             // More stopping conditions
             {
                 let zero_cosine = {
-                    let num = ders[1].project().dot(point_to_pos).abs();
+                    let num = ders[1]
+                        .project()
+                        .normalize()
+                        .dot(point_to_pos.normalize())
+                        .abs();
                     let den = ders[1].magnitude() * point_to_pos.magnitude();
                     (num / den) <= ZERO_COS_TOL
                 };
@@ -576,6 +622,7 @@ impl Curve {
             u -= num / den;
         }
 
+        println!("none 2");
         None
     }
 
@@ -839,9 +886,10 @@ impl Curve {
 
 #[cfg(test)]
 mod tests {
-    use cgmath::vec4;
+    use cgmath::{vec3, vec4};
+    use primitives::HVec;
 
-    use crate::Curve;
+    use crate::{BezierComponent, Curve};
 
     #[test]
     fn identifies_convex_control_polygons() {
@@ -871,5 +919,37 @@ mod tests {
         ]);
 
         assert!(!complex.is_convex());
+    }
+
+    #[test]
+    fn identifies_points_with_perpendicular_projections() {
+        let bezier = BezierComponent::new(
+            Curve::create_unweighted_bezier(vec![
+                vec4(-1.0, 0.0, 0.0, 1.0),
+                vec4(0.0, -1.0, 0.0, 1.0),
+                vec4(1.0, 0.0, 0.0, 1.0),
+            ]),
+            0.0,
+            1.0,
+        );
+
+        // Below
+        assert!(bezier.has_perpendicular_projection(vec3(0.0, 0.0, 0.0)));
+
+        // Above
+        assert!(bezier.has_perpendicular_projection(vec3(0.0, 1.0, 0.0)));
+
+        // Right
+        assert!(!bezier.has_perpendicular_projection(vec3(2.0, 0.0, 0.0)));
+
+        // Left
+        assert!(!bezier.has_perpendicular_projection(vec3(-2.0, 0.0, 0.0)));
+
+        // On curve
+        assert!(bezier.has_perpendicular_projection(bezier.curve.eval_pos(0.0).project()));
+        assert!(bezier.has_perpendicular_projection(bezier.curve.eval_pos(0.25).project()));
+        assert!(bezier.has_perpendicular_projection(bezier.curve.eval_pos(0.5).project()));
+        assert!(bezier.has_perpendicular_projection(bezier.curve.eval_pos(0.75).project()));
+        assert!(bezier.has_perpendicular_projection(bezier.curve.eval_pos(0.5).project()));
     }
 }

@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace, Point3, Zero};
-use primitives::{EVec, HVec, Mat4, Vec3, Vec4};
+use primitives::{EVec, HVec, Mat4, Vec3, Vec4, TOL};
 use render::{
     camera::Camera,
     lights::Lights,
@@ -33,8 +33,25 @@ fn main() {
         ]),
     );
 
-    let res = 500;
+    let res = 50;
 
+    let points_on_curve = (0..=res)
+        .map(|u| curve.eval_pos(u as f64 / res as f64).project() + vec3(0.0, 0.0, 0.0))
+        .collect::<Vec<_>>();
+
+    let points_not_on_curve = points_on_curve
+        .iter()
+        .flat_map(|pt| vec![pt + vec3(0.1, 0.1, 0.1)])
+        .collect::<Vec<_>>();
+
+    let points = points_on_curve
+        .into_iter()
+        .skip(26)
+        .take(1)
+        //.chain(points_not_on_curve.into_iter())
+        .collect::<Vec<_>>();
+
+    /*
     let points: Vec<Vec3> = curve
         .transform(&Mat4::from_translation(Vec3::new(0.0, 0.5, 0.0)))
         .tessellate_by_param(res)
@@ -58,18 +75,27 @@ fn main() {
                 .into_iter(),
         )
         .collect();
-
-    struct Projection {
-        start: Vec3,
-        end: Vec3,
-    }
+         */
 
     let start = Instant::now();
+
+    let display_points = points
+        .iter()
+        .map(|pt| {
+            if let Some(projected) = curve.invert_point(*pt) {
+                ModelPoint::new(0.into(), projected.pos.project(), Vec3::zero(), Rgba::GREEN)
+            } else {
+                ModelPoint::new(0.into(), *pt, Vec3::zero(), Rgba::RED)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    /*
     let projections: Vec<Projection> = points
         .iter()
         .flat_map(|pt| {
             let mut points = vec![];
-            if let Some(projected) = curve.nearest_point(*pt) {
+            if let Some(projected) = curve.invert_point(*pt) {
                 points.push(Projection {
                     start: *pt,
                     end: curve.eval_pos(projected.u).project(),
@@ -78,6 +104,7 @@ fn main() {
             points
         })
         .collect::<Vec<_>>();
+         */
     let end = Instant::now();
     println!(
         "Projected {} points in {}μs",
@@ -101,23 +128,65 @@ fn main() {
     }
 
     // Points
+    /*
     model.add_points(
         points
             .iter()
             .map(|pt| ModelPoint::new(0.into(), *pt, Vec3::zero(), Rgba::GREEN))
             .collect(),
     );
+     */
 
     // Projected points
     model.add_points(
+        /*
         projections
             .iter()
             .map(|projection| {
                 ModelPoint::new(0.into(), projection.end.clone(), Vec3::zero(), Rgba::RED)
             })
             .collect(),
+         */
+        display_points,
     );
 
+    model.add_point(ModelPoint::from_vec3(
+        vec3(
+            -0.19999999999999998,
+            0.19999999999999998,
+            0.6666666666666667,
+        ),
+        Rgba::WHITE,
+    ));
+    model.add_point(ModelPoint::from_vec3(
+        curve.eval_pos(0.520002334).project(),
+        Rgba::WHITE,
+    ));
+    model.add_point(ModelPoint::from_vec3(
+        vec3(-0.12595837897042717, 0.12595837897042717, 0.696604600219058),
+        Rgba::BLACK,
+    ));
+
+    /*
+    model.add_point(ModelPoint::from_vec3(
+        curve.eval_pos(0.5).project(),
+        Rgba::WHITE,
+    ));
+    model.add_point(ModelPoint::from_vec3(
+        curve.eval_pos(0.5002502489576075).project(),
+        Rgba::BLUE,
+    ));
+    model.add_point(ModelPoint::from_vec3(
+        curve.eval_pos(0.524749752).project(),
+        Rgba::BLUE,
+    ));
+    model.add_point(ModelPoint::from_vec3(
+        curve.eval_pos(0.525).project(),
+        Rgba::BLACK,
+    ));
+     */
+
+    /*
     // Projection vectors
     model.add_vectors(
         projections
@@ -135,6 +204,7 @@ fn main() {
             })
             .collect(),
     );
+     */
 
     geometry.insert_model(model);
 
