@@ -11,17 +11,10 @@ use std::cmp::{max, min};
 
 pub use builders::*;
 
-const MAX_NEWTON_ITER: usize = 200;
+const MAX_NEWTON_ITER: usize = 2000;
 const ZERO_COS_TOL: f64 = TOL / 100.0;
 const STRAIGHT_BEZIER_THRESHOLD: f64 = 0.99;
 const BEZIER_SPLIT_RECURSION_LIMIT: usize = 12;
-
-#[derive(PartialEq)]
-enum ProjectionKind {
-    Projection,
-    Nearest,
-    Inversion,
-}
 
 #[derive(Debug, Clone)]
 pub struct BezierComponent {
@@ -418,35 +411,6 @@ impl Curve {
         try_params
     }
 
-    /// Finds the point on the curve that is in the same position as `point` (within tolerance)
-    pub fn invert_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
-        let mut nearest_projected: Option<CurveProjectionResult> = None;
-
-        for param in self.get_projection_try_params(point).into_iter() {
-            if let Some(projected) =
-                self.project_point_from_starting_param(point, param, ProjectionKind::Inversion)
-            {
-                if let Some(ref nearest) = nearest_projected {
-                    if nearest.distance > projected.distance {
-                        nearest_projected = Some(projected);
-                    }
-                } else {
-                    nearest_projected = Some(projected);
-                }
-            }
-        }
-
-        if let Some(ref projected) = nearest_projected {
-            if projected.distance.toleq(0.0) {
-                nearest_projected
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
     /// Finds the closest point on the curve to `point`.
     pub fn nearest_point(&self, point: Vec3) -> CurveProjectionResult {
         //let mut nearest_projected: Option<CurveProjectionResult> = None;
@@ -490,9 +454,7 @@ impl Curve {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
         for param in self.get_projection_try_params(point).into_iter() {
-            if let Some(projected) =
-                self.project_point_from_starting_param(point, param, ProjectionKind::Projection)
-            {
+            if let Some(projected) = self.project_point_from_starting_param(point, param) {
                 if let Some(ref nearest) = nearest_projected {
                     if nearest.distance > projected.distance {
                         nearest_projected = Some(projected);
@@ -506,13 +468,39 @@ impl Curve {
         nearest_projected
     }
 
+    /// Finds the point on the curve that is in the same position as `point` (within tolerance)
+    pub fn invert_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
+        let mut nearest_projected: Option<CurveProjectionResult> = None;
+
+        for param in self.get_projection_try_params(point).into_iter() {
+            if let Some(projected) = self.project_point_from_starting_param(point, param) {
+                if let Some(ref nearest) = nearest_projected {
+                    if nearest.distance > projected.distance {
+                        nearest_projected = Some(projected);
+                    }
+                } else {
+                    nearest_projected = Some(projected);
+                }
+            }
+        }
+
+        if let Some(ref projected) = nearest_projected {
+            if projected.distance.toleq(0.0) {
+                nearest_projected
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     /// Attempts to project or invert a point onto the curve using Newton's method,
     /// starting the iterations at the parameter value `u`.
     fn project_point_from_starting_param(
         &self,
         point: Vec3,
         u: f64,
-        projection_kind: ProjectionKind,
     ) -> Option<CurveProjectionResult> {
         struct LastParams {
             u: f64,
@@ -525,26 +513,8 @@ impl Curve {
         let mut u = u;
 
         for _ in 0..MAX_NEWTON_ITER {
-            if projection_kind == ProjectionKind::Nearest {
-                if u < 0.0 {
-                    let pos = self.eval_pos(0.0);
-                    return Some(CurveProjectionResult {
-                        u: 0.0,
-                        pos,
-                        distance: (pos.project() - point).magnitude(),
-                    });
-                } else if u > 1.0 {
-                    let pos = self.eval_pos(1.0);
-                    return Some(CurveProjectionResult {
-                        u: 1.0,
-                        pos,
-                        distance: (pos.project() - point).magnitude(),
-                    });
-                }
-            } else {
-                if u < 0.0 || u > 1.0 {
-                    return None;
-                }
+            if u < 0.0 || u > 1.0 {
+                return None;
             }
 
             // Get position and derivatives at u
@@ -554,7 +524,7 @@ impl Curve {
             // If the parameter has not changed significantly since the last
             // iteration, we've converged
             if let Some(last_params) = last_params {
-                if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL {
+                if ((u - last_params.u) * last_params.ders[1]).magnitude() < TOL / 100.0 {
                     return Some(CurveProjectionResult {
                         u,
                         pos: ders[0],
@@ -587,9 +557,8 @@ impl Curve {
             }
 
             // Newton iteration
-            let num = ders[1].project().normalize().dot(point_to_pos.normalize());
-            let den =
-                ders[2].project().normalize().dot(point_to_pos.normalize()) + ders[1].magnitude2();
+            let num = ders[1].project().normalize().dot(point_to_pos);
+            let den = ders[2].project().normalize().dot(point_to_pos) + ders[1].magnitude2();
             last_params = Some(LastParams { u, ders });
             u -= num / den;
         }
