@@ -69,12 +69,11 @@ fn main() {
         .iter()
         .flat_map(|pt| {
             let mut points = vec![];
-            if let Some(projected) = curve.nearest_point(*pt) {
-                points.push(Projection {
-                    start: *pt,
-                    end: curve.eval_pos(projected.u).project(),
-                });
-            }
+            let projected = curve.nearest_point(*pt);
+            points.push(Projection {
+                start: *pt,
+                end: curve.eval_pos(projected.u).project(),
+            });
             points
         })
         .collect::<Vec<_>>();

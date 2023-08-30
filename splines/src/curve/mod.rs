@@ -183,6 +183,7 @@ pub struct Curve {
     beziers: OnceCell<Vec<BezierComponent>>,
     convex_beziers: OnceCell<Vec<BezierComponent>>,
     straight_beziers: OnceCell<Vec<BezierComponent>>,
+    endpoints: OnceCell<(Vec4, Vec4)>,
 }
 impl Curve {
     pub fn create_unweighted(unweighted: Vec<Vec4>, knots: KnotVec) -> Self {
@@ -231,7 +232,13 @@ impl Curve {
             beziers: OnceCell::new(),
             convex_beziers: OnceCell::new(),
             straight_beziers: OnceCell::new(),
+            endpoints: OnceCell::new(),
         }
+    }
+
+    pub fn endpoints(&self) -> &(Vec4, Vec4) {
+        self.endpoints
+            .get_or_init(|| (self.eval_pos(0.0), self.eval_pos(1.0)))
     }
 
     /// Returns the piecewise bezier decomposition of this curve.
@@ -398,16 +405,10 @@ impl Curve {
         self.refine_knots(final_knots_not_in_self)
     }
 
-    fn get_projection_try_params(&self, point: Vec3, projection_kind: ProjectionKind) -> Vec<f64> {
+    fn get_projection_try_params(&self, point: Vec3) -> Vec<f64> {
         let mut try_params = vec![];
         for straight_bez in self.straight_beziers().iter() {
-            let is_in_projection_space = match projection_kind {
-                ProjectionKind::Projection => straight_bez.has_perpendicular_projection(point),
-                ProjectionKind::Inversion => straight_bez.has_perpendicular_projection(point),
-                ProjectionKind::Nearest => true,
-            };
-
-            if is_in_projection_space {
+            if straight_bez.has_perpendicular_projection(point) {
                 if let Some(param) = straight_bez.estimate_projection_parameter(point) {
                     try_params.push(param);
                 }
@@ -421,10 +422,7 @@ impl Curve {
     pub fn invert_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        for param in self
-            .get_projection_try_params(point, ProjectionKind::Inversion)
-            .into_iter()
-        {
+        for param in self.get_projection_try_params(point).into_iter() {
             if let Some(projected) =
                 self.project_point_from_starting_param(point, param, ProjectionKind::Inversion)
             {
@@ -450,27 +448,40 @@ impl Curve {
     }
 
     /// Finds the closest point on the curve to `point`.
-    pub fn nearest_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
-        let mut nearest_projected: Option<CurveProjectionResult> = None;
+    pub fn nearest_point(&self, point: Vec3) -> CurveProjectionResult {
+        //let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        for param in self
-            .get_projection_try_params(point, ProjectionKind::Nearest)
-            .into_iter()
-        {
-            if let Some(projected) =
-                self.project_point_from_starting_param(point, param, ProjectionKind::Nearest)
-            {
-                if let Some(ref nearest) = nearest_projected {
-                    if nearest.distance > projected.distance {
-                        nearest_projected = Some(projected);
-                    }
-                } else {
-                    nearest_projected = Some(projected);
-                }
+        // If the closest point on the curve isn't one of the projected points we'll
+        // search for below, it's one of the endpoints. We start by finding the distance
+        // to the starting and ending points and setting `nearest_projected` to the closest
+        // one.
+        let (start_point, end_point) = self.endpoints();
+
+        let start_dist = (start_point.project() - point).magnitude();
+        let end_dist = (end_point.project() - point).magnitude();
+
+        let nearest = match start_dist < end_dist {
+            true => CurveProjectionResult {
+                u: 0.0,
+                pos: start_point.clone(),
+                distance: start_dist,
+            },
+            false => CurveProjectionResult {
+                u: 1.0,
+                pos: end_point.clone(),
+                distance: end_dist,
+            },
+        };
+
+        if let Some(projected) = self.project_point(point) {
+            if projected.distance < nearest.distance {
+                projected
+            } else {
+                nearest
             }
+        } else {
+            nearest
         }
-
-        nearest_projected
     }
 
     /// Finds the closest point on the curve where a vector from it to `point`
@@ -478,10 +489,7 @@ impl Curve {
     pub fn project_point(&self, point: Vec3) -> Option<CurveProjectionResult> {
         let mut nearest_projected: Option<CurveProjectionResult> = None;
 
-        for param in self
-            .get_projection_try_params(point, ProjectionKind::Projection)
-            .into_iter()
-        {
+        for param in self.get_projection_try_params(point).into_iter() {
             if let Some(projected) =
                 self.project_point_from_starting_param(point, param, ProjectionKind::Projection)
             {
