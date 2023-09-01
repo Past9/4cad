@@ -15,7 +15,7 @@ impl Surface {
             .map(|p| p.transform(&transform))
             .collect();
 
-        Self::unweighted(
+        Self::create_unweighted(
             vec![row1, row2],
             KnotVec::from([0.0, 0.0, 1.0, 1.0]),
             knots_v,
@@ -125,7 +125,7 @@ impl Surface {
 
         let ctrl_pts = curves.into_iter().map(Curve::take_weighted).collect();
 
-        let surf = Self::weighted(ctrl_pts, profile.knots().clone(), knots_v);
+        let surf = Self::create_weighted(ctrl_pts, profile.knots().clone(), knots_v);
 
         surf
     }
@@ -233,7 +233,7 @@ impl Surface {
         // The V-direction knots come from the new interpolated curves, which are
         // oriented along the V-direction
         let knots_v = v_curves[0].knots().clone();
-        Self::weighted(
+        Self::create_weighted(
             v_curves.into_iter().map(Curve::take_weighted).collect(),
             knots_u,
             knots_v,

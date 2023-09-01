@@ -615,7 +615,7 @@ impl Curve {
             for l in 1..=self.degree {
                 let ind = k - self.degree + l;
                 let mut alpha = out_knots[k + l] - add_knots[j];
-                if alpha.abs() <= TOL {
+                if alpha.toleq(0.0) {
                     out_points[ind - 1] = out_points[ind];
                 } else {
                     alpha = alpha / (out_knots[k + l] - self.knots[i - self.degree + l]);

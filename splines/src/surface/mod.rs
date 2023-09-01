@@ -4,14 +4,19 @@ use crate::{basis, bin, knots::KnotVec, surface_derivatives, Vec4};
 use cgmath::{InnerSpace, Matrix4, Zero};
 
 pub use builders::*;
-use primitives::{EVec, HVec, Vec3};
+use primitives::{EVec, HVec, TolEq, Vec3, TOL};
+
+pub enum SurfaceDirection {
+    U,
+    V,
+}
 
 pub struct SurfacePoint {
     pub position: Vec3,
     pub normal: Vec3,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Surface {
     unweighted: Vec<Vec<Vec4>>,
     weighted: Vec<Vec<Vec4>>,
@@ -23,7 +28,11 @@ pub struct Surface {
     order_v: usize,
 }
 impl Surface {
-    pub fn unweighted(unweighted: Vec<Vec<Vec4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
+    pub fn create_unweighted(
+        unweighted: Vec<Vec<Vec4>>,
+        knots_u: KnotVec,
+        knots_v: KnotVec,
+    ) -> Self {
         let weighted: Vec<Vec<Vec4>> = unweighted
             .iter()
             .map(|row| row.iter().map(HVec::weight).collect())
@@ -31,7 +40,7 @@ impl Surface {
         Self::create(unweighted, weighted, knots_u, knots_v)
     }
 
-    pub fn weighted(weighted: Vec<Vec<Vec4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
+    pub fn create_weighted(weighted: Vec<Vec<Vec4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
         let unweighted: Vec<Vec<Vec4>> = weighted
             .iter()
             .map(|row| row.iter().map(HVec::unweight).collect())
@@ -169,7 +178,7 @@ impl Surface {
     }
 
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
-        Self::unweighted(
+        Self::create_unweighted(
             self.unweighted
                 .iter()
                 .map(|row| {
@@ -181,6 +190,86 @@ impl Surface {
             self.knots_u.clone(),
             self.knots_v.clone(),
         )
+    }
+
+    pub fn refine_knots(&self, add_knots: Vec<f64>, direction: SurfaceDirection) -> Self {
+        match direction {
+            SurfaceDirection::U => self.refine_knots_u(add_knots),
+            SurfaceDirection::V => self.refine_knots_v(add_knots),
+        }
+    }
+
+    pub fn refine_knots_u(&self, add_knots: Vec<f64>) -> Self {
+        if add_knots.len() == 0 {
+            return self.clone();
+        }
+
+        let span_a = self.knots_u.find_span(self.degree_u, add_knots[0]);
+        let span_b = self
+            .knots_u
+            .find_span(self.degree_u, add_knots[add_knots.len() - 1])
+            + 1;
+
+        let m = self.unweighted.len() + self.degree_u;
+        let mut out_knots = vec![0.0; m + add_knots.len() + 1];
+        let mut out_points = vec![
+            vec![Vec4::zero(); self.unweighted[0].len()];
+            self.unweighted.len() + add_knots.len()
+        ];
+
+        for row in 0..=m {
+            for k in 0..=span_a - self.degree_u {
+                out_points[k][row] = self.weighted[k][row];
+            }
+
+            for k in span_b - 1..=self.unweighted.len() {
+                out_points[k + add_knots.len()][row] = self.weighted[k][row];
+            }
+        }
+
+        let mut i = span_b + self.degree_u - 1;
+        let mut k = span_b + self.degree_u + add_knots.len() - 1;
+
+        for j in (0..=add_knots.len()).rev() {
+            while add_knots[j] <= self.knots_u[i] && i > span_a {
+                for row in 0..=m {
+                    out_points[k - self.degree_u - 1][row] =
+                        self.weighted[i - self.degree_u - 1][row];
+                }
+                out_knots[k] = self.knots_u[i];
+                k = k - 1;
+                i = i - 1;
+            }
+
+            for row in 0..=m {
+                out_points[k - self.degree_u - 1][row] = out_points[k - self.degree_u][row];
+            }
+
+            for l in 1..=self.degree_u {
+                let ind = k - self.degree_u + l;
+                let mut alpha = out_knots[k + l] - add_knots[j];
+                if alpha.toleq(0.0) {
+                    for row in 0..=m {
+                        out_points[ind - 1][row] = out_points[ind][row];
+                    }
+                } else {
+                    alpha = alpha / (out_knots[k + l] - self.knots_u[i - self.degree_u + l]);
+                    for row in 0..=m {
+                        out_points[ind - 1][row] =
+                            alpha * out_points[ind - 1][row] + (1.0 - alpha) * out_points[ind][row];
+                    }
+                }
+            }
+
+            out_knots[k] = add_knots[j];
+            k = k - 1;
+        }
+
+        Self::create_weighted(out_points, KnotVec::new(out_knots), self.knots_v.clone())
+    }
+
+    pub fn refine_knots_v(&self, add_knots: Vec<f64>) -> Self {
+        todo!()
     }
 }
 
