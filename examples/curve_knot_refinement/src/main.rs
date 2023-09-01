@@ -56,7 +56,7 @@ fn main() {
             .collect(),
     );
 
-    // Refined knots
+    // Refined
     let refinements = (1..=9)
         .into_iter()
         .map(|k| k as f64 / 10.0)

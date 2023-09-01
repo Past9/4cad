@@ -100,6 +100,14 @@ impl Surface {
         }
     }
 
+    pub fn knots_u(&self) -> &KnotVec {
+        &self.knots_u
+    }
+
+    pub fn knots_v(&self) -> &KnotVec {
+        &self.knots_v
+    }
+
     /// Returns the homogeneous point on the surface at the parameter values `u` and `v`.
     pub fn eval_pos(&self, u: f64, v: f64) -> Vec4 {
         // Alg A4.3
