@@ -98,7 +98,7 @@ fn main() {
         .map(|k| k as f64 / 10.0)
         .collect::<Vec<_>>();
 
-    // U Refined
+    // U Refinement
     let refined_u_surface = surface
         .transform(&Mat4::from_translation(vec3(-4.5, 0.0, 0.0)))
         .refine_knots_u(refinements.clone());
@@ -107,6 +107,38 @@ fn main() {
         refined_u_surface.tessellate_by_params(resolution),
         surface_material,
     ));
+
+    for knot_u in refined_u_surface.knots_u().knots().iter() {
+        for knot_v in refined_u_surface.knots_v().knots().iter() {
+            model.add_point(ModelPoint::new(
+                0.into(),
+                refined_u_surface.eval_pos(*knot_u, *knot_v).project(),
+                Vec3::zero(),
+                Rgba::GREEN,
+            ));
+        }
+    }
+
+    // V Refinement
+    let refined_v_surface = surface
+        .transform(&Mat4::from_translation(vec3(4.5, 0.0, 0.0)))
+        .refine_knots_v(refinements.clone());
+
+    model.add_surface(ModelSurface::from_surface_points(
+        refined_v_surface.tessellate_by_params(resolution),
+        surface_material,
+    ));
+
+    for knot_u in refined_v_surface.knots_u().knots().iter() {
+        for knot_v in refined_v_surface.knots_v().knots().iter() {
+            model.add_point(ModelPoint::new(
+                0.into(),
+                refined_v_surface.eval_pos(*knot_u, *knot_v).project(),
+                Vec3::zero(),
+                Rgba::GREEN,
+            ));
+        }
+    }
 
     geometry.insert_model(model);
 

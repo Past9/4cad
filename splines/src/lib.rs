@@ -439,17 +439,20 @@ fn parameterize_by_chord_len(points: &[Vec4]) -> Vec<f64> {
 }
 
 fn transpose<T: Clone>(grid: Vec<Vec<T>>) -> Vec<Vec<T>> {
-    let mut out = Vec::new();
+    let u_dim = grid.len();
+    let v_dim = grid[0].len();
 
-    for i in 0..grid.len() {
-        let mut row = Vec::new();
-        for j in 0..grid[0].len() {
-            row.push(grid[j][i].clone());
+    let mut out_grid: Vec<Vec<T>> = Vec::with_capacity(v_dim);
+
+    for v in 0..v_dim {
+        let mut row = Vec::with_capacity(u_dim);
+        for u in 0..u_dim {
+            row.push(grid[u][v].clone())
         }
-        out.push(row);
+        out_grid.push(row);
     }
 
-    out
+    out_grid
 }
 
 /// Returns an arbitrary unit vector _b_ that is orthogonal to `a`. This is done by
@@ -510,12 +513,12 @@ fn arbitrary_orthonormal(a: Vec3) -> Vec3 {
 
 fn refine_knots(
     degree: usize,
-    knots: KnotVec,
-    weighted: Vec<Vec4>,
-    add_knots: Vec<f64>,
+    knots: &KnotVec,
+    weighted: &[Vec4],
+    add_knots: &[f64],
 ) -> (Vec<Vec4>, KnotVec) {
     if add_knots.len() == 0 {
-        return (weighted, knots);
+        return (weighted.to_vec(), knots.clone());
     }
 
     let span_a = knots.find_span(degree, add_knots[0]);
@@ -582,8 +585,13 @@ mod tests {
     #[test]
     fn transposes_grid() {
         assert_eq!(
-            transpose(vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]]),
-            vec![vec![1, 4, 7], vec![2, 5, 8], vec![3, 6, 9],]
+            transpose(vec![
+                vec![1, 2, 3],
+                vec![4, 5, 6],
+                vec![7, 8, 9],
+                vec![10, 11, 12]
+            ]),
+            vec![vec![1, 4, 7, 10], vec![2, 5, 8, 11], vec![3, 6, 9, 12],]
         );
     }
 

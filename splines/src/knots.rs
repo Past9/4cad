@@ -13,6 +13,13 @@ impl KnotVec {
         }
     }
 
+    /// Creates an empty knot vector. Not valid for use in any spline. This is intended
+    /// for use where an uninitialized knot vector is needed so it can be replaced or
+    /// appended to later.
+    pub fn empty() -> Self {
+        Self { knots: vec![] }
+    }
+
     pub fn bezier(degree: usize) -> Self {
         Self {
             knots: (0..=degree)

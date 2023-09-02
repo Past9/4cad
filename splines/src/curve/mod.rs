@@ -569,12 +569,7 @@ impl Curve {
     /// Adds the given knots to the knot vector, adding and moving control
     /// points as necessary but leaving the shape of the curve intact.
     pub fn refine_knots(&self, add_knots: Vec<f64>) -> Self {
-        let (weighted, knots) = refine_knots(
-            self.degree,
-            self.knots.clone(),
-            self.weighted.clone(),
-            add_knots,
-        );
+        let (weighted, knots) = refine_knots(self.degree, &self.knots, &self.weighted, &add_knots);
         Self::create_weighted(weighted, knots)
     }
 
