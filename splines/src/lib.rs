@@ -508,6 +508,70 @@ fn arbitrary_orthonormal(a: Vec3) -> Vec3 {
     b.normalize()
 }
 
+fn refine_knots(
+    degree: usize,
+    knots: KnotVec,
+    weighted: Vec<Vec4>,
+    add_knots: Vec<f64>,
+) -> (Vec<Vec4>, KnotVec) {
+    if add_knots.len() == 0 {
+        return (weighted, knots);
+    }
+
+    let span_a = knots.find_span(degree, add_knots[0]);
+    let span_b = knots.find_span(degree, add_knots[add_knots.len() - 1]) + 1;
+
+    let m = weighted.len() + degree;
+    let mut out_knots = vec![0.0; m + add_knots.len() + 1];
+    let mut out_points = vec![Vec4::zero(); weighted.len() + add_knots.len()];
+
+    for j in 0..=span_a - degree {
+        out_points[j] = weighted[j];
+    }
+
+    for j in span_b - 1..weighted.len() {
+        out_points[j + add_knots.len()] = weighted[j];
+    }
+
+    for j in 0..=span_a {
+        out_knots[j] = knots[j];
+    }
+
+    for j in span_b + degree..=m {
+        out_knots[j + add_knots.len()] = knots[j];
+    }
+
+    let mut i = span_b + degree - 1;
+    let mut k = span_b + degree + add_knots.len() - 1;
+
+    for j in (0..add_knots.len()).rev() {
+        while add_knots[j] <= knots[i] && i > span_a {
+            out_points[k - degree - 1] = weighted[i - degree - 1];
+            out_knots[k] = knots[i];
+            k = k - 1;
+            i = i - 1;
+        }
+
+        out_points[k - degree - 1] = out_points[k - degree];
+
+        for l in 1..=degree {
+            let ind = k - degree + l;
+            let mut alpha = out_knots[k + l] - add_knots[j];
+            if alpha.toleq(0.0) {
+                out_points[ind - 1] = out_points[ind];
+            } else {
+                alpha = alpha / (out_knots[k + l] - knots[i - degree + l]);
+                out_points[ind - 1] = alpha * out_points[ind - 1] + (1.0 - alpha) * out_points[ind];
+            }
+        }
+
+        out_knots[k] = add_knots[j];
+        k = k - 1;
+    }
+
+    (out_points, KnotVec::new(out_knots))
+}
+
 #[cfg(test)]
 mod tests {
     use cgmath::vec3;

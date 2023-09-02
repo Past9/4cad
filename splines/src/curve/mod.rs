@@ -2,7 +2,7 @@ mod builders;
 
 use crate::{
     basis, bin, curve_derivatives, knots::KnotVec, line_to_point_perpendicular, nurbs_to_beziers,
-    Vec4,
+    refine_knots, Vec4,
 };
 use cgmath::{InnerSpace, Matrix4, Zero};
 use once_cell::unsync::OnceCell;
@@ -569,66 +569,13 @@ impl Curve {
     /// Adds the given knots to the knot vector, adding and moving control
     /// points as necessary but leaving the shape of the curve intact.
     pub fn refine_knots(&self, add_knots: Vec<f64>) -> Self {
-        if add_knots.len() == 0 {
-            return self.clone();
-        }
-
-        let span_a = self.knots.find_span(self.degree, add_knots[0]);
-        let span_b = self
-            .knots
-            .find_span(self.degree, add_knots[add_knots.len() - 1])
-            + 1;
-
-        let m = self.unweighted.len() + self.degree;
-        let mut out_knots = vec![0.0; m + add_knots.len() + 1];
-        let mut out_points = vec![Vec4::zero(); self.unweighted.len() + add_knots.len()];
-
-        for j in 0..=span_a - self.degree {
-            out_points[j] = self.weighted[j];
-        }
-
-        for j in span_b - 1..self.unweighted.len() {
-            out_points[j + add_knots.len()] = self.weighted[j];
-        }
-
-        for j in 0..=span_a {
-            out_knots[j] = self.knots[j];
-        }
-
-        for j in span_b + self.degree..=m {
-            out_knots[j + add_knots.len()] = self.knots[j];
-        }
-
-        let mut i = span_b + self.degree - 1;
-        let mut k = span_b + self.degree + add_knots.len() - 1;
-
-        for j in (0..add_knots.len()).rev() {
-            while add_knots[j] <= self.knots[i] && i > span_a {
-                out_points[k - self.degree - 1] = self.weighted[i - self.degree - 1];
-                out_knots[k] = self.knots[i];
-                k = k - 1;
-                i = i - 1;
-            }
-
-            out_points[k - self.degree - 1] = out_points[k - self.degree];
-
-            for l in 1..=self.degree {
-                let ind = k - self.degree + l;
-                let mut alpha = out_knots[k + l] - add_knots[j];
-                if alpha.toleq(0.0) {
-                    out_points[ind - 1] = out_points[ind];
-                } else {
-                    alpha = alpha / (out_knots[k + l] - self.knots[i - self.degree + l]);
-                    out_points[ind - 1] =
-                        alpha * out_points[ind - 1] + (1.0 - alpha) * out_points[ind];
-                }
-            }
-
-            out_knots[k] = add_knots[j];
-            k = k - 1;
-        }
-
-        Self::create_weighted(out_points, KnotVec::new(out_knots))
+        let (weighted, knots) = refine_knots(
+            self.degree,
+            self.knots.clone(),
+            self.weighted.clone(),
+            add_knots,
+        );
+        Self::create_weighted(weighted, knots)
     }
 
     /// Increases the degree of the curve to `degree`, adding control points as needed

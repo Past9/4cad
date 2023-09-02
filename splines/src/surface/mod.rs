@@ -208,6 +208,14 @@ impl Surface {
     }
 
     pub fn refine_knots_u(&self, add_knots: Vec<f64>) -> Self {
+        println!("adding {} knots: {:?}", add_knots.len(), add_knots);
+
+        println!(
+            "original dimensions = {} x {}",
+            self.unweighted.len(),
+            self.unweighted[0].len()
+        );
+
         if add_knots.len() == 0 {
             return self.clone();
         }
@@ -218,6 +226,9 @@ impl Surface {
             .find_span(self.degree_u, add_knots[add_knots.len() - 1])
             + 1;
 
+        println!("span_a = {}", span_a);
+        println!("span_b = {}", span_b);
+
         let m = self.unweighted.len() + self.degree_u;
         let mut out_knots = vec![0.0; m + add_knots.len() + 1];
         let mut out_points = vec![
@@ -225,12 +236,23 @@ impl Surface {
             self.unweighted.len() + add_knots.len()
         ];
 
+        println!(
+            "out_points dimensions = {} x {}",
+            out_points.len(),
+            out_points[0].len()
+        );
+
+        println!("m = {}", m);
+
         for row in 0..=m {
             for k in 0..=span_a - self.degree_u {
                 out_points[k][row] = self.weighted[k][row];
             }
 
             for k in span_b - 1..=self.unweighted.len() {
+                println!("k = {}", k);
+                println!("k + add_knots.len() = {}", k + add_knots.len());
+                println!("row = {}", row);
                 out_points[k + add_knots.len()][row] = self.weighted[k][row];
             }
         }
