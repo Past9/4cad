@@ -107,11 +107,11 @@ fn curve_derivatives(
 }
 
 fn nurbs_to_beziers(
-    control_points: &[Vec4],
+    weighted: &[Vec4],
     degree: usize,
     knots: &KnotVec,
-) -> Vec<BezierComponent> {
-    let n = control_points.len() - 1;
+) -> Vec<CurveBezierComponent> {
+    let n = weighted.len() - 1;
     let m = n + degree + 1;
     let mut a = degree;
     let mut b = degree + 1;
@@ -124,7 +124,7 @@ fn nurbs_to_beziers(
     bezier_ctrl_pts.push(new_bezier_points.clone());
 
     for i in 0..=degree {
-        bezier_ctrl_pts[nb][i] = control_points[i];
+        bezier_ctrl_pts[nb][i] = weighted[i];
     }
 
     while b < m {
@@ -169,7 +169,7 @@ fn nurbs_to_beziers(
                     bezier_ctrl_pts.push(new_bezier_points.clone());
                     param_spans.push((knots[a], knots[b]));
                 }
-                bezier_ctrl_pts[nb][i] = control_points[b - degree + i];
+                bezier_ctrl_pts[nb][i] = weighted[b - degree + i];
             }
             a = b;
             b += 1;
@@ -180,10 +180,9 @@ fn nurbs_to_beziers(
 
     let mut components = vec![];
     for (i, ctrl_pts) in bezier_ctrl_pts.into_iter().enumerate() {
-        components.push(BezierComponent::new(
+        components.push(CurveBezierComponent::new(
             Curve::create_weighted_bezier(ctrl_pts),
-            param_spans[i].0,
-            param_spans[i].1,
+            param_spans[i],
         ))
     }
 
@@ -438,7 +437,7 @@ fn parameterize_by_chord_len(points: &[Vec4]) -> Vec<f64> {
     uk
 }
 
-fn transpose<T: Clone>(grid: Vec<Vec<T>>) -> Vec<Vec<T>> {
+fn transpose<T: Clone>(grid: &[Vec<T>]) -> Vec<Vec<T>> {
     let u_dim = grid.len();
     let v_dim = grid[0].len();
 
@@ -585,7 +584,7 @@ mod tests {
     #[test]
     fn transposes_grid() {
         assert_eq!(
-            transpose(vec![
+            transpose(&[
                 vec![1, 2, 3],
                 vec![4, 5, 6],
                 vec![7, 8, 9],

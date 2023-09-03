@@ -1,8 +1,15 @@
+mod bezier;
 mod builders;
-use crate::{basis, bin, knots::KnotVec, refine_knots, surface_derivatives, transpose, Vec4};
+
+use crate::{
+    basis, bin, knots::KnotVec, nurbs_to_beziers, refine_knots, surface_derivatives, transpose,
+    CurveBezierComponent, Vec4,
+};
 pub use builders::*;
 use cgmath::{InnerSpace, Matrix4, Zero};
 use primitives::{EVec, HVec, Vec3};
+
+pub use bezier::*;
 
 pub enum SurfaceDirection {
     U,
@@ -213,12 +220,12 @@ impl Surface {
         }
     }
 
-    pub fn refine_knots_u(&self, add_knots: Vec<f64>) -> Self {
+    fn refine_knots_u(&self, add_knots: Vec<f64>) -> Self {
         if add_knots.len() == 0 {
             return self.clone();
         }
 
-        let weighted = transpose(self.weighted.clone());
+        let weighted = transpose(&self.weighted);
 
         let mut out_points = vec![];
         let mut out_knots: KnotVec = KnotVec::empty();
@@ -231,10 +238,10 @@ impl Surface {
             out_knots = refined_knots;
         }
 
-        Self::create_weighted(transpose(out_points), out_knots, self.knots_v.clone())
+        Self::create_weighted(transpose(&out_points), out_knots, self.knots_v.clone())
     }
 
-    pub fn refine_knots_v(&self, add_knots: Vec<f64>) -> Self {
+    fn refine_knots_v(&self, add_knots: Vec<f64>) -> Self {
         if add_knots.len() == 0 {
             return self.clone();
         }
@@ -251,6 +258,79 @@ impl Surface {
         }
 
         Self::create_weighted(out_points, self.knots_u.clone(), out_knots)
+    }
+
+    pub fn bezier_decompose_uv(&self) -> Vec<Vec<SurfaceBezierComponent>> {
+        self.bezier_decompose_u()
+            .into_iter()
+            .map(|u_decomp| u_decomp.surface.bezier_decompose_v())
+            .collect()
+    }
+
+    pub fn bezier_decompose_u(&self) -> Vec<SurfaceBezierComponent> {
+        let mut curve_decomps: Vec<Vec<CurveBezierComponent>> = vec![];
+
+        let weighted = transpose(&self.weighted);
+        for row in weighted.iter() {
+            curve_decomps.push(nurbs_to_beziers(row, self.degree_u, &self.knots_u));
+        }
+
+        let mut surface_decomps = vec![];
+        for i in 0..curve_decomps[0].len() {
+            let mut surface_points = vec![];
+            let mut surface_knots = vec![];
+            let mut param_span_u = (0.0, 1.0);
+
+            for curve_decomp in curve_decomps.iter() {
+                surface_points.push(curve_decomp[i].curve.ref_weighted().to_vec());
+                surface_knots = curve_decomp[i].curve.knots().knots().to_vec();
+                param_span_u = curve_decomp[i].param_span;
+            }
+
+            surface_decomps.push(SurfaceBezierComponent::new(
+                Surface::create_weighted(
+                    transpose(&surface_points),
+                    KnotVec::new(surface_knots),
+                    self.knots_v().clone(),
+                ),
+                param_span_u,
+                (0.0, 1.0),
+            ));
+        }
+
+        surface_decomps
+    }
+
+    pub fn bezier_decompose_v(&self) -> Vec<SurfaceBezierComponent> {
+        let mut curve_decomps: Vec<Vec<CurveBezierComponent>> = vec![];
+        for row in self.weighted.iter() {
+            curve_decomps.push(nurbs_to_beziers(row, self.degree_v, &self.knots_v));
+        }
+
+        let mut surface_decomps = vec![];
+        for i in 0..curve_decomps[0].len() {
+            let mut surface_points = vec![];
+            let mut surface_knots = vec![];
+            let mut param_span_v = (0.0, 1.0);
+
+            for curve_decomp in curve_decomps.iter() {
+                surface_points.push(curve_decomp[i].curve.ref_weighted().to_vec());
+                surface_knots = curve_decomp[i].curve.knots().knots().to_vec();
+                param_span_v = curve_decomp[i].param_span;
+            }
+
+            surface_decomps.push(SurfaceBezierComponent::new(
+                Surface::create_weighted(
+                    surface_points,
+                    self.knots_u().clone(),
+                    KnotVec::new(surface_knots),
+                ),
+                (0.0, 1.0),
+                param_span_v,
+            ));
+        }
+
+        surface_decomps
     }
 }
 

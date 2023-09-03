@@ -1,5 +1,5 @@
-use cgmath::{point3, vec3, vec4, Deg, InnerSpace, Zero};
-use primitives::{HVec, Mat4, Vec3};
+use cgmath::{point3, vec3, vec4, Deg, InnerSpace, Vector3, Zero};
+use primitives::{Angle, HVec, Mat4, Vec3};
 use render::{
     camera::Camera,
     lights::Lights,
@@ -8,18 +8,26 @@ use render::{
     scene::SceneBuilder,
     Rgb, Rgba,
 };
-use splines::{Curve, KnotVec, Surface, SurfaceDirection};
+use splines::{Curve, KnotVec, Surface};
 use tessellate::surface::SurfaceTessellation;
 use viewer::run_viewer;
+
+const BEZ_OFFSET: f64 = 0.1;
+const CONVEX_BEZ_OFFSET: f64 = BEZ_OFFSET * 2.0;
+const STRAIGHT_BEZ_OFFSET: f64 = BEZ_OFFSET * 3.0;
 
 fn main() {
     let mut geometry = Geometry::new();
     let surface_material = geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0), 0.5);
+    let surface_material_alt_a =
+        geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::RED, 0.5), 0.5);
+    let surface_material_alt_b =
+        geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::BLUE, 0.5), 0.5);
 
     let mut model = Model::empty();
     let resolution = 50;
 
-    let surface = Surface::create_unweighted(
+    let nurbs = Surface::create_unweighted(
         vec![
             vec![
                 vec4(2.0, 0.0, -2.0, 1.0),
@@ -78,64 +86,53 @@ fn main() {
     );
 
     model.add_surface(ModelSurface::from_surface_points(
-        surface.tessellate_by_params(resolution),
+        nurbs.tessellate_by_params(resolution),
         surface_material,
     ));
 
-    for knot_u in surface.knots_u().knots().iter() {
-        for knot_v in surface.knots_v().knots().iter() {
-            model.add_point(ModelPoint::new(
-                0.into(),
-                surface.eval_pos(*knot_u, *knot_v).project(),
-                Vec3::zero(),
-                Rgba::GREEN,
-            ));
-        }
-    }
-
-    let refinements = (1..=9)
-        .into_iter()
-        .map(|k| k as f64 / 10.0)
-        .collect::<Vec<_>>();
-
-    // U Refinement
-    let refined_u_surface = surface
+    // U Decomposition
+    let v_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(-4.5, 0.0, 0.0)))
-        .refine_knots(refinements.clone(), SurfaceDirection::U);
+        .bezier_decompose_u();
 
-    model.add_surface(ModelSurface::from_surface_points(
-        refined_u_surface.tessellate_by_params(resolution),
-        surface_material,
-    ));
-
-    for knot_u in refined_u_surface.knots_u().knots().iter() {
-        for knot_v in refined_u_surface.knots_v().knots().iter() {
-            model.add_point(ModelPoint::new(
-                0.into(),
-                refined_u_surface.eval_pos(*knot_u, *knot_v).project(),
-                Vec3::zero(),
-                Rgba::GREEN,
-            ));
-        }
+    for (i, decomp) in v_decomps.iter().enumerate() {
+        model.add_surface(ModelSurface::from_surface_points(
+            decomp.surface.tessellate_by_params(resolution),
+            match i % 2 == 0 {
+                true => surface_material_alt_a,
+                false => surface_material_alt_b,
+            },
+        ));
     }
 
-    // V Refinement
-    let refined_v_surface = surface
+    // V Decomposition
+    let v_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(4.5, 0.0, 0.0)))
-        .refine_knots(refinements.clone(), SurfaceDirection::V);
+        .bezier_decompose_v();
 
-    model.add_surface(ModelSurface::from_surface_points(
-        refined_v_surface.tessellate_by_params(resolution),
-        surface_material,
-    ));
+    for (i, decomp) in v_decomps.iter().enumerate() {
+        model.add_surface(ModelSurface::from_surface_points(
+            decomp.surface.tessellate_by_params(resolution),
+            match i % 2 == 0 {
+                true => surface_material_alt_a,
+                false => surface_material_alt_b,
+            },
+        ));
+    }
 
-    for knot_u in refined_v_surface.knots_u().knots().iter() {
-        for knot_v in refined_v_surface.knots_v().knots().iter() {
-            model.add_point(ModelPoint::new(
-                0.into(),
-                refined_v_surface.eval_pos(*knot_u, *knot_v).project(),
-                Vec3::zero(),
-                Rgba::GREEN,
+    // UV Decomposition
+    let uv_decomps = nurbs
+        .transform(&Mat4::from_translation(vec3(0.0, 0.0, 6.5)))
+        .bezier_decompose_uv();
+
+    for (i, row) in uv_decomps.iter().enumerate() {
+        for (j, decomp) in row.iter().enumerate() {
+            model.add_surface(ModelSurface::from_surface_points(
+                decomp.surface.tessellate_by_params(resolution),
+                match (i + j) % 2 == 0 {
+                    true => surface_material_alt_a,
+                    false => surface_material_alt_b,
+                },
             ));
         }
     }
@@ -146,8 +143,8 @@ fn main() {
     sb.background(rgba(0.05, 0.1, 0.15, 1.0))
         .camera(Camera::create_perspective(
             [0, 0],
-            point3(0.0, -7.0, -7.0),
-            vec3(0.0, 1.0, 1.0),
+            point3(0.0, -8.0, -6.0),
+            vec3(0.0, 1.1, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
             Deg(52.0).into(),
             0.01,
