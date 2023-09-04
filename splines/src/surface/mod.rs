@@ -263,7 +263,17 @@ impl Surface {
     pub fn bezier_decompose_uv(&self) -> Vec<Vec<SurfaceBezierComponent>> {
         self.bezier_decompose_u()
             .into_iter()
-            .map(|u_decomp| u_decomp.surface.bezier_decompose_v())
+            .map(|u_decomp| {
+                u_decomp
+                    .surface
+                    .bezier_decompose_v()
+                    .into_iter()
+                    .map(|mut v_decomp| {
+                        v_decomp.param_span_u = u_decomp.param_span_u;
+                        v_decomp
+                    })
+                    .collect()
+            })
             .collect()
     }
 

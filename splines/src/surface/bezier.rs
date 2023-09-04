@@ -3,6 +3,7 @@ use cgmath::Zero;
 use once_cell::unsync::OnceCell;
 use primitives::{HVec, Vec3};
 
+#[derive(Debug, Clone)]
 struct CornerDerivatives {
     umin_vmin: (Vec3, Vec3),
     umax_vmin: (Vec3, Vec3),
@@ -10,6 +11,7 @@ struct CornerDerivatives {
     umin_vmax: (Vec3, Vec3),
 }
 
+#[derive(Debug, Clone)]
 pub struct SurfaceBezierComponent {
     pub param_span_u: (f64, f64),
     pub param_span_v: (f64, f64),

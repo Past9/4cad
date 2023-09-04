@@ -91,11 +91,11 @@ fn main() {
     ));
 
     // U Decomposition
-    let v_decomps = nurbs
+    let u_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(-4.5, 0.0, 0.0)))
         .bezier_decompose_u();
 
-    for (i, decomp) in v_decomps.iter().enumerate() {
+    for (i, decomp) in u_decomps.iter().enumerate() {
         model.add_surface(ModelSurface::from_surface_points(
             decomp.surface.tessellate_by_params(resolution),
             match i % 2 == 0 {
@@ -103,6 +103,11 @@ fn main() {
                 false => surface_material_alt_b,
             },
         ));
+    }
+
+    println!("u_decomps");
+    for decomp in u_decomps.iter() {
+        println!("{:?}, {:?}", (decomp.param_span_u), (decomp.param_span_v));
     }
 
     // V Decomposition
@@ -120,10 +125,22 @@ fn main() {
         ));
     }
 
+    println!("v_decomps");
+    for decomp in v_decomps.iter() {
+        println!("{:?}, {:?}", (decomp.param_span_u), (decomp.param_span_v));
+    }
+
     // UV Decomposition
     let uv_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(0.0, 0.0, 6.5)))
         .bezier_decompose_uv();
+
+    println!("uv_decomps");
+    for decomps in uv_decomps.iter() {
+        for decomp in decomps.iter() {
+            println!("{:?}, {:?}", (decomp.param_span_u), (decomp.param_span_v));
+        }
+    }
 
     for (i, row) in uv_decomps.iter().enumerate() {
         for (j, decomp) in row.iter().enumerate() {
