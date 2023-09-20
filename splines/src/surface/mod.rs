@@ -1,15 +1,19 @@
 mod bezier;
+mod bsp;
 mod builders;
+mod quadtree;
 
 use crate::{
     basis, bin, knots::KnotVec, nurbs_to_beziers, refine_knots, surface_derivatives, transpose,
     CurveBezierComponent, Vec4,
 };
 pub use builders::*;
-use cgmath::{InnerSpace, Matrix4, Zero};
+use cgmath::{conv, InnerSpace, Matrix4, Zero};
+use once_cell::sync::OnceCell;
 use primitives::{EVec, HVec, Vec3};
 
 pub use bezier::*;
+pub use quadtree::*;
 
 pub enum SurfaceDirection {
     U,
@@ -31,6 +35,11 @@ pub struct Surface {
     degree_v: usize,
     order_u: usize,
     order_v: usize,
+    beziers_u: OnceCell<Vec<SurfaceBezierComponent>>,
+    beziers_v: OnceCell<Vec<SurfaceBezierComponent>>,
+    beziers_uv: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
+    convex_beziers: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
+    flat_beziers: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
 }
 impl Surface {
     pub fn create_unweighted(
@@ -102,6 +111,11 @@ impl Surface {
             degree_v,
             order_u,
             order_v,
+            beziers_u: OnceCell::new(),
+            beziers_v: OnceCell::new(),
+            beziers_uv: OnceCell::new(),
+            convex_beziers: OnceCell::new(),
+            flat_beziers: OnceCell::new(),
         }
     }
 
@@ -260,14 +274,48 @@ impl Surface {
         Self::create_weighted(out_points, self.knots_u.clone(), out_knots)
     }
 
-    pub fn bezier_decompose_uv(&self) -> Vec<Vec<SurfaceBezierComponent>> {
-        self.bezier_decompose_u()
-            .into_iter()
+    pub fn convex_beziers(&self) -> &[Vec<SurfaceBezierComponent>] {
+        self.convex_beziers.get_or_init(|| {
+            let mut convex_beziers = vec![]; //QuadTree::;
+
+            for row in self.beziers_uv().iter() {
+                for bezier in row.iter() {}
+            }
+
+            for bezier in self.beziers_uv().iter() {
+                //convex_beziers.extend()
+            }
+
+            convex_beziers
+        })
+    }
+
+    pub fn flat_beziers(&self) -> &[Vec<SurfaceBezierComponent>] {
+        self.flat_beziers.get_or_init(|| todo!())
+    }
+
+    pub fn beziers_u(&self) -> &[SurfaceBezierComponent] {
+        self.beziers_u.get_or_init(|| self.do_bezier_decompose_u())
+    }
+
+    pub fn beziers_v(&self) -> &[SurfaceBezierComponent] {
+        self.beziers_v.get_or_init(|| self.do_bezier_decompose_v())
+    }
+
+    pub fn beziers_uv(&self) -> &[Vec<SurfaceBezierComponent>] {
+        self.beziers_uv
+            .get_or_init(|| self.do_bezier_decompose_uv())
+    }
+
+    fn do_bezier_decompose_uv(&self) -> Vec<Vec<SurfaceBezierComponent>> {
+        self.beziers_u()
+            .iter()
             .map(|u_decomp| {
                 u_decomp
                     .surface
-                    .bezier_decompose_v()
-                    .into_iter()
+                    .beziers_v()
+                    .iter()
+                    .cloned()
                     .map(|mut v_decomp| {
                         v_decomp.param_span_u = u_decomp.param_span_u;
                         v_decomp
@@ -277,7 +325,7 @@ impl Surface {
             .collect()
     }
 
-    pub fn bezier_decompose_u(&self) -> Vec<SurfaceBezierComponent> {
+    fn do_bezier_decompose_u(&self) -> Vec<SurfaceBezierComponent> {
         let mut curve_decomps: Vec<Vec<CurveBezierComponent>> = vec![];
 
         let weighted = transpose(&self.weighted);
@@ -311,7 +359,7 @@ impl Surface {
         surface_decomps
     }
 
-    pub fn bezier_decompose_v(&self) -> Vec<SurfaceBezierComponent> {
+    fn do_bezier_decompose_v(&self) -> Vec<SurfaceBezierComponent> {
         let mut curve_decomps: Vec<Vec<CurveBezierComponent>> = vec![];
         for row in self.weighted.iter() {
             curve_decomps.push(nurbs_to_beziers(row, self.degree_v, &self.knots_v));

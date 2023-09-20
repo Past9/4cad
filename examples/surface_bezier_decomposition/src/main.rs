@@ -93,7 +93,8 @@ fn main() {
     // U Decomposition
     let u_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(-4.5, 0.0, 0.0)))
-        .bezier_decompose_u();
+        .beziers_u()
+        .to_vec();
 
     for (i, decomp) in u_decomps.iter().enumerate() {
         model.add_surface(ModelSurface::from_surface_points(
@@ -113,7 +114,8 @@ fn main() {
     // V Decomposition
     let v_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(4.5, 0.0, 0.0)))
-        .bezier_decompose_v();
+        .beziers_v()
+        .to_vec();
 
     for (i, decomp) in v_decomps.iter().enumerate() {
         model.add_surface(ModelSurface::from_surface_points(
@@ -133,7 +135,8 @@ fn main() {
     // UV Decomposition
     let uv_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(0.0, 0.0, 6.5)))
-        .bezier_decompose_uv();
+        .beziers_uv()
+        .to_vec();
 
     println!("uv_decomps");
     for decomps in uv_decomps.iter() {
