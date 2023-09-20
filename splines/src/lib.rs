@@ -2,7 +2,10 @@ mod curve;
 mod knots;
 mod surface;
 
-use std::cmp::min;
+use std::{
+    cmp::min,
+    ops::{Range, RangeBounds},
+};
 
 use cgmath::{InnerSpace, Zero};
 
@@ -454,6 +457,56 @@ fn transpose<T: Clone>(grid: &[Vec<T>]) -> Vec<Vec<T>> {
     out_grid
 }
 
+fn section<T: Clone, U: RangeBounds<usize>, V: RangeBounds<usize>>(
+    grid: &[Vec<T>],
+    range_u: U,
+    range_v: V,
+) -> Vec<Vec<T>> {
+    if grid.len() == 0 || grid[0].len() == 0 {
+        return vec![];
+    }
+
+    let start_u = match range_u.start_bound() {
+        std::ops::Bound::Included(start) => *start,
+        std::ops::Bound::Excluded(_) => unimplemented!("Excluded U start bound"),
+        std::ops::Bound::Unbounded => 0,
+    };
+
+    let end_u = match range_u.end_bound() {
+        std::ops::Bound::Included(end) => *end + 1,
+        std::ops::Bound::Excluded(end) => *end,
+        std::ops::Bound::Unbounded => grid.len(),
+    };
+
+    if end_u - start_u == 0 {
+        return vec![];
+    }
+
+    let start_v = match range_v.start_bound() {
+        std::ops::Bound::Included(start) => *start,
+        std::ops::Bound::Excluded(_) => unimplemented!("Excluded V start bound"),
+        std::ops::Bound::Unbounded => 0,
+    };
+
+    let end_v = match range_v.end_bound() {
+        std::ops::Bound::Included(end) => *end + 1,
+        std::ops::Bound::Excluded(end) => *end,
+        std::ops::Bound::Unbounded => grid[0].len(),
+    };
+
+    let mut section: Vec<Vec<T>> = Vec::with_capacity(end_u - start_u);
+
+    for u in start_u..end_u {
+        let mut row: Vec<T> = Vec::new();
+        for v in start_v..end_v {
+            row.push(grid[u][v].clone());
+        }
+        section.push(row);
+    }
+
+    section
+}
+
 /// Returns an arbitrary unit vector _b_ that is orthogonal to `a`. This is done by
 /// solving the equation _a · b_ = 0 for _b_ and then normalizing _b_. When solving
 /// the equation
@@ -579,7 +632,7 @@ mod tests {
     use cgmath::vec3;
     use primitives::TolEq;
 
-    use crate::{line_to_point_perpendicular, transpose};
+    use crate::{line_to_point_perpendicular, section, transpose};
 
     #[test]
     fn transposes_grid() {
@@ -592,6 +645,65 @@ mod tests {
             ]),
             vec![vec![1, 4, 7, 10], vec![2, 5, 8, 11], vec![3, 6, 9, 12],]
         );
+    }
+
+    #[test]
+    fn gets_grid_section() {
+        let grid = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
+
+        assert_eq!(grid, section(&grid, .., ..));
+
+        // U ranges
+        assert_eq!(vec![vec![4, 5, 6], vec![7, 8, 9]], section(&grid, 1.., ..));
+        assert_eq!(vec![vec![7, 8, 9]], section(&grid, 2.., ..));
+        assert_eq!(Vec::<Vec<i32>>::new(), section(&grid, 3.., ..));
+
+        assert_eq!(vec![vec![1, 2, 3],], section(&grid, ..1, ..));
+        assert_eq!(vec![vec![1, 2, 3], vec![4, 5, 6]], section(&grid, ..2, ..));
+        assert_eq!(
+            vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
+            section(&grid, ..3, ..)
+        );
+
+        assert_eq!(vec![vec![1, 2, 3], vec![4, 5, 6]], section(&grid, ..=1, ..));
+        assert_eq!(
+            vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
+            section(&grid, ..=2, ..)
+        );
+
+        // V ranges
+        assert_eq!(
+            vec![vec![2, 3], vec![5, 6], vec![8, 9]],
+            section(&grid, .., 1..)
+        );
+        assert_eq!(vec![vec![3], vec![6], vec![9]], section(&grid, .., 2..));
+        assert_eq!(
+            vec![Vec::<i32>::new(), Vec::<i32>::new(), Vec::<i32>::new()],
+            section(&grid, .., 3..)
+        );
+
+        assert_eq!(vec![vec![1], vec![4], vec![7]], section(&grid, .., ..1));
+        assert_eq!(
+            vec![vec![1, 2], vec![4, 5], vec![7, 8]],
+            section(&grid, .., ..2)
+        );
+        assert_eq!(
+            vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
+            section(&grid, .., ..3)
+        );
+
+        assert_eq!(
+            vec![vec![1, 2], vec![4, 5], vec![7, 8]],
+            section(&grid, .., ..=1)
+        );
+        assert_eq!(
+            vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
+            section(&grid, .., ..=2)
+        );
+
+        // UV ranges
+        assert_eq!(vec![vec![5, 6], vec![8, 9],], section(&grid, 1.., 1..));
+        assert_eq!(vec![vec![9],], section(&grid, 2.., 2..));
     }
 
     #[test]

@@ -1,120 +1,90 @@
-use crate::SurfaceBezierComponent;
+use crate::{section, transpose};
 
-struct EwTree {
-    e: Box<BspSurface>,
-    w: Box<BspSurface>,
+#[derive(Debug)]
+pub struct EwTree<T: Clone> {
+    e: Box<BspTree<T>>,
+    w: Box<BspTree<T>>,
 }
-impl EwTree {
-    pub fn new(e: SurfaceBezierComponent, w: SurfaceBezierComponent) -> Self {
+impl<T: Clone> EwTree<T> {
+    pub fn new(e: T, w: T) -> Self {
         Self {
-            e: Box::new(BspSurface::Patch(e)),
-            w: Box::new(BspSurface::Patch(w)),
+            e: Box::new(BspTree::Cell(e)),
+            w: Box::new(BspTree::Cell(w)),
         }
     }
 
-    pub fn node(e: SurfaceBezierComponent, w: SurfaceBezierComponent) -> BspSurface {
-        BspSurface::EW(Self::new(e, w))
+    pub fn node(e: T, w: T) -> BspTree<T> {
+        BspTree::EW(Self::new(e, w))
     }
 }
 
-struct NsTree {
-    n: Box<BspSurface>,
-    s: Box<BspSurface>,
+#[derive(Debug)]
+pub struct NsTree<T: Clone> {
+    n: Box<BspTree<T>>,
+    s: Box<BspTree<T>>,
 }
-impl NsTree {
-    pub fn new(n: SurfaceBezierComponent, s: SurfaceBezierComponent) -> Self {
+impl<T: Clone> NsTree<T> {
+    pub fn new(n: T, s: T) -> Self {
         Self {
-            n: Box::new(BspSurface::Patch(n)),
-            s: Box::new(BspSurface::Patch(s)),
+            n: Box::new(BspTree::Cell(n)),
+            s: Box::new(BspTree::Cell(s)),
         }
     }
 
-    pub fn node(n: SurfaceBezierComponent, s: SurfaceBezierComponent) -> BspSurface {
-        BspSurface::NS(Self::new(n, s))
+    pub fn node(n: T, s: T) -> BspTree<T> {
+        BspTree::NS(Self::new(n, s))
     }
 }
 
-pub enum BspSurface {
-    EW(EwTree),
-    NS(NsTree),
-    Patch(SurfaceBezierComponent),
+#[derive(Debug)]
+pub enum BspTree<T: Clone> {
+    EW(EwTree<T>),
+    NS(NsTree<T>),
+    Cell(T),
 }
-impl BspSurface {
-    pub fn from_uv_patches(patches: &[&[SurfaceBezierComponent]]) -> Self {
-        let len_u = patches.len();
-        let len_v = patches[0].len();
+impl<T: Clone> BspTree<T> {
+    pub fn from_grid(cells: Vec<Vec<T>>) -> Self {
+        let len_u = cells.len();
+
+        if len_u == 0 {
+            panic!("U length is zero");
+        }
+
+        let len_v = cells[0].len();
+
+        if len_v == 0 {
+            panic!("V length is zero");
+        }
 
         match (len_u, len_v) {
-            (0, _) | (_, 0) => panic!("No patches"),
+            (0, _) | (_, 0) => panic!("No cells"),
 
-            (1, 1) => Self::Patch(patches[0][0].clone()),
-            //(1, 2) => NsTree::node(patches[0][0].clone(), patches[0][1].clone()),
+            (1, 1) => Self::Cell(cells[0][0].clone()),
             (1, _) => {
                 let split = len_v / 2;
-                let n = Self::from_uv_patches(&[&patches[0][..split]]);
-                let s = Self::from_uv_patches(&[&patches[0][split..]]);
                 Self::NS(NsTree {
-                    n: Box::new(n),
-                    s: Box::new(s),
+                    n: Box::new(Self::from_grid(section(&cells, ..1, ..split))),
+                    s: Box::new(Self::from_grid(section(&cells, ..1, split..))),
                 })
             }
-            //(2, 1) => EwTree::node(patches[0][0].clone(), patches[1][0].clone()),
-            /*
-            (2, 2) => Self::EW(EwTree {
-                e: Box::new(NsTree::node(patches[0][0].clone(), patches[0][1].clone())),
-                w: Box::new(NsTree::node(patches[1][0].clone(), patches[1][1].clone())),
-            }),
-            (2, _) => Self::EW(EwTree {
-                e: Box::new(NsTree::node(patches[0][0].clone(), patches[0][1].clone())),
-                w: {
-                    let split = len_v / 2;
-                    let n = Self::from_uv_patches(&[&patches[1][..split]]);
-                    let s = Self::from_uv_patches(&[&patches[1][split..]]);
-                    Box::new(Self::NS(NsTree {
-                        n: Box::new(n),
-                        s: Box::new(s),
-                    }))
-                },
-            }),
-             */
             (_, 1) => {
                 let split = len_u / 2;
-                let e = Self::from_uv_patches(&[&patches[..split][0]]);
-                let w = Self::from_uv_patches(&[&patches[split..][0]]);
                 Self::EW(EwTree {
-                    e: Box::new(e),
-                    w: Box::new(w),
+                    e: Box::new(Self::from_grid(section(&cells, split.., ..1))),
+                    w: Box::new(Self::from_grid(section(&cells, ..split, ..1))),
                 })
             }
-            /*
-            (_, 2) => Self::NS(NsTree {
-                n: Box::new(EwTree::node(patches[0][0].clone(), patches[1][0].clone())),
-                s: {
-                    let split = len_u / 1;
-                    let e = Self::from_uv_patches(&[&patches[..split][1]]);
-                    let w = Self::from_uv_patches(&[&patches[split..][1]]);
-                    Box::new(Self::EW(EwTree {
-                        e: Box::new(e),
-                        w: Box::new(w),
-                    }))
-                },
-            }),
-             */
             (_, _) => {
                 let split_u = len_u / 2;
                 let split_v = len_u / 2;
-                let ne = Self::from_uv_patches(&patches[..split_u][..split_v]);
-                let nw = Self::from_uv_patches(&patches[split_u..][..split_v]);
-                let se = Self::from_uv_patches(&patches[..split_u][split_v..]);
-                let sw = Self::from_uv_patches(&patches[split_u..][split_v..]);
                 Self::EW(EwTree {
                     e: Box::new(Self::NS(NsTree {
-                        n: Box::new(ne),
-                        s: Box::new(se),
+                        n: Box::new(Self::from_grid(section(&cells, split_u.., ..split_v))),
+                        s: Box::new(Self::from_grid(section(&cells, split_u.., split_v..))),
                     })),
                     w: Box::new(Self::NS(NsTree {
-                        n: Box::new(nw),
-                        s: Box::new(sw),
+                        n: Box::new(Self::from_grid(section(&cells, ..split_u, ..split_v))),
+                        s: Box::new(Self::from_grid(section(&cells, ..split_u, split_v..))),
                     })),
                 })
             }
@@ -124,6 +94,46 @@ impl BspSurface {
 
 #[cfg(test)]
 mod tests {
+    use super::BspTree;
+
     #[test]
-    fn builds_bsp_from_uv_patches() {}
+    fn builds_bsp_from_uv_patches() {
+        println!("{:#?}", BspTree::from_grid(vec![vec![1],]));
+        println!("{:#?}", BspTree::from_grid(vec![vec![1, 2],]));
+        println!("{:#?}", BspTree::from_grid(vec![vec![1, 2, 3],]));
+        println!("{:#?}", BspTree::from_grid(vec![vec![1, 2, 3, 4],]));
+
+        println!("{:#?}", BspTree::from_grid(vec![vec![1],]));
+        println!("{:#?}", BspTree::from_grid(vec![vec![1], vec![2],]));
+        println!(
+            "{:#?}",
+            BspTree::from_grid(vec![vec![1], vec![2], vec![3],])
+        );
+        println!(
+            "{:#?}",
+            BspTree::from_grid(vec![vec![1], vec![2], vec![3], vec![4]])
+        );
+
+        let grid = vec![
+            vec![1, 2, 3],    //
+            vec![4, 5, 6],    //
+            vec![7, 8, 9],    //
+            vec![10, 11, 12], //
+        ];
+
+        let tree = BspTree::from_grid(grid);
+
+        println!("{:#?}", tree);
+    }
+
+    #[test]
+    fn test() {
+        let ints: Vec<Vec<i32>> = vec![
+            vec![0, 1, 2], //
+            vec![3, 4, 5], //
+            vec![6, 7, 8], //
+        ];
+
+        println!("{:#?}", &ints[..2][0]);
+    }
 }
