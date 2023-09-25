@@ -5,7 +5,7 @@ mod quadtree;
 
 use crate::{
     basis, bin, knots::KnotVec, nurbs_to_beziers, refine_knots, surface_derivatives, transpose,
-    CurveBezierComponent, Vec4,
+    Curve, CurveBezierComponent, Vec4,
 };
 pub use builders::*;
 use cgmath::{conv, InnerSpace, Matrix4, Zero};
@@ -14,6 +14,8 @@ use primitives::{EVec, HVec, Vec3};
 
 pub use bezier::*;
 pub use quadtree::*;
+
+use self::bsp::BspTree;
 
 pub enum SurfaceDirection {
     U,
@@ -35,10 +37,14 @@ pub struct Surface {
     degree_v: usize,
     order_u: usize,
     order_v: usize,
+    curves_u: OnceCell<Vec<Curve>>,
+    curves_v: OnceCell<Vec<Curve>>,
+    is_convex_u: OnceCell<bool>,
+    is_convex_v: OnceCell<bool>,
     beziers_u: OnceCell<Vec<SurfaceBezierComponent>>,
     beziers_v: OnceCell<Vec<SurfaceBezierComponent>>,
     beziers_uv: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
-    convex_beziers: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
+    convex_beziers: OnceCell<BspTree<SurfaceBezierComponent>>,
     flat_beziers: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
 }
 impl Surface {
@@ -55,6 +61,26 @@ impl Surface {
     }
 
     pub fn create_weighted(weighted: Vec<Vec<Vec4>>, knots_u: KnotVec, knots_v: KnotVec) -> Self {
+        let unweighted: Vec<Vec<Vec4>> = weighted
+            .iter()
+            .map(|row| row.iter().map(HVec::unweight).collect())
+            .collect();
+        Self::create(unweighted, weighted, knots_u, knots_v)
+    }
+
+    pub fn create_unweighted_bezier(unweighted: Vec<Vec<Vec4>>) -> Self {
+        let knots_u = KnotVec::bezier(unweighted.len() - 1);
+        let knots_v = KnotVec::bezier(unweighted[0].len() - 1);
+        let weighted: Vec<Vec<Vec4>> = unweighted
+            .iter()
+            .map(|row| row.iter().map(HVec::weight).collect())
+            .collect();
+        Self::create(unweighted, weighted, knots_u, knots_v)
+    }
+
+    pub fn create_weighted_bezier(weighted: Vec<Vec<Vec4>>) -> Self {
+        let knots_u = KnotVec::bezier(weighted.len() - 1);
+        let knots_v = KnotVec::bezier(weighted[0].len() - 1);
         let unweighted: Vec<Vec<Vec4>> = weighted
             .iter()
             .map(|row| row.iter().map(HVec::unweight).collect())
@@ -111,6 +137,10 @@ impl Surface {
             degree_v,
             order_u,
             order_v,
+            curves_u: OnceCell::new(),
+            curves_v: OnceCell::new(),
+            is_convex_u: OnceCell::new(),
+            is_convex_v: OnceCell::new(),
             beziers_u: OnceCell::new(),
             beziers_v: OnceCell::new(),
             beziers_uv: OnceCell::new(),
@@ -227,6 +257,48 @@ impl Surface {
         )
     }
 
+    pub fn curves_u(&self) -> &[Curve] {
+        self.curves_u.get_or_init(|| {
+            transpose(&self.weighted)
+                .iter()
+                .map(|weighted| Curve::create_weighted(weighted.clone(), self.knots_u.clone()))
+                .collect()
+        })
+    }
+
+    pub fn curves_v(&self) -> &[Curve] {
+        self.curves_v.get_or_init(|| {
+            self.weighted
+                .iter()
+                .map(|weighted| Curve::create_weighted(weighted.clone(), self.knots_v.clone()))
+                .collect()
+        })
+    }
+
+    pub fn is_convex_u(&self) -> bool {
+        *self.is_convex_u.get_or_init(|| {
+            for curve in self.curves_u().iter() {
+                if !curve.is_convex() {
+                    return false;
+                }
+            }
+
+            true
+        })
+    }
+
+    pub fn is_convex_v(&self) -> bool {
+        *self.is_convex_v.get_or_init(|| {
+            for curve in self.curves_v().iter() {
+                if !curve.is_convex() {
+                    return false;
+                }
+            }
+
+            true
+        })
+    }
+
     pub fn refine_knots(&self, add_knots: Vec<f64>, direction: SurfaceDirection) -> Self {
         match direction {
             SurfaceDirection::U => self.refine_knots_u(add_knots),
@@ -274,19 +346,12 @@ impl Surface {
         Self::create_weighted(out_points, self.knots_u.clone(), out_knots)
     }
 
-    pub fn convex_beziers(&self) -> &[Vec<SurfaceBezierComponent>] {
+    pub fn convex_beziers(&self) -> &BspTree<SurfaceBezierComponent> {
         self.convex_beziers.get_or_init(|| {
-            let mut convex_beziers = vec![]; //QuadTree::;
-
-            for row in self.beziers_uv().iter() {
-                for bezier in row.iter() {}
-            }
-
-            for bezier in self.beziers_uv().iter() {
-                //convex_beziers.extend()
-            }
-
-            convex_beziers
+            BspTree::from_grid(self.beziers_uv().to_vec()).split_until_condition(
+                |patch| patch.surface.is_convex_u(),
+                |patch| patch.surface.is_convex_v(),
+            )
         })
     }
 

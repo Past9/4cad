@@ -457,7 +457,7 @@ fn transpose<T: Clone>(grid: &[Vec<T>]) -> Vec<Vec<T>> {
     out_grid
 }
 
-fn section<T: Clone, U: RangeBounds<usize>, V: RangeBounds<usize>>(
+fn submatrix<T: Clone, U: RangeBounds<usize>, V: RangeBounds<usize>>(
     grid: &[Vec<T>],
     range_u: U,
     range_v: V,
@@ -632,7 +632,7 @@ mod tests {
     use cgmath::vec3;
     use primitives::TolEq;
 
-    use crate::{line_to_point_perpendicular, section, transpose};
+    use crate::{line_to_point_perpendicular, submatrix, transpose};
 
     #[test]
     fn transposes_grid() {
@@ -651,59 +651,68 @@ mod tests {
     fn gets_grid_section() {
         let grid = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
 
-        assert_eq!(grid, section(&grid, .., ..));
+        assert_eq!(grid, submatrix(&grid, .., ..));
 
         // U ranges
-        assert_eq!(vec![vec![4, 5, 6], vec![7, 8, 9]], section(&grid, 1.., ..));
-        assert_eq!(vec![vec![7, 8, 9]], section(&grid, 2.., ..));
-        assert_eq!(Vec::<Vec<i32>>::new(), section(&grid, 3.., ..));
+        assert_eq!(
+            vec![vec![4, 5, 6], vec![7, 8, 9]],
+            submatrix(&grid, 1.., ..)
+        );
+        assert_eq!(vec![vec![7, 8, 9]], submatrix(&grid, 2.., ..));
+        assert_eq!(Vec::<Vec<i32>>::new(), submatrix(&grid, 3.., ..));
 
-        assert_eq!(vec![vec![1, 2, 3],], section(&grid, ..1, ..));
-        assert_eq!(vec![vec![1, 2, 3], vec![4, 5, 6]], section(&grid, ..2, ..));
+        assert_eq!(vec![vec![1, 2, 3],], submatrix(&grid, ..1, ..));
+        assert_eq!(
+            vec![vec![1, 2, 3], vec![4, 5, 6]],
+            submatrix(&grid, ..2, ..)
+        );
         assert_eq!(
             vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
-            section(&grid, ..3, ..)
+            submatrix(&grid, ..3, ..)
         );
 
-        assert_eq!(vec![vec![1, 2, 3], vec![4, 5, 6]], section(&grid, ..=1, ..));
+        assert_eq!(
+            vec![vec![1, 2, 3], vec![4, 5, 6]],
+            submatrix(&grid, ..=1, ..)
+        );
         assert_eq!(
             vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
-            section(&grid, ..=2, ..)
+            submatrix(&grid, ..=2, ..)
         );
 
         // V ranges
         assert_eq!(
             vec![vec![2, 3], vec![5, 6], vec![8, 9]],
-            section(&grid, .., 1..)
+            submatrix(&grid, .., 1..)
         );
-        assert_eq!(vec![vec![3], vec![6], vec![9]], section(&grid, .., 2..));
+        assert_eq!(vec![vec![3], vec![6], vec![9]], submatrix(&grid, .., 2..));
         assert_eq!(
             vec![Vec::<i32>::new(), Vec::<i32>::new(), Vec::<i32>::new()],
-            section(&grid, .., 3..)
+            submatrix(&grid, .., 3..)
         );
 
-        assert_eq!(vec![vec![1], vec![4], vec![7]], section(&grid, .., ..1));
+        assert_eq!(vec![vec![1], vec![4], vec![7]], submatrix(&grid, .., ..1));
         assert_eq!(
             vec![vec![1, 2], vec![4, 5], vec![7, 8]],
-            section(&grid, .., ..2)
+            submatrix(&grid, .., ..2)
         );
         assert_eq!(
             vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
-            section(&grid, .., ..3)
+            submatrix(&grid, .., ..3)
         );
 
         assert_eq!(
             vec![vec![1, 2], vec![4, 5], vec![7, 8]],
-            section(&grid, .., ..=1)
+            submatrix(&grid, .., ..=1)
         );
         assert_eq!(
             vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
-            section(&grid, .., ..=2)
+            submatrix(&grid, .., ..=2)
         );
 
         // UV ranges
-        assert_eq!(vec![vec![5, 6], vec![8, 9],], section(&grid, 1.., 1..));
-        assert_eq!(vec![vec![9],], section(&grid, 2.., 2..));
+        assert_eq!(vec![vec![5, 6], vec![8, 9],], submatrix(&grid, 1.., 1..));
+        assert_eq!(vec![vec![9],], submatrix(&grid, 2.., 2..));
     }
 
     #[test]

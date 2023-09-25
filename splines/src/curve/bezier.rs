@@ -111,7 +111,7 @@ impl CurveBezierComponent {
         }
     }
 
-    fn split(&self) -> (CurveBezierComponent, CurveBezierComponent) {
+    fn split(&self) -> (Self, Self) {
         let refined = self
             .curve
             .refine_knots((0..=self.curve.degree).map(|_| 0.5).collect());
