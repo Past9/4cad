@@ -7,10 +7,10 @@ use super::bsp::BspTree;
 
 #[derive(Debug, Clone)]
 struct CornerDerivatives {
-    umin_vmin: (Vec3, Vec3),
-    umax_vmin: (Vec3, Vec3),
-    umax_vmax: (Vec3, Vec3),
-    umin_vmax: (Vec3, Vec3),
+    nw: (Vec3, Vec3),
+    sw: (Vec3, Vec3),
+    se: (Vec3, Vec3),
+    ne: (Vec3, Vec3),
 }
 
 #[derive(Debug, Clone)]
@@ -108,10 +108,10 @@ impl SurfaceBezierComponent {
             let umin_vmax = self.surface.eval_derivatives(0.0, 1.0, 1)[1].clone();
 
             CornerDerivatives {
-                umin_vmin: (umin_vmin[0].project(), umin_vmin[1].project()),
-                umax_vmin: (umax_vmin[0].project(), umax_vmin[1].project()),
-                umax_vmax: (umax_vmax[0].project(), umax_vmax[1].project()),
-                umin_vmax: (umin_vmax[0].project(), umin_vmax[1].project()),
+                nw: (umin_vmin[0].project(), umin_vmin[1].project()),
+                sw: (umax_vmin[0].project(), umax_vmin[1].project()),
+                se: (umax_vmax[0].project(), umax_vmax[1].project()),
+                ne: (umin_vmax[0].project(), umin_vmax[1].project()),
             }
         })
     }
