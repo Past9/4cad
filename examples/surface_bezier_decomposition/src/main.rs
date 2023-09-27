@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use cgmath::{point3, vec3, vec4, Deg, InnerSpace, Vector3, Zero};
 use primitives::{Angle, HVec, Mat4, Vec3};
 use render::{
@@ -25,25 +27,7 @@ fn main() {
         .map(|_| geometry.insert_material(Rgba::random_with_alpha(1.0), 0.5))
         .collect::<Vec<_>>();
 
-    /*
-    let surface_material_alt_a = geometry.insert_material(
-        Rgba::random_with_alpha(1.0).interpolate(Rgba::RED, 0.7),
-        0.5,
-    );
-    let surface_material_alt_b =
-        geometry.insert_material(Rgba::random_with_alpha(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::BLUE, 0.7), 0.5);
-    let surface_material_alt_c =
-        geometry.insert_material(Rgba::random_with_alpha(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::GREEN, 0.7), 0.5);
-    let surface_material_alt_d =
-        geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::ORANGE, 0.7), 0.5);
-    let surface_material_alt_e = geometry.insert_material(
-        rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::MAGENTA, 0.7),
-        0.5,
-    );
-     */
-
     let mut model = Model::empty();
-    let resolution = 50;
 
     let nurbs = Surface::create_unweighted(
         vec![
@@ -104,7 +88,7 @@ fn main() {
     );
 
     model.add_surface(ModelSurface::from_surface_points(
-        nurbs.tessellate_by_params(resolution),
+        nurbs.tessellate_by_params(50),
         surface_material,
     ));
 
@@ -116,14 +100,9 @@ fn main() {
 
     for (i, decomp) in u_decomps.iter().enumerate() {
         model.add_surface(ModelSurface::from_surface_points(
-            decomp.surface.tessellate_by_params(resolution),
+            decomp.surface.tessellate_by_params(50),
             multicolor_materials[i % multicolor_materials.len()],
         ));
-    }
-
-    println!("u_decomps");
-    for decomp in u_decomps.iter() {
-        println!("{:?}, {:?}", (decomp.param_span_u), (decomp.param_span_v));
     }
 
     // V Decomposition
@@ -134,14 +113,9 @@ fn main() {
 
     for (i, decomp) in v_decomps.iter().enumerate() {
         model.add_surface(ModelSurface::from_surface_points(
-            decomp.surface.tessellate_by_params(resolution),
+            decomp.surface.tessellate_by_params(50),
             multicolor_materials[i % multicolor_materials.len()],
         ));
-    }
-
-    println!("v_decomps");
-    for decomp in v_decomps.iter() {
-        println!("{:?}, {:?}", (decomp.param_span_u), (decomp.param_span_v));
     }
 
     // UV Decomposition
@@ -150,65 +124,52 @@ fn main() {
         .beziers_uv()
         .to_vec();
 
-    println!("uv_decomps");
-    for decomps in uv_decomps.iter() {
-        for decomp in decomps.iter() {
-            println!("{:?}, {:?}", (decomp.param_span_u), (decomp.param_span_v));
-        }
-    }
-
     for (i, row) in uv_decomps.iter().enumerate() {
         for (j, decomp) in row.iter().enumerate() {
             model.add_surface(ModelSurface::from_surface_points(
-                decomp.surface.tessellate_by_params(resolution),
+                decomp.surface.tessellate_by_params(50),
                 multicolor_materials[(i * row.len() + j) % multicolor_materials.len()],
             ));
         }
     }
 
+    // Convex decomposition
+    let start = Instant::now();
     let convex_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(0.0, 0.0, 13.0)))
         .convex_beziers()
         .clone();
+    let end = Instant::now();
+    println!("Convex beziers computed in {}µs", (end - start).as_micros());
 
     let mut color_counter = 0;
 
     convex_decomps.visit(&mut |cell| {
         color_counter += 1;
         model.add_surface(ModelSurface::from_surface_points(
-            cell.surface.tessellate_by_params(resolution),
+            cell.surface.tessellate_by_params(50),
             multicolor_materials[color_counter],
         ));
     });
 
+    // Flat decomposition
+    let start = Instant::now();
     let flat_decomps = nurbs
         .transform(&Mat4::from_translation(vec3(0.0, 0.0, 19.5)))
         .flat_beziers()
         .clone();
+    let end = Instant::now();
+    println!("Flat beziers computed in {}µs", (end - start).as_micros());
 
     let mut color_counter = 0;
 
     flat_decomps.visit(&mut |cell| {
         color_counter += 1;
         model.add_surface(ModelSurface::from_surface_points(
-            cell.surface.tessellate_by_params(resolution),
+            cell.surface.tessellate_by_params(5),
             multicolor_materials[color_counter],
         ));
     });
-
-    /*
-    for (i, row) in convex_decomps.iter().enumerate() {
-        for (j, decomp) in row.iter().enumerate() {
-            model.add_surface(ModelSurface::from_surface_points(
-                decomp.surface.tessellate_by_params(resolution),
-                match (i + j) % 2 == 0 {
-                    true => surface_material_alt_a,
-                    false => surface_material_alt_b,
-                },
-            ));
-        }
-    }
-         */
 
     geometry.insert_model(model);
 
