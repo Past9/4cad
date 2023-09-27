@@ -13,6 +13,25 @@ pub enum BspTree<T: Clone> {
     Cell(T),
 }
 impl<T: Clone> BspTree<T> {
+    pub fn visit<F, R>(&self, visitor: &mut F)
+    where
+        F: FnMut(&T) -> R,
+    {
+        match self {
+            BspTree::EW { e, w } => {
+                e.visit(visitor);
+                w.visit(visitor);
+            }
+            BspTree::NS { n, s } => {
+                n.visit(visitor);
+                s.visit(visitor);
+            }
+            BspTree::Cell(cell) => {
+                visitor(cell);
+            }
+        }
+    }
+
     pub fn from_grid(cells: Vec<Vec<T>>) -> Self {
         let len_u = cells.len();
 

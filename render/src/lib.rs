@@ -40,6 +40,10 @@ impl Rgba {
         Self([r, g, b, a])
     }
 
+    pub fn random_with_alpha(a: f32) -> Self {
+        Self::new(rand::random(), rand::random(), rand::random(), a)
+    }
+
     pub fn rgb(&self) -> Rgb {
         Rgb::new(self.r(), self.g(), self.b())
     }

@@ -12,10 +12,11 @@ use cgmath::{conv, InnerSpace, Matrix4, Zero};
 use once_cell::sync::OnceCell;
 use primitives::{EVec, HVec, Vec3};
 
+pub use self::bsp::BspTree;
 pub use bezier::*;
 pub use quadtree::*;
 
-use self::bsp::BspTree;
+const FLAT_BEZIER_THRESHOLD: f64 = 0.99;
 
 pub enum SurfaceDirection {
     U,
@@ -25,6 +26,14 @@ pub enum SurfaceDirection {
 pub struct SurfacePoint {
     pub position: Vec3,
     pub normal: Vec3,
+}
+
+#[derive(Debug, Clone)]
+pub struct CornerDerivatives {
+    nw: (Vec3, Vec3),
+    sw: (Vec3, Vec3),
+    se: (Vec3, Vec3),
+    ne: (Vec3, Vec3),
 }
 
 #[derive(Debug, Clone)]
@@ -41,11 +50,14 @@ pub struct Surface {
     curves_v: OnceCell<Vec<Curve>>,
     is_convex_u: OnceCell<bool>,
     is_convex_v: OnceCell<bool>,
+    is_flat_u: OnceCell<bool>,
+    is_flat_v: OnceCell<bool>,
+    corner_derivatives: OnceCell<CornerDerivatives>,
     beziers_u: OnceCell<Vec<SurfaceBezierComponent>>,
     beziers_v: OnceCell<Vec<SurfaceBezierComponent>>,
     beziers_uv: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
     convex_beziers: OnceCell<BspTree<SurfaceBezierComponent>>,
-    flat_beziers: OnceCell<Vec<Vec<SurfaceBezierComponent>>>,
+    flat_beziers: OnceCell<BspTree<SurfaceBezierComponent>>,
 }
 impl Surface {
     pub fn create_unweighted(
@@ -141,6 +153,9 @@ impl Surface {
             curves_v: OnceCell::new(),
             is_convex_u: OnceCell::new(),
             is_convex_v: OnceCell::new(),
+            is_flat_u: OnceCell::new(),
+            is_flat_v: OnceCell::new(),
+            corner_derivatives: OnceCell::new(),
             beziers_u: OnceCell::new(),
             beziers_v: OnceCell::new(),
             beziers_uv: OnceCell::new(),
@@ -242,6 +257,31 @@ impl Surface {
         derivatives
     }
 
+    pub fn corner_derivatives(&self) -> &CornerDerivatives {
+        self.corner_derivatives.get_or_init(|| {
+            let nw = self.eval_derivatives(0.0, 0.0, 1);
+            let sw = self.eval_derivatives(1.0, 0.0, 1);
+            let se = self.eval_derivatives(1.0, 1.0, 1);
+            let ne = self.eval_derivatives(0.0, 1.0, 1);
+
+            CornerDerivatives {
+                nw: (nw[1][0].project(), nw[0][1].project()),
+                sw: (sw[1][0].project(), sw[0][1].project()),
+                se: (se[1][0].project(), se[0][1].project()),
+                ne: (ne[1][0].project(), ne[0][1].project()),
+            }
+
+            /*
+            CornerDerivatives {
+                nw: (umin_vmin[0].project(), umin_vmin[1].project()),
+                sw: (umax_vmin[0].project(), umax_vmin[1].project()),
+                se: (umax_vmax[0].project(), umax_vmax[1].project()),
+                ne: (umin_vmax[0].project(), umin_vmax[1].project()),
+            }
+             */
+        })
+    }
+
     pub fn transform(&self, transform: &Matrix4<f64>) -> Self {
         Self::create_unweighted(
             self.unweighted
@@ -299,6 +339,26 @@ impl Surface {
         })
     }
 
+    pub fn is_flat_u(&self) -> bool {
+        *self.is_flat_u.get_or_init(|| {
+            let ders = self.corner_derivatives();
+            let w_flatness = ders.nw.0.normalize().dot(ders.sw.0.normalize());
+            let e_flatness = ders.ne.0.normalize().dot(ders.se.0.normalize());
+            let min_flatness = w_flatness.min(e_flatness);
+            min_flatness >= FLAT_BEZIER_THRESHOLD
+        })
+    }
+
+    pub fn is_flat_v(&self) -> bool {
+        *self.is_flat_v.get_or_init(|| {
+            let ders = self.corner_derivatives();
+            let n_flatness = ders.nw.1.normalize().dot(ders.ne.1.normalize());
+            let s_flatness = ders.sw.1.normalize().dot(ders.se.1.normalize());
+            let min_flatness = n_flatness.min(s_flatness);
+            min_flatness >= FLAT_BEZIER_THRESHOLD
+        })
+    }
+
     pub fn refine_knots(&self, add_knots: Vec<f64>, direction: SurfaceDirection) -> Self {
         match direction {
             SurfaceDirection::U => self.refine_knots_u(add_knots),
@@ -348,15 +408,20 @@ impl Surface {
 
     pub fn convex_beziers(&self) -> &BspTree<SurfaceBezierComponent> {
         self.convex_beziers.get_or_init(|| {
-            BspTree::from_grid(self.beziers_uv().to_vec()).split_until_condition(
-                |patch| patch.surface.is_convex_u(),
-                |patch| patch.surface.is_convex_v(),
+            BspTree::from_grid(self.beziers_uv().to_vec()).split_while_condition(
+                |patch| !patch.surface.is_convex_u(),
+                |patch| !patch.surface.is_convex_v(),
             )
         })
     }
 
-    pub fn flat_beziers(&self) -> &[Vec<SurfaceBezierComponent>] {
-        self.flat_beziers.get_or_init(|| todo!())
+    pub fn flat_beziers(&self) -> &BspTree<SurfaceBezierComponent> {
+        self.flat_beziers.get_or_init(|| {
+            self.convex_beziers().split_while_condition(
+                |patch| !patch.surface.is_flat_u(),
+                |patch| !patch.surface.is_flat_v(),
+            )
+        })
     }
 
     pub fn beziers_u(&self) -> &[SurfaceBezierComponent] {

@@ -8,7 +8,7 @@ use render::{
     scene::SceneBuilder,
     Rgb, Rgba,
 };
-use splines::{Curve, KnotVec, Surface};
+use splines::{BspTree, Curve, KnotVec, Surface};
 use tessellate::surface::SurfaceTessellation;
 use viewer::run_viewer;
 
@@ -18,11 +18,29 @@ const STRAIGHT_BEZ_OFFSET: f64 = BEZ_OFFSET * 3.0;
 
 fn main() {
     let mut geometry = Geometry::new();
+
     let surface_material = geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0), 0.5);
-    let surface_material_alt_a =
-        geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::RED, 0.5), 0.5);
+
+    let multicolor_materials = (0..10000)
+        .map(|_| geometry.insert_material(Rgba::random_with_alpha(1.0), 0.5))
+        .collect::<Vec<_>>();
+
+    /*
+    let surface_material_alt_a = geometry.insert_material(
+        Rgba::random_with_alpha(1.0).interpolate(Rgba::RED, 0.7),
+        0.5,
+    );
     let surface_material_alt_b =
-        geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::BLUE, 0.5), 0.5);
+        geometry.insert_material(Rgba::random_with_alpha(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::BLUE, 0.7), 0.5);
+    let surface_material_alt_c =
+        geometry.insert_material(Rgba::random_with_alpha(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::GREEN, 0.7), 0.5);
+    let surface_material_alt_d =
+        geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::ORANGE, 0.7), 0.5);
+    let surface_material_alt_e = geometry.insert_material(
+        rgba(0.8, 0.8, 0.8, 1.0).interpolate(Rgba::MAGENTA, 0.7),
+        0.5,
+    );
+     */
 
     let mut model = Model::empty();
     let resolution = 50;
@@ -99,10 +117,7 @@ fn main() {
     for (i, decomp) in u_decomps.iter().enumerate() {
         model.add_surface(ModelSurface::from_surface_points(
             decomp.surface.tessellate_by_params(resolution),
-            match i % 2 == 0 {
-                true => surface_material_alt_a,
-                false => surface_material_alt_b,
-            },
+            multicolor_materials[i % multicolor_materials.len()],
         ));
     }
 
@@ -120,10 +135,7 @@ fn main() {
     for (i, decomp) in v_decomps.iter().enumerate() {
         model.add_surface(ModelSurface::from_surface_points(
             decomp.surface.tessellate_by_params(resolution),
-            match i % 2 == 0 {
-                true => surface_material_alt_a,
-                false => surface_material_alt_b,
-            },
+            multicolor_materials[i % multicolor_materials.len()],
         ));
     }
 
@@ -149,6 +161,46 @@ fn main() {
         for (j, decomp) in row.iter().enumerate() {
             model.add_surface(ModelSurface::from_surface_points(
                 decomp.surface.tessellate_by_params(resolution),
+                multicolor_materials[(i * row.len() + j) % multicolor_materials.len()],
+            ));
+        }
+    }
+
+    let convex_decomps = nurbs
+        .transform(&Mat4::from_translation(vec3(0.0, 0.0, 13.0)))
+        .convex_beziers()
+        .clone();
+
+    let mut color_counter = 0;
+
+    convex_decomps.visit(&mut |cell| {
+        color_counter += 1;
+        model.add_surface(ModelSurface::from_surface_points(
+            cell.surface.tessellate_by_params(resolution),
+            multicolor_materials[color_counter],
+        ));
+    });
+
+    let flat_decomps = nurbs
+        .transform(&Mat4::from_translation(vec3(0.0, 0.0, 19.5)))
+        .flat_beziers()
+        .clone();
+
+    let mut color_counter = 0;
+
+    flat_decomps.visit(&mut |cell| {
+        color_counter += 1;
+        model.add_surface(ModelSurface::from_surface_points(
+            cell.surface.tessellate_by_params(resolution),
+            multicolor_materials[color_counter],
+        ));
+    });
+
+    /*
+    for (i, row) in convex_decomps.iter().enumerate() {
+        for (j, decomp) in row.iter().enumerate() {
+            model.add_surface(ModelSurface::from_surface_points(
+                decomp.surface.tessellate_by_params(resolution),
                 match (i + j) % 2 == 0 {
                     true => surface_material_alt_a,
                     false => surface_material_alt_b,
@@ -156,6 +208,7 @@ fn main() {
             ));
         }
     }
+         */
 
     geometry.insert_model(model);
 
@@ -163,10 +216,10 @@ fn main() {
     sb.background(rgba(0.05, 0.1, 0.15, 1.0))
         .camera(Camera::create_perspective(
             [0, 0],
-            point3(0.0, -8.0, -6.0),
-            vec3(0.0, 1.1, 1.0),
+            point3(0.0, 0.0, -5.0),
+            vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
-            Deg(52.0).into(),
+            Deg(70.0).into(),
             0.01,
             5.0,
         ))
