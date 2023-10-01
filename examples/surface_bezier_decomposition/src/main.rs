@@ -166,7 +166,7 @@ fn main() {
     flat_decomps.visit(&mut |cell| {
         color_counter += 1;
         model.add_surface(ModelSurface::from_surface_points(
-            cell.surface.tessellate_by_params(5),
+            cell.surface.tessellate_by_params(1),
             multicolor_materials[color_counter],
         ));
     });

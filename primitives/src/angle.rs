@@ -26,8 +26,11 @@ impl Angle {
     }
 }
 
-impl_op_ex!(+|a: Angle, b: Angle| -> Angle { Angle(a.0 / b.0) });
+impl_op_ex!(+|a: Angle, b: Angle| -> Angle { Angle(a.0 + b.0) });
 impl_op_ex!(+=|a: &mut Angle, b: Angle| { a.0 += b.0 });
+
+impl_op_ex!(-|a: Angle, b: Angle| -> Angle { Angle(a.0 - b.0) });
+impl_op_ex!(-=|a: &mut Angle, b: Angle| { a.0 -= b.0 });
 
 impl_op_ex_commutative!(*|a: Angle, b: f64| -> Angle { Angle(a.0 * b) });
 impl_op_ex!(/|a: Angle, b: f64| -> Angle { Angle(a.0 / b) });

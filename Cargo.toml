@@ -8,6 +8,7 @@ members = [
     "viewer",
     "tessellate",
     "components",
+    "shapes",
     "examples/curve_arc",
     "examples/curve_bezier_decomposition",
     "examples/curve_knot_refinement",
